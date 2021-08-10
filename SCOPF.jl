@@ -1,13 +1,15 @@
 
 module SCOPF
+    using Base: String
+    using LinearAlgebra:length
     using SparseArrays, LinearAlgebra 
     using ..AmplTxt
+    
     mutable struct Bus
+        name::String
+        id::Int
     end
-    mutable struct Unit
-    end
-    mutable struct Load
-    end
+
     mutable struct Branch
         from::Int
         to::Int
@@ -15,10 +17,9 @@ module SCOPF
         x::Float64
     end
     function get_b(branch::Branch)
-        return branch.x / sqrt(branch.r*branch.r+branch.x*branch.x)
+        return branch.x / sqrt(branch.r * branch.r + branch.x * branch.x)
     end
     mutable struct Network
-        # mapping
         bus_to_i::Dict{Int,Int}
         branch_to_i::Dict{Int,Int}
 
@@ -27,6 +28,16 @@ module SCOPF
     function Network()
         return Network(Dict{Int,Int}(), Dict{Int,Int}(), Dict{Int,Branch}())
     end
+
+    function Network(amplTxt)
+        network = Network();
+        add_bus!(network, amplTxt);
+        add_branches!(network, amplTxt);
+        add_generator!(network, amplTxt);
+        return network
+    end
+
+
     function get_or_add(i::Int, d::Dict{Int,Int})
         if ! haskey(d, i)
             next_id = length(d) + 1;
@@ -38,32 +49,46 @@ module SCOPF
         branches = amplTxt["branches"];
         for branch in branches.data
             # println(branch)
-            num  = parse(Int, branch[2])
-            num_or = parse(Int, branch[3])
-            num_ex = parse(Int, branch[4])
-            id = get_or_add(num, network.branch_to_i)
+            num  = parse(Int, branch[2]);
+            num_or = parse(Int, branch[3]);
+            num_ex = parse(Int, branch[4]);
+            
             if num_or != -1  && num_ex != -1
-                ior = network.bus_to_i[num_or]
-                iex = network.bus_to_i[num_ex]
-                r = parse(Float64, branch[8])
-                x = parse(Float64, branch[9])
-                push!(network.branches, id=>Branch(ior, iex, r, x))
+                id = get_or_add(num, network.branch_to_i);
+                ior = get_or_add(num_or, network.bus_to_i);
+                iex = get_or_add(num_ex, network.bus_to_i);
+                r = parse(Float64, branch[8]);
+                x = parse(Float64, branch[9]);
+                push!(network.branches, id => Branch(ior, iex, r, x));
             end
         end
     end
     function add_bus!(network::Network, amplTxt)
         buses = amplTxt["buses"];
         for bus in buses.data
-            num = parse(Int, bus[2])
-            get_or_add(num, network.bus_to_i)
+            num = parse(Int, bus[2]);
+            numCC = parse(Int, bus[4]);
+            if numCC == 0
+                id = get_or_add(num, network.bus_to_i);
+
+            end
+        end
+    end
+    function add_generator!(network::Network, amplTxt)
+        generators = amplTxt["generators"];
+        for genData in generators.data
+            gen = parse(Int, genData[2]);
+            bus = parse(Int, genData[3]);
+            conbus = parse(Int, genData[4]);
+            minP = parse(Float64, genData[6]);
+            maxP = parse(Float64, genData[7]);
         end
     end
     function get_B(network::Network, DIAG_EPS::Float64)
-        B_dict = Dict{Tuple{Int,Int},Float64}()
+        B_dict = Dict{Tuple{Int,Int},Float64}();
         for kvp in collect(network.branches)
             b = get_b(kvp[2]);
 
-            branchid = kvp[1];
             ior = kvp[2].from;
             iex = kvp[2].to;
         
@@ -101,7 +126,35 @@ module SCOPF
         return binv
     end
 
+    function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)    
+        n = length(network.bus_to_i);
+        m = length(network.branches);
+        println("n ", n)
+        println("m ", m)
+        PTDF = zeros(Float64, m, n);
+        for kvp in collect(network.branches)
+            b = get_b(kvp[2]);
+
+            branchid = kvp[1];
+            ior = kvp[2].from;
+            iex = kvp[2].to;
+            
+            for i in 1:n
+                if ior != ref_bus
+                    PTDF[branchid, i] += b * binv[ior, i];
+                end
+                if iex != ref_bus
+                    PTDF[branchid, i] += b * binv[iex, i];
+                end
+            end
+        end
+        return PTDF
+    end
     export get_b;
-    export add_bus!
-    export add_branches!
+    export add_bus!;
+    export add_branches!;
+    export get_B;
+    export get_B_inv;
+    export get_PTDF;
 end
+

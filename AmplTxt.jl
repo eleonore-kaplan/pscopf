@@ -1,4 +1,4 @@
-
+# D:\AppliRTE\repo\naza-mpc\powsybl\bin\itools convert-network --input-file 24Nodes.xiidm --output-file ampl --output-format AMPL
 module AmplTxt
     const GENERIC_HEADER = "ampl_network_";
     const GENERIC_EXTENSION = ".txt";
@@ -23,7 +23,7 @@ module AmplTxt
         "lcc_converter_stations" => ["variant", "num", "bus", "con. bus", "substation", "lossFactor (%PDC)", "powerFactor", "fault", "curative", "id", "description",
         "P (MW)", "Q (MVar)"]
     )
-    export AmplTxtDataRow
+    export AmplTxtDataRow;
     mutable struct AmplTxtDataRow
         colNameIdx::Dict{String,Int64}
 
@@ -44,7 +44,7 @@ module AmplTxt
         data = Vector{String}[]
         open(file_path) do file
             for ln in eachline(file)
-                # don't read line comment
+                # don't read commentted line 
                 if ln[1] != '#'
                     push!(data, split_with_space(ln))
                 end

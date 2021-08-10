@@ -1,6 +1,8 @@
 
-include("split_with_spaces.jl")
 cd("D:\\AppliRTE\\repo\\scopf-quanti")
+
+include("split_with_spaces.jl")
+
 
 GENERIC_HEADER = "ampl_network_"
 GENERIC_EXTENSION = ".txt"
