@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<donneesADN xmlns="http://www.rte-france.com/gsr" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <reseau nom="casEcole_ieee14">
+    <listePays>
+      <pays ind="1" nom="FRANCE" code="FR"/>
+    </listePays>
+    <postes>
+      <poste num="1" nom="F0001-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="2" nom="F0002-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="3" nom="F0003-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="4" nom="F0004-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="5" nom="F0005-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="6" nom="F0006-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="7" nom="F0007-1" type="1" unom="380" nivTension="7" pccmin="999999" pccmax="999999"/>
+      <poste num="8" nom="F0008-7" type="1" unom="27" nivTension="1" pccmin="999999" pccmax="999999"/>
+      <poste num="9" nom="F0009-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="10" nom="F0010-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="11" nom="F0011-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="12" nom="F0012-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="13" nom="F0013-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+      <poste num="14" nom="F0014-2" type="1" unom="220" nivTension="6" pccmin="999999" pccmax="999999"/>
+    </postes>
+    <donneesNoeuds>
+      <noeud num="1" nom="F0001-11" poste="1" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="4648.000000000000000" injrea="-338.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="2" nom="F0002-11" poste="2" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="800.000000000000000" injrea="848.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="3" nom="F0003-11" poste="3" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="468.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="4" nom="F0004-11" poste="4" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="5" nom="F0005-11" poste="5" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="6" nom="F0006-21" poste="6" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="244.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="7" nom="F0007-11" poste="7" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="8" nom="F0008-71" poste="8" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="348.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="9" nom="F0009-21" poste="9" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="423.750000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="10" nom="F0010-21" poste="10" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="11" nom="F0011-21" poste="11" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="12" nom="F0012-21" poste="12" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="13" nom="F0013-21" poste="13" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+      <noeud num="14" nom="F0014-21" poste="14" numcc="1" pays="1" vmax="120" vmin="80" previsionnel="false">
+        <variables v="100.000000000000000" ph="0.000000000000000" injact="0.000000000000000" injrea="0.000000000000000" invact="0.000000000000000" invrea="0.000000000000000"/>
+        <seuilsModele vmax="120" vmin="80">
+          <seuilsHauts>
+            <seuil val="120" valModele="120" tempo="99999"/>
+          </seuilsHauts>
+          <seuilsBas>
+            <seuil val="80" valModele="80" tempo="99999"/>
+          </seuilsBas>
+        </seuilsModele>
+      </noeud>
+    </donneesNoeuds>
+    <donneesGroupes>
+      <groupe num="1" nom="F0001-11_G" noeud="1" poste="1" pmin="-9999" pmax="9999" diagr="0" pmaxDiag="9999" pminDiag="-9999" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="true" xprimd="0.0372483246" type="1" genre="6">
+        <variables pc="4648" vc="105.99999678762336" p="4648" q="-338" qco="-338" contrainte="0"/>
+        <compens coeff="4648" statis="4">true</compens>
+      </groupe>
+      <groupe num="2" nom="F0002-11_G" noeud="2" poste="2" pmin="-800" pmax="1000" diagr="0" pmaxDiag="1000" pminDiag="-800" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="true" xprimd="0.207756266" type="1" genre="6">
+        <variables pc="800" vc="104.50001766807155" p="800" q="848" qco="848" contrainte="0"/>
+        <compens coeff="800" statis="4">true</compens>
+      </groupe>
+      <groupe num="3" nom="F0003-11_G" noeud="3" poste="3" pmin="-9999" pmax="800" diagr="0" pmaxDiag="800" pminDiag="-9999" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="true" xprimd="0.259695292" type="1" genre="6">
+        <variables pc="0" vc="100.99999678762336" p="0" q="468" qco="468" contrainte="0"/>
+        <compens coeff="0" statis="4">false</compens>
+      </groupe>
+      <groupe num="4" nom="F0006-21_G" noeud="6" poste="6" pmin="-120" pmax="480" diagr="0" pmaxDiag="480" pminDiag="-120" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="true" xprimd="1.29132259" type="1" genre="6">
+        <variables pc="0" vc="107.00001109730114" p="0" q="244" qco="244" contrainte="0"/>
+        <compens coeff="0" statis="4">false</compens>
+      </groupe>
+      <groupe num="5" nom="F0008-71_G" noeud="8" poste="8" pmin="-120" pmax="480" diagr="0" pmaxDiag="480" pminDiag="-120" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="true" xprimd="85.7338715" type="1" genre="6">
+        <variables pc="0" vc="109.00000113028067" p="0" q="348" qco="348" contrainte="0"/>
+        <compens coeff="0" statis="4">false</compens>
+      </groupe>
+      <groupe num="6" nom="F0009-21_G" noeud="9" poste="9" pmin="-9999" pmax="9999" diagr="0" pmaxDiag="9999" pminDiag="-9999" qmaxPmax="9999" qmaxPmin="9999" qminPmax="-9999" qminPmin="-9999" regten="false" xprimd="6.19834852" type="1" genre="6">
+        <variables pc="0" vc="100" p="0" q="423.75" qco="423.75" contrainte="0"/>
+        <compens coeff="0" statis="4">false</compens>
+      </groupe>
+    </donneesGroupes>
+    <donneesConsos>
+      <conso num="1" nom="F0001-11_L" noeud="1" poste="1" type="0" fixe="false">
+        <variables peAff="0" qeAff="0" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="2" nom="F0002-11_L" noeud="2" poste="2" type="0" fixe="false">
+        <variables peAff="434" qeAff="254" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="3" nom="F0003-11_L" noeud="3" poste="3" type="0" fixe="false">
+        <variables peAff="1884" qeAff="380" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="4" nom="F0004-11_L" noeud="4" poste="4" type="0" fixe="false">
+        <variables peAff="956" qeAff="-78" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="5" nom="F0005-11_L" noeud="5" poste="5" type="0" fixe="false">
+        <variables peAff="152" qeAff="32" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="6" nom="F0006-21_L" noeud="6" poste="6" type="0" fixe="false">
+        <variables peAff="224" qeAff="150" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="7" nom="F0007-11_L" noeud="7" poste="7" type="0" fixe="false">
+        <variables peAff="0" qeAff="0" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="8" nom="F0008-71_L" noeud="8" poste="8" type="0" fixe="false">
+        <variables peAff="0" qeAff="0" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="9" nom="F0009-21_L" noeud="9" poste="9" type="0" fixe="false">
+        <variables peAff="590" qeAff="332" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="10" nom="F0010-21_L" noeud="10" poste="10" type="0" fixe="false">
+        <variables peAff="180" qeAff="116" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="11" nom="F0011-21_L" noeud="11" poste="11" type="0" fixe="false">
+        <variables peAff="70" qeAff="36" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="12" nom="F0012-21_L" noeud="12" poste="12" type="0" fixe="false">
+        <variables peAff="122" qeAff="32" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="13" nom="F0013-21_L" noeud="13" poste="13" type="0" fixe="false">
+        <variables peAff="270" qeAff="116" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+      <conso num="14" nom="F0014-21_L" noeud="14" poste="14" type="0" fixe="false">
+        <variables peAff="298" qeAff="100" peFixe="0" qeFixe="0"/>
+        <compens coeff="0">false</compens>
+      </conso>
+    </donneesConsos>
+    <donneesShunts/>
+    <donneesLois>
+      <loi num="1" nbplots="3">
+        <plot rho="1.07296133" Z="1.26010334"/>
+        <plot rho="1" Z="1.26010334"/>
+        <plot rho="0.936329603" Z="1.26010334"/>
+      </loi>
+      <loi num="2" nbplots="3">
+        <plot rho="1.02249491" Z="1.04563713"/>
+        <plot rho="1" Z="1.04563713"/>
+        <plot rho="0.978473604" Z="1.04563713"/>
+      </loi>
+      <loi num="3" nbplots="1">
+        <plot rho="1" Z="0.880658448"/>
+      </loi>
+      <loi num="4" nbplots="3">
+        <plot rho="1.03199172" Z="2.78099179"/>
+        <plot rho="1" Z="2.78099179"/>
+        <plot rho="0.969932079" Z="2.78099179"/>
+      </loi>
+      <loi num="5" nbplots="1">
+        <plot rho="1" Z="0.550041318"/>
+      </loi>
+    </donneesLois>
+    <donneesRegleurs>
+      <regleur num="1" cote="2" coterp="2" rfix="1" vc="100" modreg="0" estimtrfo="1" ndreg="5" typereg="1" loireg="1">
+        <variables plot="0" butee="0"/>
+      </regleur>
+      <regleur num="2" cote="2" coterp="2" rfix="1" vc="100" modreg="0" estimtrfo="1" ndreg="4" typereg="1" loireg="2">
+        <variables plot="0" butee="0"/>
+      </regleur>
+      <regleur num="3" cote="2" coterp="2" rfix="1" vc="100" modreg="0" estimtrfo="1" ndreg="7" typereg="1" loireg="3">
+        <variables plot="0" butee="0"/>
+      </regleur>
+      <regleur num="4" cote="2" coterp="2" rfix="1" vc="100" modreg="0" estimtrfo="1" ndreg="4" typereg="1" loireg="4">
+        <variables plot="0" butee="0"/>
+      </regleur>
+      <regleur num="5" cote="2" coterp="2" rfix="1" vc="100" modreg="0" estimtrfo="1" ndreg="7" typereg="1" loireg="5">
+        <variables plot="0" butee="0"/>
+      </regleur>
+    </donneesRegleurs>
+    <donneesDephaseurs/>
+    <donneesQuadripoles>
+      <quadripole num="1" nom="F0001-11 F0002-11 1" absnor="1" absnex="2" nor="1" nex="2" postor="1" postex="2" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.096897505223751" reactance="0.295851796865463" suscor="0.005279999691993" suscex="0.005279999691993" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="2" nom="F0001-11 F0005-11 1" absnor="1" absnex="5" nor="1" nex="5" postor="1" postex="5" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.270152390003204" reactance="1.115235447883606" suscor="0.004919999744743" suscex="0.004919999744743" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="3" nom="F0002-11 F0003-11 1" absnor="2" absnex="3" nor="2" nex="3" postor="2" postex="3" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.234951525926590" reactance="0.989820003509521" suscor="0.004379999823868" suscex="0.004379999823868" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="4" nom="F0002-11 F0004-11 1" absnor="2" absnex="4" nor="2" nex="4" postor="2" postex="4" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.290547102689743" reactance="0.881578803062439" suscor="0.003399999579415" suscex="0.003399999579415" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="5" nom="F0002-11 F0005-11 1" absnor="2" absnex="5" nor="2" nex="5" postor="2" postex="5" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.284750759601593" reactance="0.869390666484833" suscor="0.003459998872131" suscex="0.003459998872131" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="6" nom="F0003-11 F0004-11 1" absnor="3" absnex="4" nor="3" nex="4" postor="3" postex="4" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.335048437118530" reactance="0.855124592781067" suscor="0.001279999851249" suscex="0.001279999851249" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="7" nom="F0004-11 F0005-11 1" absnor="4" absnex="5" nor="4" nex="5" postor="4" postex="5" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.066752083599567" reactance="0.210547089576721" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="8" nom="F0006-21 F0005-11 1" absnor="6" absnex="5" nor="6" nex="5" postor="6" postex="5" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.000000000000000" reactance="1.260103344917297" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="2" ptrdepha="0" ptrregleur="1" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="9" nom="F0006-21 F0011-21 1" absnor="6" absnex="11" nor="6" nex="11" postor="6" postex="11" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.474896699190140" reactance="0.994504034519196" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="10" nom="F0006-21 F0012-21 1" absnor="6" absnex="12" nor="6" nex="12" postor="6" postex="12" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.614545464515686" reactance="1.279049515724182" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="11" nom="F0006-21 F0013-21 1" absnor="6" absnex="13" nor="6" nex="13" postor="6" postex="13" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.330764502286911" reactance="0.651342928409576" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="12" nom="F0007-11 F0004-11 1" absnor="7" absnex="4" nor="7" nex="4" postor="7" postex="4" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.000000000000000" reactance="1.045637130737305" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="2" ptrdepha="0" ptrregleur="2" imap="37996">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="37996.1992" valModele="37996.1992" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="13" nom="F0008-71 F0007-11 1" absnor="8" absnex="7" nor="8" nex="7" postor="8" postex="7" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.000000000000000" reactance="0.880658447742462" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="2" ptrdepha="0" ptrregleur="3" imap="2699">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="2699.73071" valModele="2699.73071" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="14" nom="F0009-21 F0004-11 1" absnor="9" absnex="4" nor="9" nex="4" postor="9" postex="4" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.000000000000000" reactance="2.780991792678833" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="2" ptrdepha="0" ptrregleur="4" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="15" nom="F0009-21 F0007-11 1" absnor="9" absnex="7" nor="9" nex="7" postor="9" postex="7" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.000000000000000" reactance="0.550041317939758" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="2" ptrdepha="0" ptrregleur="5" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="16" nom="F0009-21 F0010-21 1" absnor="9" absnex="10" nor="9" nex="10" postor="9" postex="10" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.159049585461617" reactance="0.422499984502792" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="17" nom="F0009-21 F0014-21 1" absnor="9" absnex="14" nor="9" nex="14" postor="9" postex="14" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.635557949542999" reactance="1.351900935173035" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="18" nom="F0010-21 F0011-21 1" absnor="10" absnex="11" nor="10" nex="11" postor="10" postex="11" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.410247981548309" reactance="0.960351407527924" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="19" nom="F0012-21 F0013-21 1" absnor="12" absnex="13" nor="12" nex="13" postor="12" postex="13" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="1.104648470878601" reactance="0.999400615692139" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+      <quadripole num="20" nom="F0013-21 F0014-21 1" absnor="13" absnex="14" nor="13" nex="14" postor="13" postex="14" unomEnrOr="100.000000000000000" unomEnrEx="100.000000000000000" resistance="0.854648709297180" reactance="1.740103244781494" suscor="0.000000000000000" suscex="0.000000000000000" condor="0.000000000000000" condex="0.000000000000000" type="1" ptrdepha="0" ptrregleur="0" imap="21997.002">
+        <variables por="0" pex="0" qor="0" qex="0"/>
+        <seuils cote="1">
+          <seuil val="21997.8047" valModele="21997.8047" tempo="9999"/>
+        </seuils>
+      </quadripole>
+    </donneesQuadripoles>
+    <donneesCouplages/>
+    <donneesCsprs/>
+    <donneesHvdcs>
+      <stationsLcc/>
+      <stationsVsc/>
+      <lccs/>
+      <vscs/>
+    </donneesHvdcs>
+    <donneesZAB/>
+    <donneesSMACC/>
+    <donneesPortions/>
+  </reseau>
+  <modele nom="HADES2">
+    <parametres>
+      <paramHades typeCalcul="0" typeCompens="0" forceVTeta="2" regChrg="false" dephas="true" cspr="true" noeudBilan="-1" typeSimuRegChrg="0" iterMax="-1" nbPassagesPVPQMax="-1" nivTraces="0" epsNorme="-1" epsBilanN="-1" numcnx="1" nbNoeudsMin="1" nbThreads="1" bilanPV="true" calcNoeudBilan="0" limUhaute="120" limUbasse="80" diagInfini="false" detectionContrainteIMAP="false" detectSubContr="false" typePasNR="0" calculPertesFr="false">
+        <paramDebug ecritEtat="false" oldJacob="false" typeDebug="0" typeLU="0"/>
+      </paramHades>
+    </parametres>
+    <entrees>
+      <entreesHades>
+        <noeudsProds/>
+        <noeudsPilotes/>
+      </entreesHades>
+    </entrees>
+    <sorties statut="5"/>
+  </modele>
+</donneesADN>

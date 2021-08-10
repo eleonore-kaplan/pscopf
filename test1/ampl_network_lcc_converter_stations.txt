@@ -1,0 +1,2 @@
+#LCC Converter Stations (blocaux_20200925_1445_reduite/InitialState)
+#"variant" "num" "bus" "con. bus" "substation" "lossFactor (%PDC)" "powerFactor" "fault" "curative" "id" "description" "P (MW)" "Q (MVar)"
