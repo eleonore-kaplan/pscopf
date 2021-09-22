@@ -3,8 +3,8 @@ module ProductionUnits
     using Printf
     using Base:Tuple
 
-    using ..SCOPF
-    
+    # using ..SCOPF
+    using ..AmplTxt
     export write_uncertainties;
     export read_uncertainties;
     export extract_uncertainties;
@@ -72,15 +72,15 @@ module ProductionUnits
         name::String
     end
 
-    # to be renamed
-    mutable struct Problem
-        units::Dict{String, Unit}
-        loads::Dict{String, Load}
-        uncertainties::Dict{Tuple{String,String,Int64,Int64},Float64}
-        network::SCOPF.Network
-    end
+    # # to be renamed
+    # mutable struct Problem
+    #     units::Dict{String, Unit}
+    #     loads::Dict{String, Load}
+    #     uncertainties::Dict{Tuple{String,String,Int64,Int64},Float64}
+    #     network::SCOPF.Network
+    # end
 
-    function get_uncertainty(problem::Problem, scenario::String, name::String, ts::Int64, ech::Int64)
-        return problem.uncertainties[scenarion, name, ts, ech];
-    end
+    # function get_uncertainty(problem::Problem, scenario::String, name::String, ts::Int64, ech::Int64)
+    #     return problem.uncertainties[scenarion, name, ts, ech];
+    # end
 end

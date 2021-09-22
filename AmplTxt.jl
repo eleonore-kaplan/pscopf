@@ -24,6 +24,8 @@ module AmplTxt
         "P (MW)", "Q (MVar)"]
     )
     export AmplTxtDataRow;
+    export split_with_space;
+    
     mutable struct AmplTxtDataRow
         colNameIdx::Dict{String,Int64}
 
