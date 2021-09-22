@@ -26,7 +26,10 @@ all_uncertainties = ProductionUnits.extract_uncertainties(amplTxt, SCENARIO, TS,
 
 ProductionUnits.write_uncertainties(all_uncertainties, joinpath(root_path, test_name, "all_uncertainties.txt"));
 
-
+###
+# Market simulation
+###
+# An optimization problem
 for scenario in SCENARIO, ts in TS, ech in ECH
     # une variable d'injection par groupe thermique
 
@@ -35,7 +38,6 @@ for scenario in SCENARIO, ts in TS, ech in ECH
     # minimisation des couts
 
     # equilibre offre - demande
-
 
 end
 
