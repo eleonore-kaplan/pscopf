@@ -6,8 +6,8 @@ module SCOPF
     using ..AmplTxt
     
     mutable struct Bus
-        name::String
         id::Int
+        name::String
     end
 
     mutable struct Branch
@@ -15,6 +15,7 @@ module SCOPF
         to::Int
         r::Float64
         x::Float64
+        name::String
     end
     function get_b(branch::Branch)
         return branch.x / sqrt(branch.r * branch.r + branch.x * branch.x)
@@ -24,9 +25,10 @@ module SCOPF
         branch_to_i::Dict{Int,Int}
 
         branches::Dict{Int,Branch}
+        buses::Dict{Int,Bus}
     end
     function Network()
-        return Network(Dict{Int,Int}(), Dict{Int,Int}(), Dict{Int,Branch}())
+        return Network(Dict{Int,Int}(), Dict{Int,Int}(), Dict{Int,Branch}(), Dict{Int,Bus}())
     end
 
     function Network(amplTxt)
@@ -59,7 +61,7 @@ module SCOPF
                 iex = get_or_add(num_ex, network.bus_to_i);
                 r = parse(Float64, branch[8]);
                 x = parse(Float64, branch[9]);
-                push!(network.branches, id => Branch(ior, iex, r, x));
+                push!(network.branches, id => Branch(ior, iex, r, x, branch[26]));
             end
         end
     end
@@ -70,10 +72,11 @@ module SCOPF
             numCC = parse(Int, bus[4]);
             if numCC == 0
                 id = get_or_add(num, network.bus_to_i);
-
+                push!(network.buses, id => Bus(num, bus[11]));
             end
         end
     end
+
     function add_generator!(network::Network, amplTxt)
         generators = amplTxt["generators"];
         for genData in generators.data
