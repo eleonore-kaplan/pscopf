@@ -15,10 +15,10 @@ using Printf
 test_name = "5buses"
 
 amplTxt = AmplTxt.read(test_name);
-
+test_path = joinpath(root_path, test_name)
 network = SCOPF.Network(amplTxt);
 
-ref_bus = 1;
+ref_bus = 3;
 B = SCOPF.get_B(network, 1e-6);
 Binv = SCOPF.get_B_inv(B, ref_bus);
 PTDF = SCOPF.get_PTDF(network, Binv, ref_bus);
@@ -29,7 +29,7 @@ m = length(network.branches);
 PTDF_TRIMMER = 1e-6;
 
 println(PTDF);
-open("ptdf.txt", "w") do file     
+open( joinpath(test_path, "ptdf.txt"), "w") do file     
     ref_name =  @sprintf("\"%s\"", network.buses[ref_bus].name)
     write(file, @sprintf("%20s %20s\n", "REF_BUS", ref_name))
     for branch_id in 1:m
