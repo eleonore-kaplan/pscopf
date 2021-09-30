@@ -4,6 +4,7 @@ module SCOPF
     using LinearAlgebra:length
     using SparseArrays, LinearAlgebra 
     using ..AmplTxt
+    using Printf
     
     mutable struct Bus
         id::Int
@@ -18,7 +19,8 @@ module SCOPF
         name::String
     end
     function get_b(branch::Branch)
-        return branch.x / sqrt(branch.r * branch.r + branch.x * branch.x)
+        # return branch.x / sqrt(branch.r * branch.r + branch.x * branch.x)
+        return 1/branch.x;
     end
     mutable struct Network
         bus_to_i::Dict{Int,Int}
@@ -26,9 +28,10 @@ module SCOPF
 
         branches::Dict{Int,Branch}
         buses::Dict{Int,Bus}
+        CC0::Dict{Int,Int}
     end
     function Network()
-        return Network(Dict{Int,Int}(), Dict{Int,Int}(), Dict{Int,Branch}(), Dict{Int,Bus}())
+        return Network(Dict{Int,Int}(), Dict{Int,Int}(), Dict{Int,Branch}(), Dict{Int,Bus}(), Dict{Int,Int}())
     end
 
     function Network(amplTxt)
@@ -54,8 +57,10 @@ module SCOPF
             num  = parse(Int, branch[2]);
             num_or = parse(Int, branch[3]);
             num_ex = parse(Int, branch[4]);
-            
-            if num_or != -1  && num_ex != -1
+                       
+            on_CC0 = haskey(network.CC0, num_or) && haskey(network.CC0, num_ex);
+
+            if on_CC0 && num_or != -1  && num_ex != -1 
                 id = get_or_add(num, network.branch_to_i);
                 ior = get_or_add(num_or, network.bus_to_i);
                 iex = get_or_add(num_ex, network.bus_to_i);
@@ -73,6 +78,7 @@ module SCOPF
             if numCC == 0
                 id = get_or_add(num, network.bus_to_i);
                 push!(network.buses, id => Bus(num, bus[11]));
+                network.CC0[num] = 1;
             end
         end
     end
@@ -94,12 +100,31 @@ module SCOPF
 
             ior = kvp[2].from;
             iex = kvp[2].to;
-        
+            
+
+            # ior->iex
+            # + dans ior
+            # - dans iex
+            
             # diagonal part
+            # sur ior
+            # +theta_ior 
+            # -theta_iex
             B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
-            B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) + b;
             B_dict[ior, iex] = get(B_dict, (ior, iex), 0) - b;
+            
+            # sur iex
+            # -theta_ior
+            # +theta_iex
             B_dict[iex, ior] = get(B_dict, (iex, ior), 0) - b;
+            B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) + b;
+
+
+            # B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
+            # B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) - b;
+            
+            # B_dict[ior, iex] = get(B_dict, (ior, iex), 0) + b;
+            # B_dict[iex, ior] = get(B_dict, (iex, ior), 0) - b;
         end
         Brow = Int[];
         Bcol = Int[];
@@ -143,15 +168,34 @@ module SCOPF
             iex = kvp[2].to;
             
             for i in 1:n
-                if ior != ref_bus
-                    PTDF[branchid, i] += b * binv[ior, i];
-                end
-                if iex != ref_bus
-                    PTDF[branchid, i] += b * binv[iex, i];
-                end
+                PTDF[branchid, i] += b * binv[ior, i];
+                PTDF[branchid, i] -= b * binv[iex, i];
+                # if ior != ref_bus
+                #     PTDF[branchid, i] += b * binv[ior, i];
+                # end
+                # if iex != ref_bus
+                #     PTDF[branchid, i] -= b * binv[iex, i];
+                # end
             end
         end
         return PTDF
+    end
+    function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Matrix, PTDF_TRIMMER::Float64)
+        n = length(network.bus_to_i);
+        m = length(network.branches);
+        open(file_path, "w") do file     
+            ref_name =  @sprintf("\"%s\"", network.buses[ref_bus].name)
+            write(file, @sprintf("%20s %20s\n", "REF_BUS", ref_name))
+            for branch_id in 1:m
+                for bus_id in 1:n
+                    branch_name =  @sprintf("\"%s\"", network.branches[branch_id].name)
+                    bus_name =  @sprintf("\"%s\"", network.buses[bus_id].name)
+                    if abs(PTDF[branch_id,bus_id])>PTDF_TRIMMER
+                        write(file, @sprintf("%20s %20s %20.6E\n", branch_name, bus_name,PTDF[branch_id,bus_id]))
+                    end
+                end
+            end
+        end
     end
     export get_b;
     export add_bus!;
@@ -159,5 +203,6 @@ module SCOPF
     export get_B;
     export get_B_inv;
     export get_PTDF;
+    export write_PTDF;
 end
 
