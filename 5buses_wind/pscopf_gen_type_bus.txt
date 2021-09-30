@@ -1,0 +1,10 @@
+alta Thermique 1
+park_city Thermique 1
+wind_1 EnR 1
+solitude Thermique 3
+wind_3 EnR 3
+wind_2 EnR 2
+sundance Thermique 4
+wind_4 EnR 4
+brighton Thermique 5
+wind_5 EnR 5
