@@ -29,9 +29,11 @@ ProductionUnits.write_uncertainties(all_uncertainties, joinpath(root_path, test_
 ###
 # Market simulation
 ###
+import JuMP;
 # An optimization problem
 for scenario in SCENARIO, ts in TS, ech in ECH
-    # une variable d'injection par groupe thermique
+    model = JuMP.Model();
+    # une variable d'injection par groupe thermique, chaque ts-ech
 
     # calcul de la somme des consos résiduelles, incertitudes prises en compte
 

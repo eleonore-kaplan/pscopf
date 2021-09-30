@@ -1,51 +1,32 @@
 module Workflow
+    
     export Launcher;
-    export read_ampl_txt;
-    export read_uncertainties;
-    export read_ptdf;
-    export read_units;
-    export get_program;
-    export apply_market;
-    export apply_scopf;
+    export add_uncertainties;
+
 
     using ..AmplTxt;
     using ..ProductionUnits;
+    using Dates: Date, DateTime;
 
     mutable struct Launcher
         ampltxt;
-        uncertainties;
-        units;
+
+        uncertainties::Dict{ Tuple{String, String, DateTime, DateTime}, Float64};
+        certainties::Dict{Tuple{String, String, DateTime}, Float64};
+        
     end
 
     function Launcher(dir_path::String)
-        uncertainties_path = joinpath(dir_path, "all_uncertainties.txt")
-        units_path = joinpath(dir_path, "all_units.txt")
-        return Launcher(
-            AmplTxt.read(dir_path), 
-            ProductionUnits.read_uncertainties(uncertainties_path), 
-            ProductionUnits.read_units(units_path)
-            )
+        u = Dict{Tuple{String, String, DateTime, DateTime}, Float64}()
+        c=  Dict{Tuple{String, String, DateTime}, Float64}()
+        return Launcher(AmplTxt.read(dir_path),u, c)
     end
 
     function read_ampl_txt(launcher::Launcher, dir_path::String)
         launcher.ampltxt = AmplTxt.read(dir_path)
     end
-        
-    function read_uncertainties(launcher::Launcher, dir_path::String)
-    end
-
-    function read_ptdf(launcher::Launcher, dir_path::String)
-    end
-
-    function read_units(launcher::Launcher, dir_path::String)
-    end
-
-    function get_program(launcher::Launcher)
-    end
     
-    function apply_market(launcher::Launcher)
-    end
-    
-    function apply_scopf(launcher::Launcher)
+    function add_uncertainties(launcher::Launcher, name::String, bus_name::String, ech::DateTime, ts::DateTime, value)
+        launcher.uncertainties[name, bus_name, ech, ts] = value
     end
 end
