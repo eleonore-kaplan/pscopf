@@ -1,4 +1,7 @@
 # D:\AppliRTE\repo\naza-mpc\powsybl\bin\itools convert-network --input-file 24Nodes.xiidm --output-file ampl --output-format AMPL
+# D:\AppliRTE\repo\naza-mpc\powsybl\bin\itools convert-network --input-file RSO_5nodes_PJM_slackA.xiidm --output-file ampl --output-format AMPL
+# D:\AppliRTE\repo\naza-mpc\powsybl\bin\itools convert-network --input-file RC_PPE2035_S0_deboucle.xiidm --output-file ampl --output-format AMPL
+
 module AmplTxt
     const GENERIC_HEADER = "ampl_network_";
     const GENERIC_EXTENSION = ".txt";
