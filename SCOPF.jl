@@ -180,12 +180,21 @@ module SCOPF
         end
         return PTDF
     end
+    
+    function distribute_slack(PTDF::Matrix, ref_bus::Int)
+        m, n = size(PTDF);
+        μ = 1/n;
+        v = PTDF * ones(n)*μ;
+        result = -v*(ones(n)');
+        result +=PTDF ;
+        return result;        
+    end
     function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Matrix, PTDF_TRIMMER::Float64)
         n = length(network.bus_to_i);
         m = length(network.branches);
         open(file_path, "w") do file     
             ref_name =  @sprintf("\"%s\"", network.buses[ref_bus].name)
-            write(file, @sprintf("%20s %20s\n", "REF_BUS", ref_name))
+            write(file, @sprintf("#%20s %20s\n", "REF_BUS", ref_name))
             for branch_id in 1:m
                 for bus_id in 1:n
                     branch_name =  @sprintf("\"%s\"", network.branches[branch_id].name)
@@ -204,5 +213,6 @@ module SCOPF
     export get_B_inv;
     export get_PTDF;
     export write_PTDF;
+    export distribute_slack;
 end
 

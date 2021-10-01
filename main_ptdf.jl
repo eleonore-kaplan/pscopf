@@ -7,8 +7,6 @@ include(joinpath(root_path, "SCOPF.jl"));
 include(joinpath(root_path, "ProductionUnits.jl"));
 include(joinpath(root_path, "FakeData.jl"));
 
-
-include(joinpath(root_path, "AmplTxt.jl"));
 # Compute ptdf and export them as node branch value file
 
 # test_name = "RC_PPE2035_S0_deboucle"
@@ -23,9 +21,12 @@ B = SCOPF.get_B(network, 1e-6);
 Binv = SCOPF.get_B_inv(B, ref_bus);
 PTDF = SCOPF.get_PTDF(network, Binv, ref_bus);
 
+PTDF_distributed = SCOPF.distribute_slack(PTDF, 1);
 
 PTDF_TRIMMER = 1e-6;
 
 # println(PTDF);
 file_path =  joinpath(test_path, "ptdf.txt")
 SCOPF.write_PTDF(file_path, network, ref_bus, PTDF, PTDF_TRIMMER)
+file_path =  joinpath(test_path, "pscopf_ptdf.txt")
+SCOPF.write_PTDF(file_path, network, ref_bus, PTDF_distributed, PTDF_TRIMMER)
