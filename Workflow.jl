@@ -1,28 +1,32 @@
+
+
 module Workflow    
-    export Launcher;
-    using ..AmplTxt;
-    using Dates: Date, DateTime;
-    U_NAME=1;
-    U_SCENARIO=2;
-    U_H=3;
-    U_ECH=4;
+    export Launcher
+    using ..AmplTxt
+    using Dates: Date, DateTime
+    using JuMP
+    using Printf
+    U_NAME=1
+    U_SCENARIO=2
+    U_H=3
+    U_ECH=4
     K_LIMITABLE="Limitable"
     K_IMPOSABLE="Imposable"
     mutable struct Launcher
         # amplTxt description of the network
-        ampltxt;
+        ampltxt
         # uncertainties, name-scenario-h-ech->value
-        uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
-        # name->minP-maxP-startCost-propCost
-        units::Dict{String, Vector{Float64}};
+        uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64}
+        # name->P-maxP-startCost-propCost
+        units::Dict{String, Vector{Float64}}
         # gen->type-bus
-        gen_type_bus::Dict{String, Vector{String}};
+        gen_type_bus::Dict{String, Vector{String}}
         # line-bus->ptdf
-        ptdf::Dict{Tuple{String,String}, Float64};
+        ptdf::Dict{Tuple{String,String}, Float64}
     end
 
     function read_ptdf(dir_path::String)
-        result = Dict{Tuple{String,String}, Float64}();
+        result = Dict{Tuple{String,String}, Float64}()
         open(joinpath(dir_path, "pscopf_ptdf.txt"), "r") do file
             for ln in eachline(file)
                 # don't read commentted line 
@@ -36,7 +40,7 @@ module Workflow
     end
 
     function read_gen_type_bus(dir_path::String)
-        result = Dict{String, Vector{String}}();
+        result = Dict{String, Vector{String}}()
         open(joinpath(dir_path, "pscopf_gen_type_bus.txt"), "r") do file
             for ln in eachline(file)
                 # don't read commentted line 
@@ -50,7 +54,7 @@ module Workflow
     end
 
     function read_units(dir_path::String)
-        result = Dict{String, Vector{Float64}}();
+        result = Dict{String, Vector{Float64}}()
         open(joinpath(dir_path, "pscopf_units.txt"), "r") do file
             for ln in eachline(file)
                 # don't read commentted line 
@@ -69,6 +73,7 @@ module Workflow
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
+                    # println(ln)
                     buffer = AmplTxt.split_with_space(ln)
                     name = buffer[1]
                     h = DateTime(buffer[2])
@@ -96,5 +101,5 @@ module Workflow
 
     
     
-    include("ModelBuilder.jl");
+    include("ModelBuilder.jl")
 end

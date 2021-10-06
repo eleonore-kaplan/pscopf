@@ -34,43 +34,142 @@ function get_ech_ts_s_name(launcher::Launcher)
         push!(s_set, s);
         push!(name_set, name);
     end
-    return sort(collect(ech_set)),sort(collect(ts_set)),sort(collect(s_set)), name_set;
+    return sort(collect(ech_set)), sort(collect(ts_set)), sort(collect(s_set)), name_set;
 end
 
 function get_units_by_kind(launcher::Launcher)
-    result = Dict{String, Dict{String, String}}();
-    result[K_LIMITABLE]=Dict{String, String}()
-    result[K_IMPOSABLE]=Dict{String, String}()
+    result = Dict{String,Dict{String,String}}();
+    result[K_LIMITABLE] = Dict{String,String}();
+    result[K_IMPOSABLE] = Dict{String,String}();
     for gen in launcher.gen_type_bus
         kind = gen[2][1];
-        push!(result[kind],  gen[1]=>gen[2][2]);
+        push!(result[kind],  gen[1] => gen[2][2]);
     end 
     return result;
 end
 
 function get_units_by_bus(launcher::Launcher, buses::Set{String})
-    result = Dict{String,  Dict{String, Vector{String}}}();
-    result[K_LIMITABLE]=Dict{String, Vector{String}}([bus => Vector{String}() for bus in buses])
-    result[K_IMPOSABLE]=Dict{String, Vector{String}}([bus => Vector{String}() for bus in buses])
+    result = Dict{String,Dict{String,Vector{String}}}();
+    result[K_LIMITABLE] = Dict{String,Vector{String}}([bus => Vector{String}() for bus in buses]);
+    result[K_IMPOSABLE] = Dict{String,Vector{String}}([bus => Vector{String}() for bus in buses]);
     for gen in launcher.gen_type_bus
-        name = gen[1]
+        name = gen[1];
         kind = gen[2][1];
         bus  = gen[2][2];
-        tmp = get(result[kind], bus, Vector{String}());
+        tmp = get(result[kind], bus, Vector{String}())
         push!(tmp, name);
         result[kind][bus] = tmp;
     end 
     return result;
+end
+function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind, TS, S, NO_LIMITABLE)
+    p_lim = Dict{Tuple{String,DateTime},VariableRef}();
+    
+    is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
+    is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
+    if ! NO_LIMITABLE
+        for kvp in units_by_kind[K_LIMITABLE], ts in TS
+            gen = kvp[1];
+            p_lim[gen, ts] =  @variable(model, base_name = @sprintf("p_lim[%s,%s]", gen, ts), lower_bound = 0);
+            pLimMax = 0;
+            for s in S
+                pLimMax = max(pLimMax, launcher.uncertainties[gen, s, ts, ech]);
+            end
+            for s in S
+                name =  @sprintf("is_limited[%s,%s,%s]", gen, ts, s);
+                is_limited[gen, ts, s] = @variable(model, base_name = name, binary = true);
+
+                name =  @sprintf("is_limited_x_p_lim[%s,%s,%s]", gen, ts, s);
+                is_limited_x_p_lim[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+                
+                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= p_lim[gen, ts]);
+                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= is_limited[gen, ts, s] * pLimMax);
+                @constraint(model, is_limited_x_p_lim[gen, ts, s] + pLimMax * (1 - is_limited[gen, ts, s]) - p_lim[gen, ts] >= 0);
+
+                p0 = launcher.uncertainties[gen, s, ts, ech];
+                name =  @sprintf("p_enr[%s,%s,%s]", gen, ts, s);
+                p_enr[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound = p0);
+                @constraint(model, p_enr[gen, ts, s] == (1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
+                @constraint(model, p_enr[gen, ts, s] <= p_lim[gen, ts]);
+            end
+        end
+    end
+    return p_lim, is_limited, is_limited_x_p_lim;
+end
+
+function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S, NO_IMPOSABLE)
+    p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
+    
+    if ! NO_IMPOSABLE
+        for kvp in units_by_kind[K_IMPOSABLE], ts in TS
+            gen = kvp[1];
+            # name =  @sprintf("p_imposee[%s,%s]", name, ts)
+            # p_imposee[name, ts] = @variable(model, base_name = name)
+            
+            # name =  @sprintf("p_start_up[%s,%s,%s]", name, ts, s)
+            # p_start_up[name, ts] = @variable(model, base_name = name, binary=true)
+            for s in S
+                name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
+                p_imposable[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+
+                # @constraint(model, p_imposable[name, ts, s]==p_imposee[name, ts])
+            end
+        end
+    end
+    return p_imposable;
+end
+
+function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, NO_LIMITABLE, NO_IMPOSABLE, p_imposable, is_limited, is_limited_x_p_lim, BUSES)
+    eod_expr = Dict([(ts, s) => AffExpr(0) for ts in TS, s in S]);
+    for ts in TS, s in S
+        for bus in BUSES
+            if ! NO_IMPOSABLE
+                for gen in units_by_bus[K_IMPOSABLE][bus]
+                    eod_expr[ts, s] += p_imposable[gen, ts, s];
+                end
+            end
+            if ! NO_LIMITABLE
+                for gen in units_by_bus[K_LIMITABLE][bus]
+                    p0 = launcher.uncertainties[gen, s, ts, ech];
+                    println(gen, " ", ts, " ", s, " ", p0);
+                    eod_expr[ts, s] +=  ((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
+                end
+            end
+        end
+    end
+    netloads = Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech] for bus in BUSES, ts in TS, s in S]);
+    # println(launcher.uncertainties)
+    for ts in TS, s in S
+        load = 0;
+        for bus in BUSES
+            load += netloads[bus, ts, s];
+        end
+        @constraint(model, eod_expr[ts, s] == load);
+    end
+end
+
+function add_obj!(model, p_lim, p_imposable, is_limited)
+    eod_obj = AffExpr(0);
+    eod_obj += sum(x[2] for x in p_lim);
+    eod_obj += sum(100 * x[2] for x in p_imposable);
+    eod_obj += sum(1e-2 * x[2] for x in is_limited);
+    @objective(model, Min, eod_obj);
 end
 
 function sc_opf(launcher::Launcher, ech::DateTime)        
     ##############################################################
     ### optimisation modelling sets
     ##############################################################
-    ECH,TS, S, NAMES = Workflow.get_ech_ts_s_name(launcher);
+    ECH, TS, S, NAMES = Workflow.get_ech_ts_s_name(launcher);
     BUSES =  Workflow.get_bus(launcher, NAMES);
     units_by_kind = Workflow.get_units_by_kind(launcher);
     units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
+
+    println("NAMES : ", NAMES);
+    println("BUSES : ", BUSES);
+    println("units_by_bus : ", units_by_bus);
+
 
     println("Number of scenario ", length(S));
     println("Number of time step is ", length(TS));
@@ -78,99 +177,48 @@ function sc_opf(launcher::Launcher, ech::DateTime)
     K_IMPOSABLE = Workflow.K_IMPOSABLE;
     K_LIMITABLE = Workflow.K_LIMITABLE;
 
-    netloads = Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech] for bus in BUSES, ts in TS, s in S]);
-    NO_LIMITABLE = false
-    NO_IMPOSABLE = false
+    NO_LIMITABLE = false;
+    NO_IMPOSABLE = false;
 
     ##############################################################
     # to be in a function ...
     ##############################################################
 
     model = Model();
+    p_lim, is_limited, is_limited_x_p_lim = add_limitable!(launcher, ech, model, units_by_kind, TS, S, NO_LIMITABLE);
 
-    # p_limitable[ts, s]  = min(p0[ts, s], pMax[ts])
-    p_lim = Dict{Tuple{String, DateTime}, VariableRef}()
-    p_imposable = Dict{Tuple{String, DateTime, String}, VariableRef}()
-    
-    is_limited = Dict{Tuple{String, DateTime, String}, VariableRef}()
-    is_limited_x_p_lim = Dict{Tuple{String, DateTime, String}, VariableRef}()
-    for kvp in units_by_kind[K_LIMITABLE], ts in TS
-        gen = kvp[1]
-        p_lim[gen, ts] =  @variable(model, base_name=@sprintf("p_lim[%s,%s]", gen, ts), lower_bound=0)
-        pLimMax = 0
-        for s in S
-            pLimMax = max(pLimMax, launcher.uncertainties[kvp[1], s, ts, ech])
-        end
-        if ! NO_LIMITABLE
-            for s in S
-                p0 = launcher.uncertainties[kvp[1], s, ts, ech]
-                name =  @sprintf("p_delta_limitable[%s,%s,%s]", gen, ts, s);
-                
-                is_limited[gen, ts, s] = @variable(model, base_name=name, binary=true);
+    p_imposable = add_imposable!(launcher, ech, model, units_by_kind, TS, S, NO_IMPOSABLE);
 
-                is_limited_x_p_lim[gen, ts, s] = @variable(model, base_name=name, lower_bound=0);
-                
-                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= p_lim[gen, ts]);
-                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= is_limited[gen, ts, s]*pLimMax);
-                @constraint(model, is_limited_x_p_lim[gen, ts, s] + pLimMax * (1-is_limited[gen, ts, s])-p_lim[gen, ts] >= 0);
-            end
-        end
-    end
-    if ! NO_IMPOSABLE
-        for kvp in units_by_kind[K_IMPOSABLE], ts in TS, s in S
-            name =  @sprintf("p_imposable[%s,%s,%s]", kvp[1], ts, s);
-            p_imposable[kvp[1], ts, s] = @variable(model, base_name=name, lower_bound=0);
-        end
-    end
-    # println(units_by_kind)
-    # println(p_imposable)
-
-    eod_expr = Dict([(ts, s)=>AffExpr(0) for ts in TS, s in S]);
-
-    for ts in TS, s in S
-        for bus in BUSES
-            if ! NO_IMPOSABLE
-                for gen in units_by_bus[K_IMPOSABLE][bus]
-                    eod_expr[ts, s] += p_imposable[gen, ts, s]
-                end
-            end
-            if ! NO_LIMITABLE
-                for gen in units_by_bus[K_LIMITABLE][bus]
-                    p0 = launcher.uncertainties[gen, s, ts, ech]
-                    eod_expr[ts, s] +=  ((1-is_limited[gen, ts, s])*p0+is_limited_x_p_lim[gen, ts, s])
-                end
-            end
-        end
-    end
-    # println(launcher.uncertainties)
-    for ts in TS, s in S
-        load=0
-        for bus in BUSES
-            load+=netloads[bus, ts, s]
-        end
-        @constraint(model, eod_expr[ts, s] ==load)
-    end
+    add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, NO_LIMITABLE, NO_IMPOSABLE, p_imposable, is_limited, is_limited_x_p_lim, BUSES);
     # println(units_by_bus)
     # println(eod_expr)
-    if ! NO_LIMITABLE
-        eod_obj = sum(x[2] for x in p_lim)
-    end
-    if ! NO_IMPOSABLE
-        eod_obj +=sum(100*x[2] for x in p_imposable)
-    end
-    @objective(model, Min, eod_obj);
+    add_obj!(model, p_lim, p_imposable, is_limited);
 
-    println(model);
+    # println(model)
     set_optimizer(model, Xpress.Optimizer);
     optimize!(model);
 
     print_nz(p_imposable);
     print_nz(p_lim);
-
+    
+    println("NO_IMPOSABLE   : ", NO_IMPOSABLE);
+    println("NO_LIMITABLE   : ", NO_LIMITABLE);
+    println("BUSES          : ", BUSES);
+    println("NAMES          : ", NAMES);
+    println("TS             : ", TS);
+    println("S              : ", S);
+    
+    @printf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0");
     if ! NO_LIMITABLE
-         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_LIMITABLE][bus]
-            p0 = launcher.uncertainties[gen, s, ts, ech]
-            println(gen, " : ", value((1-is_limited[gen, ts, s])*p0+is_limited_x_p_lim[gen, ts, s]))
+        # println(launcher.uncertainties)
+        for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_LIMITABLE][bus]
+            p0 = launcher.uncertainties[gen, s, ts, ech];
+            b_enr = value(is_limited[gen, ts, s]);
+            p_enr = value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
+            p_lim_enr = value(p_lim[gen, ts]);
+            # println(value(is_limited_x_p_lim[gen, ts, s]) - b_enr * p_lim_enr)
+            @printf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
+            # println(gen, " : ", value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]))
         end
     end
     
@@ -179,8 +227,8 @@ end
 
 function print_nz(variables)    
     for x in variables
-        if abs( value(x[2]))>1e-6 || true
-            println( x, " = ", value(x[2]));
+        if abs(value(x[2])) > 1e-6
+            println(x, " = ", value(x[2]));
         end
     end
 end
