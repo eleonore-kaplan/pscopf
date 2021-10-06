@@ -3,7 +3,7 @@ using Dates;
 using Printf;
 using Distributions;
 
-root_path = raw"D:\AppliRTE\repo\scopf-quanti"
+root_path = raw"D:\AppliRTE\repo\scopf-quanti";
 push!(LOAD_PATH, root_path);
 cd(root_path);
 include(joinpath(root_path, "AmplTxt.jl"));
@@ -23,12 +23,17 @@ df = Dates.DateFormat("Y-m-d-H:M");
 h = Dates.DateTime("2015-01-01-11:00", df);
 h_1 = Dates.DateTime("2015-01-01-10:00", df);
 h_2 = Dates.DateTime("2015-01-01-09:00", df);
-N_TIME_STEP=4;
+
 TIME_STEP =  [Minute(0), Minute(15), Minute(30), Minute(45)];
-TIME_STEP =  [Minute(0)];
+TIME_STEP =  [Minute(0), Minute(15)];
 HORIZON = [h_2, h_1, h];
 
-SCENARIO = [@sprintf("S%d", x) for x in 1:N_SCENARIO]
+SCENARIO = [@sprintf("S%d", x) for x in 1:N_SCENARIO];
+
+println("TIME_STEP : ", TIME_STEP);
+println("SCENARIO : ", SCENARIO);
+println("HORIZON : ", HORIZON);
+
 
 id_fuel = read_id_fuel(dir_path);
 amplTxt = AmplTxt.read(test_name);
