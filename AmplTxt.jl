@@ -25,33 +25,33 @@ module AmplTxt
         "vsc_converter_stations" => ["variant", "num", "bus", "con. bus", "substation", "minP (MW)", "maxP (MW)", "minQmaxP (MVar)", "minQ0 (MVar)", "minQminP (MVar)", "maxQmaxP (MVar)", "maxQ0 (MVar)", "maxQminP (MVar)", "v regul.", "targetV (pu)", "targetQ (MVar)", "lossFactor (%PDC)", "fault", "curative", "id", "description", "P (MW)", "Q (MVar)"],
         "lcc_converter_stations" => ["variant", "num", "bus", "con. bus", "substation", "lossFactor (%PDC)", "powerFactor", "fault", "curative", "id", "description",
         "P (MW)", "Q (MVar)"]
-    )
+    );
     export AmplTxtDataRow;
     export split_with_space;
     
     mutable struct AmplTxtDataRow
-        colNameIdx::Dict{String,Int64}
+        colNameIdx::Dict{String,Int64};
 
-        data::Vector{Vector{String}}
+        data::Vector{Vector{String}};
     end
 
     function readNetworkData(name::String, root::String)
-        file_path = abspath(root, GENERIC_HEADER * name * GENERIC_EXTENSION)
-        println("reading ", name, " in ", file_path)
-        colNameIdx =  Dict{String,Int64}()
-        idx = 1
-        colNames = FILENAME_COLNAME[name]
+        file_path = abspath(root, GENERIC_HEADER * name * GENERIC_EXTENSION);
+        # println("reading ", name, " in ", file_path);
+        colNameIdx =  Dict{String,Int64}();
+        idx = 1;
+        colNames = FILENAME_COLNAME[name];
         for col in colNames
-            push!(colNameIdx, col => idx)
-            idx += 1
+            push!(colNameIdx, col => idx);
+            idx += 1;
         end
 
-        data = Vector{String}[]
+        data = Vector{String}[];
         open(file_path) do file
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
-                    push!(data, split_with_space(ln))
+                    push!(data, split_with_space(ln));
                 end
             end
             # println(data)
@@ -60,42 +60,42 @@ module AmplTxt
     end
 
     function readNetworkData(name::String)
-        return readNetworkData(name, ".")
+        return readNetworkData(name, ".");
     end
     
     function split_with_space(str::String)
-        result = String[]
+        result = String[];
         if length(str) > 0
-            start_with_quote = startswith(str, "\"")
-            buffer_quote = split(str, keepempty=false, "\"")
-            i = 1
+            start_with_quote = startswith(str, "\"");
+            buffer_quote = split(str, keepempty=false, "\"");
+            i = 1;
             while i <= length(buffer_quote) 
                 if i > 1 || !start_with_quote
-                    str2 = buffer_quote[i]
-                    buffer_space = split(str2, keepempty=false)
+                    str2 = buffer_quote[i];
+                    buffer_space = split(str2, keepempty=false);
                     for str3 in buffer_space
-                        push!(result, str3)
+                        push!(result, str3);
                     end
-                    i += 1
+                    i += 1;
                 end
                 if i <= length(buffer_quote)
-                    push!(result, buffer_quote[i])
-                    i += 1
+                    push!(result, buffer_quote[i]);
+                    i += 1;
                 end
             end
         end    
-        return result
+        return result;
     end
     function read()
-        return read(".")
+        return read(".");
     end
     function read(root::String)
-        amplTxt = Dict{String,AmplTxtDataRow}()
+        amplTxt = Dict{String,AmplTxtDataRow}();
         for kvp in collect(FILENAME_COLNAME)
-            name = kvp[1]
-            data = readNetworkData(name, root)
-            push!(amplTxt, name => data)
+            name = kvp[1];
+            data = readNetworkData(name, root);
+            push!(amplTxt, name => data);
         end
-        return amplTxt
+        return amplTxt;
     end
 end
