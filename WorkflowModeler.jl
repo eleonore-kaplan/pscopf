@@ -100,24 +100,57 @@ end
 
 function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S, NO_IMPOSABLE)
     p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
-    
+    p_is_imp = Dict{Tuple{String,DateTime},VariableRef}();
+    p_imp = Dict{Tuple{String,DateTime},VariableRef}();
+    p_start = Dict{Tuple{String,DateTime},VariableRef}();
+    p_on = Dict{Tuple{String,DateTime},VariableRef}();
     if ! NO_IMPOSABLE
-        for kvp in units_by_kind[K_IMPOSABLE], ts in TS
-            gen = kvp[1];
-            # name =  @sprintf("p_imposee[%s,%s]", name, ts)
-            # p_imposee[name, ts] = @variable(model, base_name = name)
-            
-            # name =  @sprintf("p_start_up[%s,%s,%s]", name, ts, s)
-            # p_start_up[name, ts] = @variable(model, base_name = name, binary=true)
-            for s in S
-                name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
-                p_imposable[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+        for kvp in units_by_kind[K_IMPOSABLE]
+            for ts in TS
+                gen = kvp[1];
+                pMin = 10;
+                pMax = 250;            
 
-                # @constraint(model, p_imposable[name, ts, s]==p_imposee[name, ts])
+                name =  @sprintf("p_imp[%s,%s]", gen, ts);
+                p_imp[gen, ts] = @variable(model, base_name = name, lower_bound = pMin, upper_bound = pMax);
+                
+                name =  @sprintf("p_is_imp[%s,%s]", gen, ts);
+                p_is_imp[gen, ts] = @variable(model, base_name = name, binary = true);
+
+                name =  @sprintf("p_start[%s,%s]", gen, ts);
+                p_start[gen, ts] = @variable(model, base_name = name, binary = true);
+                
+                name =  @sprintf("p_on[%s,%s]", gen, ts);
+                p_on[gen, ts] = @variable(model, base_name = name, binary = true);
+
+
+                for s in S
+                    p0 = launcher.uncertainties[gen, s, ts, ech];
+                    name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
+                    p_imposable[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+
+                    @constraint(model, p_imposable[gen, ts, s] == (1 - p_is_imp[gen, ts]) * p0 + p_imp[gen, ts]);
+                    @constraint(model, p_imp[gen, ts] <= pMax * p_is_imp[gen, ts]);
+                    @constraint(model, p_imp[gen, ts] >= pMin * p_is_imp[gen, ts]);
+                end
+            end
+            i=0;
+            for ts in TS                
+                i+=1;
+                if i>1
+                    @constraint(model, p_start[gen, ts] <= p_on[gen, ts]);
+                    @constraint(model, p_start[gen, ts] <= 1-p_on[gen, ts-1]);
+                    @constraint(model, p_start[gen, ts] >= 1-p_on[gen, ts]-p_on[gen, ts-1]);
+                else
+                    prev0 = launcher.previsions[gen, ts, ech];
+                    if abs(prev0)<1
+                        @constraint(model, p_start[gen, ts] == p_on[gen, ts]);
+                    else
+                end
             end
         end
     end
-    return p_imposable;
+    return p_imposable, p_is_imp, p_imp, p_start;
 end
 
 function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, NO_LIMITABLE, NO_IMPOSABLE, p_imposable, is_limited, is_limited_x_p_lim, BUSES)
@@ -132,7 +165,7 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
             if ! NO_LIMITABLE
                 for gen in units_by_bus[K_LIMITABLE][bus]
                     p0 = launcher.uncertainties[gen, s, ts, ech];
-                    println(gen, " ", ts, " ", s, " ", p0);
+                    # println(gen, " ", ts, " ", s, " ", p0);
                     eod_expr[ts, s] +=  ((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
                 end
             end
@@ -149,7 +182,7 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
     end
 end
 
-function add_obj!(model, p_lim, p_imposable, is_limited)
+function add_obj!(model,p_lim, is_limited, is_limited_x_p_lim, p_imposable, p_is_imp, p_imp, p_start)
     eod_obj = AffExpr(0);
     eod_obj += sum(x[2] for x in p_lim);
     eod_obj += sum(100 * x[2] for x in p_imposable);
@@ -187,14 +220,14 @@ function sc_opf(launcher::Launcher, ech::DateTime)
     model = Model();
     p_lim, is_limited, is_limited_x_p_lim = add_limitable!(launcher, ech, model, units_by_kind, TS, S, NO_LIMITABLE);
 
-    p_imposable = add_imposable!(launcher, ech, model, units_by_kind, TS, S, NO_IMPOSABLE);
+    p_imposable, p_is_imp, p_imp, p_start = add_imposable!(launcher, ech, model, units_by_kind, TS, S, NO_IMPOSABLE);
 
     add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, NO_LIMITABLE, NO_IMPOSABLE, p_imposable, is_limited, is_limited_x_p_lim, BUSES);
     # println(units_by_bus)
     # println(eod_expr)
-    add_obj!(model, p_lim, p_imposable, is_limited);
+    add_obj!(model,p_lim, is_limited, is_limited_x_p_lim, p_imposable, p_is_imp, p_imp, p_start);
 
-    # println(model)
+    println(model)
     set_optimizer(model, Xpress.Optimizer);
     optimize!(model);
 
