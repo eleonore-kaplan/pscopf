@@ -82,6 +82,25 @@ function read_bus_load(ampltxt)
     return num_to_name, bus_load;
     
 end
+
+
+function write_pscopf_previsions(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP)
+    open(output_file_path, "w") do file     
+        write(file, @sprintf("#%-9s%25s%25s%10s\n", "id", "h_15m", "ech", "v"))
+        
+        generators = amplTxt["generators"];
+        for genData in generators.data
+            gen = parse(Int, genData[2]);
+            p = parse(Float64, genData[16]);
+            name = genData[20];
+            for ech in HORIZON, ts in TIME_STEP   
+                real_h = h+ts
+                write(file, @sprintf("%-10s%25s%25s%10.3f\n", name,real_h, ech,  p))
+            end
+        end
+    end
+end
+
 function write_pscopf_uncertainties(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP)
     open(output_file_path, "w") do file     
         write(file, @sprintf("#%-9s%25s%25s%10s%10s\n", "id", "h_15m", "ech","scenario", "v"))

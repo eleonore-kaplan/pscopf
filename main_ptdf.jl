@@ -4,8 +4,6 @@ cd(root_path);
 
 include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "SCOPF.jl"));
-include(joinpath(root_path, "ProductionUnits.jl"));
-include(joinpath(root_path, "FakeData.jl"));
 
 # Compute ptdf and export them as node branch value file
 
