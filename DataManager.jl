@@ -104,9 +104,11 @@ end
 function write_pscopf_uncertainties(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP)
     open(output_file_path, "w") do file     
         write(file, @sprintf("#%-9s%25s%25s%10s%10s\n", "id", "h_15m", "ech","scenario", "v"))
+        is_uncertain = Dict{String, Bool}();
         for uncertainty in uncertainties
+            id = uncertainty[_ID];
+            is_uncertain[id] = true;
             for ech in HORIZON, ts in TIME_STEP
-                id = uncertainty[_ID];
                 p = parse(Float64, uncertainty[_P]);
                 pMax = parse(Float64, uncertainty[_PMAX]);
                 real_h = h+ts
@@ -137,9 +139,11 @@ function write_pscopf_uncertainties(output_file_path, uncertainties, SCENARIO, H
             gen = parse(Int, genData[2]);
             p = parse(Float64, genData[16]);
             name = genData[20];
-            for ech in HORIZON, scenario in SCENARIO, ts in TIME_STEP   
-                real_h = h+ts
-                write(file, @sprintf("%-10s%25s%25s%10s%10.3f\n", name,real_h, ech, scenario,  p))
+            if !haskey(is_uncertain, name)
+                for ech in HORIZON, scenario in SCENARIO, ts in TIME_STEP   
+                    real_h = h+ts
+                    write(file, @sprintf("%-10s%25s%25s%10s%10.3f\n", name,real_h, ech, scenario,  p))
+                end
             end
         end
         
@@ -164,7 +168,7 @@ function write_pscopf_units(output_file_path, amplTxt, id_fuel, flexibility)
             gen = parse(Int, genData[2]);
             bus = parse(Int, genData[3]);
             conbus = parse(Int, genData[4]);
-            minP = parse(Float64, genData[6]);
+            minP = parse(Float64, genData[6])+10;
             maxP = parse(Float64, genData[7]);
             p = parse(Float64, genData[16]);
             name = genData[20];
