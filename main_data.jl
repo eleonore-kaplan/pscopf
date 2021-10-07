@@ -7,7 +7,6 @@ root_path = raw"D:\AppliRTE\repo\scopf-quanti";
 push!(LOAD_PATH, root_path);
 cd(root_path);
 include(joinpath(root_path, "AmplTxt.jl"));
-include(joinpath(root_path, "ProductionUnits.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 include(joinpath(root_path, "DataManager.jl"));
 
@@ -18,7 +17,7 @@ dir_path = joinpath(root_path, test_name);
 flexibility = read_flexibility(dir_path);
 
 
-N_SCENARIO = 1;
+N_SCENARIO = 2;
 df = Dates.DateFormat("Y-m-d-H:M");
 h = Dates.DateTime("2015-01-01-11:00", df);
 h_1 = Dates.DateTime("2015-01-01-10:00", df);
@@ -46,6 +45,9 @@ println(id_fuel);
 println(flexibility);
 output_file_path = joinpath(dir_path, "pscopf_uncertainties.txt");
 write_pscopf_uncertainties(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP);
+
+output_file_path = joinpath(dir_path, "pscopf_previsions.txt");
+write_pscopf_previsions(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP);
 
 output_file_path = joinpath(dir_path, "pscopf_units.txt");
 write_pscopf_units(output_file_path, amplTxt, id_fuel, flexibility);
