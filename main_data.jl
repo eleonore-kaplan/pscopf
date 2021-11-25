@@ -17,15 +17,15 @@ dir_path = joinpath(root_path, test_name);
 flexibility = read_flexibility(dir_path);
 
 
-N_SCENARIO = 10;
+N_SCENARIO = 5;
 df = Dates.DateFormat("Y-m-d-H:M");
 h = Dates.DateTime("2015-01-01-11:00", df);
 h_1 = Dates.DateTime("2015-01-01-10:00", df);
 h_2 = Dates.DateTime("2015-01-01-09:00", df);
 
-TIME_STEP =  [Minute(0), Minute(15), Minute(30), Minute(45)];
+# TIME_STEP =  [Minute(0), Minute(15), Minute(30), Minute(45)];
 # TIME_STEP =  [Minute(0), Minute(15)];
-# TIME_STEP =  [Minute(0)];
+TIME_STEP =  [Minute(0)];
 HORIZON = [h_2, h_1, h];
 
 SCENARIO = [@sprintf("S%d", x) for x in 1:N_SCENARIO];

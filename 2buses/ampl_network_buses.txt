@@ -1,0 +1,4 @@
+#Buses (quanti_2nodes/InitialState)
+#"variant" "num" "substation" "cc" "v (pu)" "theta (rad)" "p (MW)" "q (MVar)" "fault" "curative" "id"
+1 1 1 0 1.00000 0.00000 -282.000 0.00000 0 0 "poste_1_0"
+1 2 2 0 1.00000 0.00000 282.000 0.00000 0 0 "poste_2_0"

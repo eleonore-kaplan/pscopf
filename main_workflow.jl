@@ -15,9 +15,12 @@ launcher = Workflow.Launcher(dir_path);
 
 ech = DateTime("2015-01-01T09:00:00");
 
-K_IMPOSABLE = Workflow.K_IMPOSABLE;
-K_LIMITABLE = Workflow.K_LIMITABLE;
-
-model, p_lim, p_imposable = Workflow.sc_opf(launcher, ech);
+launcher.NO_LIMITABLE = false;
+launcher.NO_IMPOSABLE = false;
+launcher.NO_LIMITATION = false;
+p_res = 0;
+p_res_min = -p_res;
+p_res_max = p_res;
+model, p_lim, p_imposable = Workflow.sc_opf(launcher, ech, p_res_min, p_res_max);
 
 
