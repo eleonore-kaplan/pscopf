@@ -1,2 +1,0 @@
-#HVDC lines (blocaux_20200925_1445_reduite/InitialState)
-#"variant" "num" "type" "converterStation1" "converterStation2" "r (ohm)" "nomV (KV)" "convertersMode" "targetP (MW)" "maxP (MW)" "fault" "curative" "id" "description"
