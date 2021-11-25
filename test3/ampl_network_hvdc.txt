@@ -1,5 +1,0 @@
-#HVDC lines (ecct-situ-20200224-1830/InitialState)
-#"variant" "num" "type" "converterStation1" "converterStation2" "r (ohm)" "nomV (KV)" "convertersMode" "targetP (MW)" "maxP (MW)" "fault" "curative" "id" "description"
-1 1 1 3 1 0.125000 320.000 "SIDE_1_RECTIFIER_SIDE_2_INVERTER" 227.851 1011.00 0 0 "BAIXA9.STLL1" "BAIXA9.STLL1"
-1 2 1 4 2 0.125000 320.000 "SIDE_1_RECTIFIER_SIDE_2_INVERTER" 228.351 1011.00 0 0 "BAIXA9.STLL2" "BAIXA9.STLL2"
-1 3 1 5 6 999999 320.000 "SIDE_1_RECTIFIER_SIDE_2_INVERTER" -0.00000 1011.00 0 0 "PEUP59.CHER1" "PEUP59.CHER1"

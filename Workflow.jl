@@ -6,6 +6,7 @@ module Workflow
     using Dates: Date, DateTime;
     using JuMP;
     using Printf;
+    using Parameters;
     U_NAME=1;
     U_SCENARIO=2;
     U_H=3;
@@ -13,7 +14,11 @@ module Workflow
     K_LIMITABLE="Limitable";
     K_IMPOSABLE="Imposable";
     
-    mutable struct Launcher
+    @with_kw    mutable struct Launcher
+        NO_IMPOSABLE::Bool;
+        NO_LIMITABLE::Bool
+        NO_LIMITATION::Bool;
+
         dirpath::String;
         # amplTxt description of the network
         ampltxt;
@@ -27,9 +32,11 @@ module Workflow
         gen_type_bus::Dict{String, Vector{String}};
         # line-bus->ptdf
         ptdf::Dict{Tuple{String,String}, Float64};
+
+        limits::Dict{String, Float64};
+
     end
 
-    using Parameters;
     @with_kw    mutable struct ImposableModeler
         p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_is_imp = Dict{Tuple{String,DateTime},VariableRef}();
@@ -37,14 +44,20 @@ module Workflow
         p_imp = Dict{Tuple{String,DateTime},VariableRef}();
         p_start = Dict{Tuple{String,DateTime},VariableRef}();
         p_on = Dict{Tuple{String,DateTime},VariableRef}();
+        c_imp_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+        c_imp_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
     end
-    @with_kw    mutable struct LimitableModeler
+    @with_kw mutable struct LimitableModeler
         p_lim = Dict{Tuple{String,DateTime},VariableRef}();
         
         is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
         is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
+    end
+
+    @with_kw mutable struct ReserveModeler
+        p_res = Dict{Tuple{DateTime,String},VariableRef}();
     end
 
     function read_ptdf(dir_path::String)
@@ -58,7 +71,20 @@ module Workflow
                 end
             end
         end
-        return result
+        return result;
+    end
+    function read_limits(dir_path::String)
+        result = Dict{String, Float64}();
+        open(joinpath(dir_path, "pscopf_limits.txt"), "r") do file
+            for ln in eachline(file)
+                # don't read commentted line 
+                if ln[1] != '#'
+                    buffer = AmplTxt.split_with_space(ln);
+                    result[buffer[1]] = parse(Float64, buffer[2]);
+                end
+            end
+        end
+        return result;
     end
 
     function read_gen_type_bus(dir_path::String)
@@ -128,7 +154,7 @@ module Workflow
     end
 
     function Launcher(dir_path::String)        
-        return Launcher(dir_path, AmplTxt.read(dir_path),read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path))
+        return Launcher(false, false, false, dir_path, AmplTxt.read(dir_path),read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path), read_limits(dir_path))
     end
 
     function read_ampl_txt(launcher::Launcher, dir_path::String)
@@ -138,6 +164,7 @@ module Workflow
     function add_uncertainties(launcher::Launcher, name::String, bus_name::String, ech::DateTime, ts::DateTime, value)
         launcher.uncertainties[name, bus_name, ech, ts] = value;
     end
-       
+    
+
     include("WorkflowModeler.jl");
 end
