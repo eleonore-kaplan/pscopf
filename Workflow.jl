@@ -57,7 +57,8 @@ module Workflow
     end
 
     @with_kw mutable struct ReserveModeler
-        p_res = Dict{Tuple{DateTime,String},VariableRef}();
+        p_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
+        p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     end
 
     function read_ptdf(dir_path::String)
