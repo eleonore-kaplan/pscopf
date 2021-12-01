@@ -186,7 +186,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
     return Workflow.ImposableModeler(p_imposable, p_is_imp, p_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
 end
 
-function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_reserve, netloads)
+function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler, netloads )
     eod_expr = Dict([(ts, s) => AffExpr(0) for ts in TS, s in S]);
     for ts in TS, s in S
         for bus in BUSES
@@ -205,7 +205,8 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
         end
     end
     for ts in TS, s in S
-        eod_expr[ts, s] += v_reserve.p_res[ts, s];
+        eod_expr[ts, s] += v_res.p_res_pos[ts, s];
+        eod_expr[ts, s] -= v_res.p_res_neg[ts, s];
     end
     
     # println(launcher.uncertainties)
@@ -219,15 +220,18 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
 end
 
 function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_max)
-    p_res = Dict{Tuple{DateTime,String},VariableRef}();
+    p_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
+    p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     for ts in TS, s in S
-        name =  @sprintf("p_res[%s,%s]", ts, s);
-        p_res[ts, s] = @variable(model, base_name = name, lower_bound = p_res_min, upper_bound = p_res_max);
+        name =  @sprintf("p_res_pos[%s,%s]", ts, s);
+        p_res_pos[ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound = p_res_max);
+        name =  @sprintf("p_res_neg[%s,%s]", ts, s);
+        p_res_neg[ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound = -p_res_min);
     end
-    return Workflow.ReserveModeler(p_res);
+    return Workflow.ReserveModeler(p_res_pos, p_res_neg);
 end
 
-function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler)
+function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler)
     eod_obj = AffExpr(0);
     w_lim = 1 / length(S);
     for x in v_lim.c_lim
@@ -236,7 +240,7 @@ function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableMod
         eod_obj += w_lim * cProp * x[2];
     end
     if length(v_lim.is_limited) > 0
-        eod_obj += sum(1e-2 * x[2] for x in v_lim.is_limited);
+        eod_obj += sum(1e-4 * x[2] for x in v_lim.is_limited);
     end
     for x in v_imp.p_start
         gen = x[1][1];
@@ -252,6 +256,12 @@ function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableMod
         gen = x[1][1];
         cProp = launcher.units[gen][4];
         eod_obj += w_lim * cProp * x[2];
+    end
+    for x in v_res.p_res_pos
+        eod_obj += (1e-3)*w_lim*x[2];
+    end
+    for x in v_res.p_res_neg
+        eod_obj += (1e-3)*w_lim* x[2];
     end
     @objective(model, Min, eod_obj);
 end
@@ -345,15 +355,15 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     p_start = v_imp.p_start;
     p_on = v_imp.p_on;
 
-    v_reserve = add_reserve!(launcher, ech, model, TS, S, p_res_min, p_res_max);
+    v_res = add_reserve!(launcher, ech, model, TS, S, p_res_min, p_res_max);
 
-    # add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_reserve, netloads);
+    add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_res, netloads);
 
     v_flow = add_flow!(launcher, model, TS, S, units_by_bus,  v_lim, v_imp, netloads);
 
     # println(units_by_bus)
     # println(eod_expr)
-    add_obj!(launcher,  model, TS, S, v_lim, v_imp);
+    add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
 
     # println(model)
     set_optimizer(model, Xpress.Optimizer);
@@ -410,7 +420,11 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
         end
     end
-    print_nz(v_reserve.p_res);
+    println("v_res.p_res_pos");
+    print_nz(v_res.p_res_pos);
+    println("v_res.p_res_neg");
+    print_nz(v_res.p_res_neg);
+    println("v_res.v_flow");
     print_nz(v_flow);
     write_output_csv(launcher, ech, TS, S, v_lim, v_imp);  
     
