@@ -7,7 +7,7 @@ export get_bus;
 export sc_opf;
 export print_nz;
 
-using Xpress;
+using Cbc;
 
 function get_bus(launcher::Launcher, names::Set{String})
     result = Set{String}();
@@ -366,7 +366,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
 
     # println(model)
-    set_optimizer(model, Xpress.Optimizer);
+    set_optimizer(model, Cbc.Optimizer);
     optimize!(model);
 
     # print_nz(p_imposable);
