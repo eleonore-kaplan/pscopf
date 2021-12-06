@@ -2,13 +2,17 @@
 
 using Dates: Date, DateTime;
 
-root_path = raw"D:\AppliRTE\repo\scopf-quanti";
+
+#root_path = raw"D:\AppliRTE\repo\scopf-quanti";
+root_path = @__DIR__;
 push!(LOAD_PATH, root_path);
 cd(root_path);
 include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 
-test_name = "5buses_wind";
+
+test_name = length(ARGS) > 0 ? ARGS[1] : "5buses_wind";
+print("test case : ", test_name)
 dir_path = joinpath(root_path, test_name);
 
 launcher = Workflow.Launcher(dir_path);
