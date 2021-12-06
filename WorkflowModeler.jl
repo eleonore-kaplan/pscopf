@@ -200,6 +200,7 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
                     p0 = launcher.uncertainties[gen, s, ts, ech];
                     # println(gen, " ", ts, " ", s, " ", p0);
                     eod_expr[ts, s] +=  ((1 -  v_lim.is_limited[gen, ts, s]) * p0 + v_lim.is_limited_x_p_lim[gen, ts, s]);
+                    # or simply += P_enr[gen,ts,s]
                 end
             end
         end
@@ -235,6 +236,7 @@ function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableMod
     eod_obj = AffExpr(0);
     w_lim = 1 / length(S);
     for x in v_lim.c_lim
+        # implicit looping on #ts, #s and gen
         gen = x[1][1];
         cProp = launcher.units[gen][4];
         eod_obj += w_lim * cProp * x[2];
@@ -376,7 +378,9 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     # print_nz(is_limited);
 
     
-    
+    @show termination_status(model)
+    @show objective_value(model)
+
     println("NO_IMPOSABLE   : ", launcher.NO_IMPOSABLE);
     println("NO_LIMITABLE   : ", launcher.NO_LIMITABLE);
     println("NO_LIMITATION  : ", launcher.NO_LIMITATION);
