@@ -1,4 +1,5 @@
-root_path = raw"D:\AppliRTE\repo\scopf-quanti"
+# root_path = raw"D:\AppliRTE\repo\scopf-quanti"
+root_path = @__DIR__;
 push!(LOAD_PATH, root_path);
 cd(root_path);
 
