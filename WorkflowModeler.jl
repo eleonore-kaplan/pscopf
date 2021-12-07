@@ -7,7 +7,27 @@ export get_bus;
 export sc_opf;
 export print_nz;
 
-using Cbc;
+try
+    using Xpress;
+    global OPTIMIZER = Xpress.Optimizer
+catch e_xpress
+    if isa(e_xpress, ArgumentError)
+        try
+            using CPLEX;
+            global OPTIMIZER = CPLEX.Optimizer
+        catch e_cplex
+            if isa(e_cplex, ArgumentError)
+                using Cbc;
+                global OPTIMIZER = Cbc.Optimizer
+            else
+                throw(e_xpress)
+            end
+        end
+    else
+        throw(e_xpress)
+    end
+end
+println("optimizer: ", OPTIMIZER)
 
 function get_bus(launcher::Launcher, names::Set{String})
     result = Set{String}();
@@ -368,7 +388,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
 
     # println(model)
-    set_optimizer(model, Cbc.Optimizer);
+    set_optimizer(model, OPTIMIZER);
     optimize!(model);
 
     # print_nz(p_imposable);
