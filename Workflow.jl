@@ -20,8 +20,6 @@ module Workflow
         NO_LIMITATION::Bool;
 
         dirpath::String;
-        # amplTxt description of the network
-        ampltxt;
         # uncertainties, name-scenario-h-ech->value
         uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
         # previsionnal planning
@@ -155,7 +153,7 @@ module Workflow
     end
 
     function Launcher(dir_path::String)        
-        return Launcher(false, false, false, dir_path, AmplTxt.read(dir_path),read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path), read_limits(dir_path))
+        return Launcher(false, false, false, dir_path, read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path), read_limits(dir_path))
     end
 
     function read_ampl_txt(launcher::Launcher, dir_path::String)
