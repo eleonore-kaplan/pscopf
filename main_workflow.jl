@@ -12,12 +12,15 @@ include(joinpath(root_path, "Workflow.jl"));
 
 
 test_name = length(ARGS) > 0 ? ARGS[1] : "5buses_wind";
-print("test case : ", test_name)
+println("test case : ", test_name)
 dir_path = joinpath(root_path, test_name);
 
 launcher = Workflow.Launcher(dir_path);
 
-ech = DateTime("2015-01-01T09:00:00");
+ech = length(ARGS) > 1 ? DateTime(ARGS[2]) : DateTime("2015-01-01T09:00:00");
+# ech = DateTime("2015-01-01T09:00:00");
+# ech = DateTime("2015-01-01T11:00:00"); #test
+println("ech : ", ech)
 
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
