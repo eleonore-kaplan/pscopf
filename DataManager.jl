@@ -4,6 +4,7 @@ FAKE_ID=2;
 DMO_ID=3;
 VAR_ID=4;
 FIX_ID=5;
+DMO_ID=5;
 _TYPE = 1;
 _ID = 2;
 _P = 3;
@@ -162,7 +163,7 @@ end
 
 function write_pscopf_units(output_file_path, amplTxt, id_fuel, flexibility)
     open(output_file_path, "w") do file     
-        write(file, @sprintf("#%-9s %13s %13s %13s %13s %13s\n", "name", "p", "minP", "maxP", "start", "prop"))
+        write(file, @sprintf("#%-9s %13s %13s %13s %13s %13s %13s\n", "name", "p", "minP", "maxP", "start", "prop", "dmo"))
         generators = amplTxt["generators"];
         for genData in generators.data
             gen = parse(Int, genData[2]);
@@ -179,7 +180,8 @@ function write_pscopf_units(output_file_path, amplTxt, id_fuel, flexibility)
 
             start_cost = carac[FIX_ID];
             prop_cost = carac[VAR_ID];
-            write(file, @sprintf("%-10s %.8E %.8E %.8E %.8E %.8E\n", name, p, minP, maxP, start_cost, prop_cost))
+            dmo = carac[DMO_ID];
+            write(file, @sprintf("%-10s %.8E %.8E %.8E %.8E %.8E %.8E\n", name, p, minP, maxP, start_cost, prop_cost, dmo))
         end
     end
     
