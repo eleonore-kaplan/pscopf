@@ -450,9 +450,10 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     print_nz(v_res.p_res_neg);
     println("v_res.v_flow");
     print_nz(v_flow);
-    write_output_csv(launcher, ech, TS, S, v_lim, v_imp);  
-    
-    return model, p_lim, p_imposable;
+    write_output_csv(launcher, ech, TS, S, v_lim, v_imp);
+    write_extra_output_csv(launcher, v_res, v_flow);
+
+    return model, v_lim, v_imp, v_res, v_flow;
 end
 
 function print_nz(variables)    
@@ -494,6 +495,35 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             p_sol = value(v_imp.p_imposable[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
             write(file, @sprintf("%s;%s;%s;%s;%f;%f\n", gen, ts,s, is_imp, p_sol, p0));
+        end
+    end
+end
+
+function write_extra_output_csv(launcher::Workflow.Launcher, v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
+    open(joinpath(launcher.dirpath, "reserve.csv"), "w") do file
+        write(file, @sprintf("%s;%s;%s\n", "TS","S", "res"));
+        dict_reserve_l = Dict{Tuple{DateTime,String}, Float64}()
+        for ((ts_l,s_l), var_l) in v_res.p_res_pos
+            if value(var_l) > 1e-6
+                dict_reserve_l[ts_l, s_l] = value(var_l)
+            end
+        end
+        for ((ts_l,s_l), var_l) in v_res.p_res_neg
+            if value(var_l) > 1e-6
+                @assert !haskey(dict_reserve_l, (ts_l,s_l)) #avoid having positive and negative reserves at once
+                dict_reserve_l[ts_l, s_l] = -value(var_l) #negative reserve
+            end
+        end
+
+        for ((ts_l,s_l), value_l) in dict_reserve_l
+            write(file, @sprintf("%s;%s;%f\n", ts_l,s_l, value_l));
+        end
+    end
+
+    open(joinpath(launcher.dirpath, "flows.csv"), "w") do file
+        write(file, @sprintf("%s;%s;%s;%s\n", "branch", "TS","S", "flow"));
+        for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
+            write(file, @sprintf("%s;%s;%s;%f\n", branch_l, ts_l,s_l, value(flow_var_l)));
         end
     end
 end
