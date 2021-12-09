@@ -171,6 +171,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     
                     name =  @sprintf("c_imp_pos[%s,%s,%s]", gen, ts, s);
                     c_imp_pos[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+                    
                     name =  @sprintf("c_imp_neg[%s,%s,%s]", gen, ts, s);
                     c_imp_neg[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
 
