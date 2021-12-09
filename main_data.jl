@@ -11,8 +11,8 @@ include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 include(joinpath(root_path, "DataManager.jl"));
 
-test_name = "5buses_wind";
-# test_name = "2buses"
+# test_name = "5buses_wind";
+test_name = "2buses"
 dir_path = joinpath(root_path, test_name);
 
 flexibility = read_flexibility(dir_path);
@@ -45,6 +45,7 @@ println(bus_load);
 
 println(id_fuel);
 println(flexibility);
+
 output_file_path = joinpath(dir_path, "pscopf_uncertainties.txt");
 write_pscopf_uncertainties(output_file_path, uncertainties, SCENARIO, HORIZON, TIME_STEP);
 
