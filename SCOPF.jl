@@ -93,6 +93,13 @@ module SCOPF
             maxP = parse(Float64, genData[7]);
         end
     end
+
+    function get_i_for_bus(network_p::SCOPF.Network, bus_name_p::String)
+        bus_id_l = first(filter( x -> x[2].name == bus_name_l , network.buses))[2].id
+        return network_p.bus_to_i[bus_id_l]
+        #or for now, return first(filter( x -> x[2].name == bus_name_l , network.buses))[1]
+    end
+
     function get_B(network::Network, DIAG_EPS::Float64)
         B_dict = Dict{Tuple{Int,Int},Float64}();
         for kvp in collect(network.branches)
@@ -140,8 +147,21 @@ module SCOPF
         Bdense = Matrix(B);
         return Bdense
     end
-    
-    
+
+    function write_B(file_path_p, B::Matrix, network_p::SCOPF.Network)
+        nb_buses_l = size(B)[1]
+        @assert( size(B)[1] == size(B)[2] == length(network_p.bus_to_i) )
+
+        open(file_path_p, "w") do file_l
+            write(file_l, @sprintf("#%20s %20s %20s\n", "BUS_1", "BUS_2", "b"))
+            for i_bus1_l in 1:nb_buses_l, i_bus2_l in 1:nb_buses_l
+                bus1_name_l =  @sprintf("\"%s\"", network.buses[i_bus1_l].name)
+                bus2_name_l =  @sprintf("\"%s\"", network.buses[i_bus2_l].name)
+                write(file_l, @sprintf("%20s %20s %20.6E\n", bus1_name_l, bus2_name_l, B[i_bus1_l, i_bus2_l]))
+            end
+        end
+    end
+
     function get_B_inv(Bdense::Matrix, ref_bus::Int64)
         println("ref_bus is ", ref_bus)
         n = size(Bdense)[1]
@@ -189,6 +209,22 @@ module SCOPF
         return result;
     end
 
+    function distribute_slack(PTDF::Matrix, ref_bus::Int, coeffs_p::Dict{String,Float64}, network_p::SCOPF.Network)
+        m, n = size(PTDF);
+        @assert( n == length(coeffs_p) )
+
+        vect_coeffs_l = zeros(n)
+        for (bus_name_l, coeff_l) in coeffs_p
+            i_l = get_i_for_bus(network_p, bus_name_l)
+            vect_coeffs_l[i_l] = coeff_l
+        end
+
+        #normalize coeffs
+        vect_coeffs_l = vect_coeffs_l / sum(vect_coeffs_l)
+
+        return distribute_slack(PTDF, ref_bus, vect_coeffs_l)
+    end
+
     function distribute_slack(PTDF::Matrix, ref_bus::Int)
         m, n = size(PTDF);
         μ = 1/n;
@@ -201,9 +237,9 @@ module SCOPF
         m = length(network.branches);
         open(file_path, "w") do file     
             write(file, @sprintf("#%20s %20s\n", "BUS", "COEFF"))
-            for bus_id in 1:n
-                bus_name =  @sprintf("\"%s\"", network.buses[bus_id].name)
-                write(file, @sprintf("%20s %20.6E\n", bus_name, coeffs_p[bus_id]))
+            for bus_i_l in 1:n
+                bus_name =  @sprintf("\"%s\"", network.buses[bus_i_l].name)
+                write(file, @sprintf("%20s %20.6E\n", bus_name, coeffs_p[bus_i_l]))
             end
         end
     end
