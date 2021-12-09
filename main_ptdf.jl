@@ -9,6 +9,7 @@ include(joinpath(root_path, "SCOPF.jl"));
 
 # test_name = "RC_PPE2035_S0_deboucle"
 test_name = "5buses_wind"
+test_name = "2buses"
 
 amplTxt = AmplTxt.read(test_name);
 test_path = joinpath(root_path, test_name)

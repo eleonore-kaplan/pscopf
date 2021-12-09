@@ -2,6 +2,13 @@
 
 module Workflow    
     export Launcher;
+    export get_ts_s;
+    export get_units_by_kind;
+    export get_units_by_bus;
+    export get_bus;
+    export sc_opf;
+    export print_nz;
+
     using ..AmplTxt;
     using Dates: Date, DateTime;
     using JuMP;
@@ -26,7 +33,7 @@ module Workflow
         uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
         # previsionnal planning
         previsions::Dict{Tuple{String,DateTime,DateTime},Float64};
-        # name->P-maxP-startCost-propCost
+        # name->minP-maxP-startCost-propCost
         units::Dict{String, Vector{Float64}};
         # gen->type-bus
         gen_type_bus::Dict{String, Vector{String}};
@@ -47,6 +54,7 @@ module Workflow
         c_imp_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_imp_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
     end
+    
     @with_kw mutable struct LimitableModeler
         p_lim = Dict{Tuple{String,DateTime},VariableRef}();
         
@@ -167,5 +175,59 @@ module Workflow
     end
     
 
+    function get_bus(launcher::Launcher, names::Set{String})
+        result = Set{String}();
+        for name in names
+            if !haskey(launcher.gen_type_bus, name)
+                push!(result, name);
+            end
+        end
+        return result;
+    end
+    
+    function get_ech_ts_s_name(launcher::Launcher)
+        ech_set = Set{DateTime}();
+        ts_set = Set{DateTime}();
+        s_set =  Set{String}();
+        name_set = Set{String}();
+        for uncertainty in launcher.uncertainties
+            ts = uncertainty[1][U_H];
+            ech = uncertainty[1][U_ECH];
+            s = uncertainty[1][U_SCENARIO];
+            name = uncertainty[1][U_NAME];
+            push!(ech_set, ech);
+            push!(ts_set, ts);
+            push!(s_set, s);
+            push!(name_set, name);
+        end
+        return sort(collect(ech_set)), sort(collect(ts_set)), sort(collect(s_set)), name_set;
+    end
+    
+    function get_units_by_kind(launcher::Launcher)
+        result = Dict{String,Dict{String,String}}();
+        result[K_LIMITABLE] = Dict{String,String}();
+        result[K_IMPOSABLE] = Dict{String,String}();
+        for gen in launcher.gen_type_bus
+            kind = gen[2][1];
+            push!(result[kind],  gen[1] => gen[2][2]);
+        end 
+        return result;
+    end
+    
+    function get_units_by_bus(launcher::Launcher, buses::Set{String})
+        result = Dict{String,Dict{String,Vector{String}}}();
+        result[K_LIMITABLE] = Dict{String,Vector{String}}([bus => Vector{String}() for bus in buses]);
+        result[K_IMPOSABLE] = Dict{String,Vector{String}}([bus => Vector{String}() for bus in buses]);
+        for gen in launcher.gen_type_bus
+            name = gen[1];
+            kind = gen[2][1];
+            bus  = gen[2][2];
+            tmp = get(result[kind], bus, Vector{String}())
+            push!(tmp, name);
+            result[kind][bus] = tmp;
+        end 
+        return result;
+    end
     include("WorkflowModeler.jl");
+    include("WorkflowWorstCase.jl");
 end
