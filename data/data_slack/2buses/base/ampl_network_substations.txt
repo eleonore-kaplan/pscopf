@@ -1,0 +1,4 @@
+#Substations (quanti_2nodes/InitialState)
+#"variant" "num" "unused1" "unused2" "nomV (KV)" "minV (pu)" "maxV (pu)" "fault" "curative" "country" "id" "description"
+1 1 "" 0 230.000 0.869565 1.08696 0 0 "FR" "poste_1" "poste_1"
+1 2 "" 0 230.000 0.869565 1.08696 0 0 "FR" "poste_2" "poste_2"
