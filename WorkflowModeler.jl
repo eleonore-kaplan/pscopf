@@ -328,7 +328,7 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_l
     return v_flow;
 end
 
-function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)        
+function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     ##############################################################
     ### optimisation modelling sets
     ##############################################################
@@ -389,17 +389,21 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
     # println(model)
     set_optimizer(model, OPTIMIZER);
+    write_to_file(model, launcher.dirpath*"/model.lp")
     optimize!(model);
+
+    println("end of optim.")
+    if termination_status(model) == INFEASIBLE
+        error("Model is infeasible")
+    end
+    println(termination_status(model))
+    println(objective_value(model))
 
     # print_nz(p_imposable);
     # print_nz(p_is_imp);
     # print_nz(p_start);
     # print_nz(p_on);
     # print_nz(is_limited);
-
-    
-    @show termination_status(model)
-    @show objective_value(model)
 
     println("NO_IMPOSABLE   : ", launcher.NO_IMPOSABLE);
     println("NO_LIMITABLE   : ", launcher.NO_LIMITABLE);
