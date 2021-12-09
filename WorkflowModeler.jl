@@ -219,8 +219,8 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
                 for gen in units_by_bus[K_LIMITABLE][bus]
                     p0 = launcher.uncertainties[gen, s, ts, ech];
                     # println(gen, " ", ts, " ", s, " ", p0);
-                    eod_expr[ts, s] +=  ((1 -  v_lim.is_limited[gen, ts, s]) * p0 + v_lim.is_limited_x_p_lim[gen, ts, s]);
-                    # or simply += P_enr[gen,ts,s]
+                    #eod_expr[ts, s] +=  ((1 -  v_lim.is_limited[gen, ts, s]) * p0 + v_lim.is_limited_x_p_lim[gen, ts, s]);
+                    eod_expr[ts, s] += v_lim.p_enr[gen,ts,s]
                 end
             end
         end
