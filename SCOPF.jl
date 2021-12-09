@@ -189,6 +189,7 @@ module SCOPF
         result +=PTDF ;
         return result;        
     end
+    
     function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Matrix, PTDF_TRIMMER::Float64)
         n = length(network.bus_to_i);
         m = length(network.branches);
