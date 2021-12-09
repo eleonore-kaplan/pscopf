@@ -152,9 +152,14 @@ module Workflow
         return result;
     end
 
-    function Launcher(dir_path::String)        
-        return Launcher(false, false, false, dir_path, read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path), read_limits(dir_path))
+    function Launcher(input_path::String, dir_path::String)
+        return Launcher(false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
     end
+
+    function Launcher(dir_path::String)        
+        return Launcher(dir_path, dir_path)
+    end
+
 
     function read_ampl_txt(launcher::Launcher, dir_path::String)
         launcher.ampltxt = AmplTxt.read(dir_path);
