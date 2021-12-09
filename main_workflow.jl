@@ -25,7 +25,9 @@ println("ech : ", ech)
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
-p_res = 100;
+p_res = 250;
 p_res_min = -p_res;
 p_res_max = p_res;
 model, p_lim, p_imposable = Workflow.sc_opf(launcher, ech, p_res_min, p_res_max);
+
+# Workflow.worse_case(launcher, ech);
