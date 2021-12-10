@@ -1,0 +1,57 @@
+
+Log started (V12.6.2.0) Fri Dec 10 12:50:14 2021
+
+Warning, line 122: Name 'p_start_alta,2015_01_01T11_00_00,S1_' does not exist.
+Warning, line 138: Name 'p_start_moonwalk,2015_01_01T11_00_00,S1_' does not exist.
+
+Problem 'model.lp' read.
+Read time = 0.02 sec. (0.01 ticks)
+Tried aggregator 3 times.
+MIP Presolve eliminated 28 rows and 16 columns.
+MIP Presolve modified 21 coefficients.
+Aggregator did 16 substitutions.
+Reduced MIP has 24 rows, 29 columns, and 66 nonzeros.
+Reduced MIP has 6 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.14 ticks)
+Found incumbent of value 2285.000000 after 0.02 sec. (0.30 ticks)
+Probing time = 0.00 sec. (0.01 ticks)
+Tried aggregator 1 time.
+MIP Presolve eliminated 1 rows and 1 columns.
+Reduced MIP has 23 rows, 28 columns, and 64 nonzeros.
+Reduced MIP has 6 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.04 ticks)
+Probing time = 0.00 sec. (0.01 ticks)
+Clique table members: 1.
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 4 threads.
+Root relaxation solution time = 0.00 sec. (0.03 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                         2285.0000        0.0000           100.00%
+      0     0       25.0000     2     2285.0000       25.0000        6   98.91%
+*     0     0      integral     0       25.0001       Cuts: 9        8    0.00%
+      0     0        cutoff             25.0001       25.0001        8    0.00%
+Elapsed time = 0.03 sec. (0.54 ticks, tree = 0.00 MB, solutions = 2)
+
+Implied bound cuts applied:  2
+Flow cuts applied:  1
+Gomory fractional cuts applied:  1
+
+Root node processing (before b&c):
+  Real time             =    0.03 sec. (0.54 ticks)
+Parallel b&c, 4 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.03 sec. (0.54 ticks)
+
+Solution pool: 2 solutions saved.
+
+MIP - Integer optimal solution:  Objective =  2.5000100000e+01
+Solution time =    0.04 sec.  Iterations = 8  Nodes = 0
+Deterministic time = 0.54 ticks  (15.21 ticks/sec)
+
