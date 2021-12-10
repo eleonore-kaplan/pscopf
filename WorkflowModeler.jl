@@ -85,7 +85,7 @@ function get_units_by_bus(launcher::Launcher, buses::Set{String})
     return result;
 end
 function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind, TS, S)
-    p_lim = Dict{Tuple{String,DateTime},VariableRef}();    
+    p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();    
     is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
     p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
     is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -93,12 +93,12 @@ function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind,
     if ! launcher.NO_LIMITABLE
         for kvp in units_by_kind[K_LIMITABLE], ts in TS
             gen = kvp[1];
-            p_lim[gen, ts] =  @variable(model, base_name = @sprintf("p_lim[%s,%s]", gen, ts), lower_bound = 0);
             pLimMax = 0;
             for s in S
                 pLimMax = max(pLimMax, launcher.uncertainties[gen, s, ts, ech]);
             end
             for s in S
+                p_lim[gen, ts, s] =  @variable(model, base_name = @sprintf("p_lim[%s,%s,%s]", gen, ts, s), lower_bound = 0);
                 name =  @sprintf("is_limited[%s,%s,%s]", gen, ts, s);
                 is_limited[gen, ts, s] = @variable(model, base_name = name, binary = true);
 
@@ -107,18 +107,18 @@ function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind,
 
                 name =  @sprintf("c_lim[%s,%s,%s]", gen, ts, s);
                 c_lim[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
-                
-                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= p_lim[gen, ts]);
+
+                @constraint(model, is_limited_x_p_lim[gen, ts, s] <= p_lim[gen, ts, s]);
                 @constraint(model, is_limited_x_p_lim[gen, ts, s] <= is_limited[gen, ts, s] * pLimMax);
-                @constraint(model, is_limited_x_p_lim[gen, ts, s] + pLimMax * (1 - is_limited[gen, ts, s]) - p_lim[gen, ts] >= 0);
+                @constraint(model, is_limited_x_p_lim[gen, ts, s] + pLimMax * (1 - is_limited[gen, ts, s]) - p_lim[gen, ts, s] >= 0);
 
                 p0 = launcher.uncertainties[gen, s, ts, ech];
                 name =  @sprintf("p_enr[%s,%s,%s]", gen, ts, s);
                 p_enr[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound = p0);
                 @constraint(model, p_enr[gen, ts, s] == (1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
-                @constraint(model, p_enr[gen, ts, s] <= p_lim[gen, ts]);
+                @constraint(model, p_enr[gen, ts, s] <= p_lim[gen, ts, s]);
 
-                @constraint(model, c_lim[gen, ts, s] >= p0 - p_lim[gen, ts]);
+                @constraint(model, c_lim[gen, ts, s] >= p0 - p_lim[gen, ts, s]);
 
                 if launcher.NO_LIMITATION
                     @constraint(model, is_limited[gen, ts, s] == 0);
@@ -439,10 +439,14 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     if ! launcher.NO_LIMITABLE
         # println(launcher.uncertainties)
         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_LIMITABLE][bus]
+            b_lim = value(is_limited[gen, ts, s]);
+            if b_lim > 0.5
+                @printf("%10s[%s,%s] LIMITED\n", gen, ts, s);
+            end
             p0 = launcher.uncertainties[gen, s, ts, ech];
             b_enr = value(is_limited[gen, ts, s]);
             p_enr = value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
-            p_lim_enr = value(p_lim[gen, ts]);
+            p_lim_enr = value(p_lim[gen, ts, s]);
             # println(value(is_limited_x_p_lim[gen, ts, s]) - b_enr * p_lim_enr)
             if b_enr > 0.5
                 @printf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
@@ -489,7 +493,7 @@ end
 
 function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler)
     open(joinpath(launcher.dirpath, "limitation.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_lim", "p_lim", "p0"));
+        write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_lim", "p_lim", "p0", "prev0"));
         for x in v_lim.p_enr
             key = x[1];
             gen = key[1];
@@ -500,9 +504,10 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             if value(v_lim.is_limited[key]) > 0.5
                 is_lim = true;
             end
-            p_sol = value(v_lim.p_lim[gen, ts]);
+            p_sol = value(v_lim.p_lim[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%f;%f\n", gen, ts,s, is_lim, p_sol, p0));
+            prev0 = launcher.previsions[gen, ts, ech];
+            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", gen, ts,s, is_lim, p_sol, p0, prev0));
         end
     end
     open(joinpath(launcher.dirpath, "imposition.csv"), "w") do file

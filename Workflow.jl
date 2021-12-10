@@ -54,8 +54,7 @@ module Workflow
     end
 
     @with_kw mutable struct LimitableModeler
-        p_lim = Dict{Tuple{String,DateTime},VariableRef}();
-        
+        p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
         is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
         is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
