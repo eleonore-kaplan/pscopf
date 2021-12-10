@@ -115,7 +115,7 @@ module Workflow
                 # don't read commentted line 
                 if ln[1] != '#'
                     buffer = AmplTxt.split_with_space(ln);
-                    result[buffer[1]] = (parse.(Float64, buffer[3:6]));
+                    result[buffer[1]] = (parse.(Float64, buffer[3:7]));
                 end
             end
         end
