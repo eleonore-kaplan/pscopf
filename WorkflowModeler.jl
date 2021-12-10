@@ -29,6 +29,8 @@ catch e_xpress
 end
 println("optimizer: ", OPTIMIZER)
 
+using Dates
+
 function get_bus(launcher::Launcher, names::Set{String})
     result = Set{String}();
     for name in names
@@ -130,75 +132,94 @@ end
 
 function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
     p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
-    p_is_imp = Dict{Tuple{String,DateTime},VariableRef}();
-    p_is_imp_and_on = Dict{Tuple{String,DateTime},VariableRef}();
-    p_imp = Dict{Tuple{String,DateTime},VariableRef}();
-    p_start = Dict{Tuple{String,DateTime},VariableRef}();
-    p_on = Dict{Tuple{String,DateTime},VariableRef}();
+    p_is_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_is_imp_and_on = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_start = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_on = Dict{Tuple{String,DateTime,String},VariableRef}();
     c_imp_pos  = Dict{Tuple{String,DateTime,String},VariableRef}();
     c_imp_neg   = Dict{Tuple{String,DateTime,String},VariableRef}();
+
     if ! launcher.NO_IMPOSABLE
         for kvp in units_by_kind[K_IMPOSABLE]
             gen = kvp[1];
+            pMin = launcher.units[gen][1];
+            pMax = launcher.units[gen][2];
+            dmo_l = launcher.units[gen][5];
             for ts in TS
-                pMin = launcher.units[gen][1];
-                pMax = launcher.units[gen][2];            
-
-                name =  @sprintf("p_imp[%s,%s]", gen, ts);
-                p_imp[gen, ts] = @variable(model, base_name = name);
-                
-                name =  @sprintf("p_is_imp[%s,%s]", gen, ts);
-                p_is_imp[gen, ts] = @variable(model, base_name = name, binary = true);
-
-                name =  @sprintf("p_start[%s,%s]", gen, ts);
-                p_start[gen, ts] = @variable(model, base_name = name, binary = true);
-                
-                name =  @sprintf("p_on[%s,%s]", gen, ts);
-                p_on[gen, ts] = @variable(model, base_name = name, binary = true);
-
-                name =  @sprintf("p_is_imp_and_on[%s,%s]", gen, ts);
-                p_is_imp_and_on[gen, ts] = @variable(model, base_name = name, binary = true);
-
-                # if in(gen, ["park_city", "alta", "sundance"])
-                #     println("WARNING");
-                #     @constraint(model,  p_on[gen, ts]==0);
-                #     @constraint(model,  p_is_imp[gen, ts]==0);
-                # end
                 for s in S
+                    name =  @sprintf("p_imp[%s,%s,%s]", gen, ts, s);
+                    p_imp[gen, ts, s] = @variable(model, base_name = name);
+
+                    name =  @sprintf("p_is_imp[%s,%s,%s]", gen, ts, s);
+                    p_is_imp[gen, ts, s] = @variable(model, base_name = name, binary = true);
+
+                    name =  @sprintf("p_start[%s,%s,%s]", gen, ts, s);
+                    p_start[gen, ts, s] = @variable(model, base_name = name, binary = true);
+
+                    name =  @sprintf("p_on[%s,%s,%s]", gen, ts, s);
+                    p_on[gen, ts, s] = @variable(model, base_name = name, binary = true);
+
+                    name =  @sprintf("p_is_imp_and_on[%s,%s,%s]", gen, ts, s);
+                    p_is_imp_and_on[gen, ts, s] = @variable(model, base_name = name, binary = true);
+
+                    # if in(gen, ["park_city", "alta", "sundance"])
+                    #     println("WARNING");
+                    #     @constraint(model,  p_on[gen, ts]==0);
+                    #     @constraint(model,  p_is_imp[gen, ts]==0);
+                    # end
+
                     p0 = launcher.uncertainties[gen, s, ts, ech];
                     name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
                     p_imposable[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
-                    
+
                     name =  @sprintf("c_imp_pos[%s,%s,%s]", gen, ts, s);
                     c_imp_pos[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
-                    
+
                     name =  @sprintf("c_imp_neg[%s,%s,%s]", gen, ts, s);
                     c_imp_neg[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
 
                     @constraint(model, p_imposable[gen, ts, s] == p0 + c_imp_pos[gen, ts, s] - c_imp_neg[gen, ts, s]);
 
-                    @constraint(model, p_imposable[gen, ts, s] == (1 - p_is_imp[gen, ts]) * p0 + p_imp[gen, ts]);
-                    @constraint(model, p_imp[gen, ts] <= pMax * p_is_imp_and_on[gen, ts]);
-                    @constraint(model, p_imp[gen, ts] >= pMin * p_is_imp_and_on[gen, ts]);
+                    @constraint(model, p_imposable[gen, ts, s] == (1 - p_is_imp[gen, ts, s]) * p0 + p_imp[gen, ts, s]);
+                    @constraint(model, p_imp[gen, ts, s] <= pMax * p_is_imp_and_on[gen, ts, s]);
+                    @constraint(model, p_imp[gen, ts, s] >= pMin * p_is_imp_and_on[gen, ts, s]);
 
-                    @constraint(model, p_is_imp_and_on[gen, ts] <= p_is_imp[gen, ts]);
-                    @constraint(model, p_is_imp_and_on[gen, ts] <= p_on[gen, ts]);
-                    @constraint(model, 1 + p_is_imp_and_on[gen, ts] >= p_on[gen, ts] + p_is_imp[gen, ts]);
+                    @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_is_imp[gen, ts, s]);
+                    @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
+                    @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
+
+                    if (ts - Dates.Second(dmo_l)) < ech #is_imposable_decided()
+                    # it is too late to change the production level
+                        #FIXME : Discuss uncertainties : cause if the uncertainties are different for this scenario it will be considered as imposed
+                        @printf("%s: unit %s is already decided for timestep %s.\n", ech, gen, ts)
+                        prev0 = launcher.previsions[gen, ts, ech];
+                        @constraint(model, p_imposable[gen, ts, s] == prev0);
+                    elseif (ts - Dates.Second(dmo_l)) == ech #is_imposable_to_decide()
+                    # must decide now on production level
+                        @printf("%s: unit %s must be fixed for timestep %s.\n", ech, gen, ts)
+                        for ((_,_,s_other_l), _) in filter(x ->  ( (x[1][1]==gen) && (x[1][2]==ts) ), p_imposable)
+                            #iterate on other scenarios for which we already defined a variable : for s' in S st s' < s
+                            @constraint(model, p_imposable[gen, ts, s] == p_imposable[gen, ts, s_other_l]);
+                        end
+                    else
+                        @printf("%s: still early to fix unit %s for timestep %s.\n", ech, gen, ts)
+                    end
                 end
             end
-            i = 0;
-            for ts in TS                
-                i += 1;
-                if i > 1
-                    ts_1 = TS[i - 1];
-                    @constraint(model, p_start[gen, ts] <= p_on[gen, ts]);
-                    @constraint(model, p_start[gen, ts] <= 1 - p_on[gen, ts_1]);
-                    @constraint(model, p_start[gen, ts] >= p_on[gen, ts] - p_on[gen, ts_1]);
-                else                    
-                    prev0 = launcher.previsions[gen, ts, ech];
-                    println(@sprintf("%s %s is at %f\n", gen, ts, prev0));
-                    if abs(prev0) < 1
-                        @constraint(model, p_start[gen, ts] == p_on[gen, ts]);
+            for s in S
+                for (i,ts) in enumerate(TS)
+                    if i > 1
+                        ts_1 = TS[i - 1];
+                        @constraint(model, p_start[gen, ts, s] <= p_on[gen, ts, s]);
+                        @constraint(model, p_start[gen, ts, s] <= 1 - p_on[gen, ts_1, s]);
+                        @constraint(model, p_start[gen, ts, s] >= p_on[gen, ts, s] - p_on[gen, ts_1, s]);
+                    else
+                        prev0 = launcher.previsions[gen, ts, ech];
+                        println(@sprintf("%s %s is at %f\n", gen, ts, prev0));
+                        if abs(prev0) < 1
+                            @constraint(model, p_start[gen, ts, s] == p_on[gen, ts, s]);
+                        end
                     end
                 end
             end
@@ -268,7 +289,7 @@ function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableMod
     for x in v_imp.p_start
         gen = x[1][1];
         cStart = launcher.units[gen][3];
-        eod_obj += cStart * x[2];
+        eod_obj += w_lim * cStart * x[2];
     end
     for x in v_imp.c_imp_pos
         gen = x[1][1];
@@ -431,22 +452,19 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     end
     if ! launcher.NO_IMPOSABLE
         # println(launcher.uncertainties)
-        for bus in BUSES, ts in TS, gen in units_by_bus[K_IMPOSABLE][bus]
-            b_start = value(p_start[gen, ts]);
-            b_imp = value(p_is_imp[gen, ts]);
+        for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_IMPOSABLE][bus]
+            b_start = value(p_start[gen, ts, s]);
+            b_imp = value(p_is_imp[gen, ts, s]);
             if b_imp > 0.5
-                @printf("%10s[%s] IMPOSED\n", gen, ts);
+                @printf("%10s[%s, %s] IMPOSED\n", gen, ts, s);
             end
             if b_start > 0.5
-                @printf("%10s[%s] STARTED\n", gen, ts);
+                @printf("%10s[%s, %s] STARTED\n", gen, ts, s);
             end
-            b_on = value(p_on[gen, ts]);
-            for s in S
-                if b_on > 0.5
-                    @printf("%10s[%s] %10.3f\n", gen, ts, value(v_imp.p_imposable[gen, ts, s]));
-                end
+            b_on = value(p_on[gen, ts, s]);
+            if b_on > 0.5
+                @printf("%10s[%s, %s] %10.3f\n", gen, ts, s, value(v_imp.p_imposable[gen, ts, s]));
             end
-
         end
     end
     println("v_res.p_res_pos");
@@ -488,18 +506,19 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
         end
     end
     open(joinpath(launcher.dirpath, "imposition.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_imp", "p_imp", "p0"));
+        write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_imp", "p_imp", "p0", "prev0"));
         for x in v_imp.p_imposable
             key = x[1];
             gen, ts, s = key;
 
             is_imp = false;
-            if value(v_imp.p_is_imp[gen, ts]) > 0.5
+            if value(v_imp.p_is_imp[gen, ts, s]) > 0.5
                 is_imp = true;
             end
             p_sol = value(v_imp.p_imposable[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%f;%f\n", gen, ts,s, is_imp, p_sol, p0));
+            prev0 = launcher.previsions[gen, ts, ech];
+            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", gen, ts, s, is_imp, p_sol, p0, prev0));
         end
     end
 end
