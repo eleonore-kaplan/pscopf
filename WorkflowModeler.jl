@@ -30,6 +30,7 @@ end
 println("optimizer: ", OPTIMIZER)
 
 using Dates
+import Statistics
 
 function get_bus(launcher::Launcher, names::Set{String})
     result = Set{String}();
@@ -39,6 +40,33 @@ function get_bus(launcher::Launcher, names::Set{String})
         end
     end
     return result;
+end
+
+function get_sorted_ech(launcher::Launcher)
+    ech_set = Set{DateTime}();
+    for uncertainty in launcher.uncertainties
+        ech = uncertainty[1][U_ECH];
+        push!(ech_set, ech);
+    end
+    return sort(collect(ech_set));
+end
+
+function get_ts_s_name(launcher::Launcher, ech_p::DateTime)
+    ts_set = Set{DateTime}();
+    s_set =  Set{String}();
+    name_set = Set{String}();
+    for uncertainty in launcher.uncertainties
+        ech_l = uncertainty[1][U_ECH];
+        if ech_l == ech_p
+            ts = uncertainty[1][U_H];
+            s = uncertainty[1][U_SCENARIO];
+            name = uncertainty[1][U_NAME];
+            push!(ts_set, ts);
+            push!(s_set, s);
+            push!(name_set, name);
+        end
+    end
+    return sort(collect(ts_set)), sort(collect(s_set)), name_set;
 end
 
 function get_ech_ts_s_name(launcher::Launcher)
@@ -130,6 +158,34 @@ function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind,
     # return p_lim, is_limited, is_limited_x_p_lim, c_lim;
 end
 
+"""
+    is_already_fixed(ech_p, ts_p, dmo_p)
+
+returns true if the production level for time step ts_p for a unit having a delay equal to dmo_p can no longer be changed by the time ech_p
+
+# Arguments
+- `ech_p::DateTime` : is the time we decide (the optimisation launch time)
+- `ts_p::DateTime` : is the production time
+- `dmo_p` : is the necessary time (in seconds) for the unit to start producing. Should be losslessly convertible to Int64.
+"""
+function is_already_fixed(ech_p::DateTime, ts_p::DateTime, dmo_p)
+    return (ts_p - Dates.Second(dmo_p)) < ech_p
+end
+
+"""
+    is_to_decide(ech_p, ts_p, dmo_p)
+
+returns true if the production level for time step ts_p for a unit having a delay equal to dmo_p must definately be decided at time ech_p
+
+# Arguments
+- `ech_p::DateTime` : is the time we decide (the optimisation launch time)
+- `ts_p::DateTime` : is the production time
+- `dmo_p` : is the necessary time (in seconds) for the unit to start producing. Should be losslessly convertible to Int64.
+"""
+function is_to_decide(ech_p::DateTime, ts_p::DateTime, dmo_p)
+    return (ts_p - Dates.Second(dmo_p)) == ech_p
+end
+
 function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
     p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
     p_is_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -189,13 +245,13 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
                     @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
 
-                    if (ts - Dates.Second(dmo_l)) < ech #is_imposable_decided()
+                    if is_already_fixed(ech, ts, dmo_l)
                     # it is too late to change the production level
                         #FIXME : Discuss uncertainties : cause if the uncertainties are different for this scenario it will be considered as imposed
                         @printf("%s: unit %s is already decided for timestep %s.\n", ech, gen, ts)
                         prev0 = launcher.previsions[gen, ts, ech];
                         @constraint(model, p_imposable[gen, ts, s] == prev0);
-                    elseif (ts - Dates.Second(dmo_l)) == ech #is_imposable_to_decide()
+                    elseif is_to_decide(ech, ts, dmo_l)
                     # must decide now on production level
                         @printf("%s: unit %s must be fixed for timestep %s.\n", ech, gen, ts)
                         for ((_,_,s_other_l), _) in filter(x ->  ( (x[1][1]==gen) && (x[1][2]==ts) ), p_imposable)
@@ -350,11 +406,23 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_l
     return v_flow;
 end
 
+
+"""
+    sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
+
+Launch a single optimization iteration
+
+# Arguments
+- `launcher::Launcher` : the optimization launcher containing the necessary data
+- `ech_p::DateTime` : the optimization launch time
+- `p_res_min` : The minimum allowed reserve level
+- `p_res_max` : The maximum allowed reserve level
+"""
 function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     ##############################################################
     ### optimisation modelling sets
     ##############################################################
-    ECH, TS, S, NAMES = Workflow.get_ech_ts_s_name(launcher);
+    TS, S, NAMES = Workflow.get_ts_s_name(launcher, ech);
     BUSES =  Workflow.get_bus(launcher, NAMES);
     units_by_kind = Workflow.get_units_by_kind(launcher);
     units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
@@ -363,13 +431,12 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     println("BUSES : ", BUSES);
     println("units_by_bus : ", units_by_bus);
 
-
+    println("ech: ", ech);
     println("Number of scenario ", length(S));
     println("Number of time step is ", length(TS));
-    println(ECH);
     K_IMPOSABLE = Workflow.K_IMPOSABLE;
     K_LIMITABLE = Workflow.K_LIMITABLE;
-    
+
     netloads = Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech] for bus in BUSES, ts in TS, s in S]);
     eod_slack = Dict([(ts,s) => 0.0 for s in S, ts in TS]);
     factor = Dict([name => 1 for name in NAMES]);
@@ -383,7 +450,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     ##############################################################
     # to be in a function ...
     ##############################################################
-    
+
     model = Model();
     v_lim = add_limitable!(launcher, ech, model, units_by_kind, TS, S);
     p_lim = v_lim.p_lim;
@@ -411,7 +478,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
     # println(model)
     set_optimizer(model, OPTIMIZER);
-    write_to_file(model, launcher.dirpath*"/model.lp")
+    write_to_file(model, @sprintf("%s/model_%s.lp", launcher.dirpath, ech))
     optimize!(model);
 
     println("end of optim.")
@@ -478,9 +545,49 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     println("v_res.v_flow");
     print_nz(v_flow);
     write_output_csv(launcher, ech, TS, S, v_lim, v_imp);
-    write_extra_output_csv(launcher, v_res, v_flow);
+    write_extra_output_csv(launcher, ech, v_res, v_flow);
 
     return model, v_lim, v_imp, v_res, v_flow;
+end
+
+"""
+update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler)
+
+    Launch the optimization for multiple launch dates
+
+    # Arguments
+    - `launcher_p::Launcher` : the optimization launcher containing the necessary data. Attribute previsions will be updated.
+    - `next_ech_p::DateTime` : The next date at which optimization will be relaunched
+    - `ech_p::DateTime` : The last date we launch optimization at. (The values we are using for the update)
+    - `v_lim_p::LimitableModeler` : container for the decision values for limitable units at time ech_p
+    - `v_imp_p::ImposableModeler` : container for the decision values for imposable units at time ech_p
+"""
+function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler)
+    # keep previsionnal planning for dates != next_ech_p
+    filter!( x -> x[1][3] !=  next_ech_p, launcher_p.previsions)
+
+    #NOTE: This supposes TS(next_ech_p) included in TS(ech_p)
+    TS, S, _ = get_ts_s_name(launcher_p, ech_p)
+    units_by_kind_l = get_units_by_kind(launcher_p)
+
+    for ts_l in TS
+        for (gen_limitable_l,_) in units_by_kind_l[K_LIMITABLE]
+            values_l = []
+            for s_l in S
+                push!(values_l, value(v_lim_p.p_enr[gen_limitable_l, ts_l, s_l]))
+            end
+            launcher_p.previsions[gen_limitable_l,ts_l,next_ech_p] = Statistics.mean(values_l)
+        end
+        for (gen_imposable_l,_) in units_by_kind_l[K_IMPOSABLE]
+            values_l = []
+            for s_l in S
+                push!(values_l, value(v_imp_p.p_imposable[gen_imposable_l, ts_l, s_l]))
+            end
+            launcher_p.previsions[gen_imposable_l,ts_l,next_ech_p] = Statistics.mean(values_l)
+        end
+    end
+
+    return launcher_p.previsions
 end
 
 function print_nz(variables)    
@@ -491,9 +598,21 @@ function print_nz(variables)
     end
 end    
 
+function clear_output_files(launcher)
+    for output_file_l in CLEARED_OUTPUT
+        output_path_l = joinpath(launcher.dirpath, output_file_l)
+        if isfile(output_path_l)
+            rm(output_path_l)
+            println("removed ", output_path_l)
+        end
+    end
+end
+
 function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler)
-    open(joinpath(launcher.dirpath, "limitation.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_lim", "p_lim", "p0", "prev0"));
+    open(joinpath(launcher.dirpath, LIMITATION_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;\n", "ech", "gen", "TS","S", "is_lim", "p_lim", "p0", "prev0"));
+        end
         for x in v_lim.p_enr
             key = x[1];
             gen = key[1];
@@ -507,11 +626,13 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             p_sol = value(v_lim.p_lim[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", gen, ts,s, is_lim, p_sol, p0, prev0));
+            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f\n", ech, gen, ts, s, is_lim, p_sol, p0, prev0));
         end
     end
-    open(joinpath(launcher.dirpath, "imposition.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;\n", "gen", "TS","S", "is_imp", "p_imp", "p0", "prev0"));
+    open(joinpath(launcher.dirpath, IMPOSITION_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;\n", "ech", "gen", "TS","S", "is_imp", "p_imp", "p0", "prev0"));
+        end
         for x in v_imp.p_imposable
             key = x[1];
             gen, ts, s = key;
@@ -523,14 +644,17 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             p_sol = value(v_imp.p_imposable[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", gen, ts, s, is_imp, p_sol, p0, prev0));
+            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f\n", ech, gen, ts, s, is_imp, p_sol, p0, prev0));
         end
     end
 end
 
-function write_extra_output_csv(launcher::Workflow.Launcher, v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
-    open(joinpath(launcher.dirpath, "reserve.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s\n", "TS","S", "res"));
+function write_extra_output_csv(launcher::Workflow.Launcher, ech::DateTime, v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
+    open(joinpath(launcher.dirpath, RESERVE_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s\n", "ech", "TS", "S", "res"));
+        end
+
         dict_reserve_l = Dict{Tuple{DateTime,String}, Float64}()
         for ((ts_l,s_l), var_l) in v_res.p_res_pos
             if value(var_l) > 1e-6
@@ -545,14 +669,34 @@ function write_extra_output_csv(launcher::Workflow.Launcher, v_res::Workflow.Res
         end
 
         for ((ts_l,s_l), value_l) in dict_reserve_l
-            write(file, @sprintf("%s;%s;%f\n", ts_l,s_l, value_l));
+            write(file, @sprintf("%s;%s;%s;%f\n", ech, ts_l, s_l, value_l));
         end
     end
 
-    open(joinpath(launcher.dirpath, "flows.csv"), "w") do file
-        write(file, @sprintf("%s;%s;%s;%s\n", "branch", "TS","S", "flow"));
+    open(joinpath(launcher.dirpath, FLOWS_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "flow"));
+        end
         for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
-            write(file, @sprintf("%s;%s;%s;%f\n", branch_l, ts_l,s_l, value(flow_var_l)));
+            write(file, @sprintf("%s;%s;%s;%s;%f\n", ech, branch_l, ts_l, s_l, value(flow_var_l)));
+        end
+    end
+end
+
+function write_previsions(launcher_p::Workflow.Launcher)
+    open(joinpath(launcher_p.dirpath, SCHEDULE_CSV), "w") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s\n", "unit", "TS", "h_15m", "value", "decision_type"));
+        end
+        for ((gen_l, ts_l, ech_l), value_l) in launcher_p.previsions
+            dmo_l = launcher_p.units[gen_l][5]
+            decision_type_l = "flexible"
+            if is_already_fixed(ech_l, ts_l, dmo_l)
+                decision_type_l = "already_fixed"
+            elseif is_to_decide(ech_l, ts_l, dmo_l)
+                decision_type_l = "to_decide"
+            end
+            write(file, @sprintf("%s;%s;%s;%f;%s\n", gen_l, ts_l, ech_l, value_l, decision_type_l));
         end
     end
 end

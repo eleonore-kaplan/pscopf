@@ -20,7 +20,14 @@ module Workflow
     U_ECH=4;
     K_LIMITABLE="Limitable";
     K_IMPOSABLE="Imposable";
-    
+
+    IMPOSITION_CSV = "imposition.csv"
+    LIMITATION_CSV = "limitation.csv"
+    FLOWS_CSV = "flows.csv"
+    RESERVE_CSV = "reserve.csv"
+    SCHEDULE_CSV = "previsions.csv"
+    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV]
+
     @with_kw    mutable struct Launcher
         NO_IMPOSABLE::Bool;
         NO_LIMITABLE::Bool
@@ -175,7 +182,7 @@ module Workflow
     function add_uncertainties(launcher::Launcher, name::String, bus_name::String, ech::DateTime, ts::DateTime, value)
         launcher.uncertainties[name, bus_name, ech, ts] = value;
     end
-    
+
 
     function get_bus(launcher::Launcher, names::Set{String})
         result = Set{String}();
@@ -230,6 +237,34 @@ module Workflow
         end 
         return result;
     end
+
     include("WorkflowModeler.jl");
     include("WorkflowWorstCase.jl");
+
+    """
+        run(launcher::Launcher, p_res_min, p_res_max)
+
+    Launch the optimization for multiple launch dates
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    """
+    function run(launcher_p::Launcher, p_res_min, p_res_max)
+        ECH = Workflow.get_sorted_ech(launcher_p);
+        dict_results_l = Dict{DateTime, Any}()
+
+        clear_output_files(launcher_p);
+        for (index_l, ech_l)  in enumerate(ECH)
+            result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
+            dict_results_l[ech_l] = result_l
+            if index_l < length(ECH)
+                @printf("Update schedule for %s :", ECH[index_l+1])
+                println(update_schedule!(launcher_p, ECH[index_l+1], ech_l, result_l[2], result_l[3]))
+            end
+        end
+        write_previsions(launcher_p)
+        return dict_results_l
+    end
 end
