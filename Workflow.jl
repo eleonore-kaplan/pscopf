@@ -26,7 +26,9 @@ module Workflow
     FLOWS_CSV = "flows.csv"
     RESERVE_CSV = "reserve.csv"
     SCHEDULE_CSV = "previsions.csv"
-    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV]
+    COSTS_CSV = "costs.csv"
+    SEVERED_POWERS_CSV = "severed_power.csv"
+    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV]
 
     @with_kw    mutable struct Launcher
         NO_IMPOSABLE::Bool;

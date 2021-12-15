@@ -561,6 +561,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     print_nz(v_flow);
     write_output_csv(launcher, ech, TS, S, v_lim, v_imp);
     write_extra_output_csv(launcher, ech, v_res, v_flow);
+    write_kpi_csv(launcher, ech, obj_l, v_lim, v_imp, v_res)
 
     return model, v_lim, v_imp, v_res, v_flow;
 end
@@ -605,13 +606,72 @@ function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::Dat
     return launcher_p.previsions
 end
 
-function print_nz(variables)    
+"""
+    sum_dict_along_key_element(dict_p::Dict{<:Tuple, VariableRef}, along_k_p::Int)
+
+sums a dictionary along a given key element position
+i.e. given the dictionary input[(1,...,k,...,n)]
+return the dictionary output[1,...,k-1,k+1,...,n] = sum(input[(1,...,k,...,n)] for k)
+
+`dict_p` : dictionary to treat
+`along_k_p` : position of the element of the key to sum along
+# Note
+    counterintuitive if the key has length 2, the resulting dictionary will be indexed by a tuple of length 1.
+"""
+function sum_dict_along_key_element(dict_p::Dict{<:Tuple, VariableRef}, along_k_p::Int)
+    result_dict_l = Dict{Tuple,Float64}();
+
+    for (key_l, variable_l) in dict_p
+        new_key_l = key_l[1:end .!=along_k_p] #copy the key while removing the element at position along_k_p
+        get!(result_dict_l, new_key_l, 0);
+        result_dict_l[new_key_l] += value(variable_l)
+    end
+
+    return result_dict_l
+end
+
+function get_lim_severed_power(v_lim_p::Workflow.LimitableModeler)
+    #sum along the gen to produce a dict by (ts,s)
+    gen_position_in_key_l = 1
+    severed_power_by_ts_s_l = sum_dict_along_key_element(v_lim_p.c_lim, gen_position_in_key_l)
+    return severed_power_by_ts_s_l
+end
+
+function get_imp_neg_power(v_imp_p::Workflow.ImposableModeler)
+    #sum along the gen to produce a dict by (ts,s)
+    gen_position_in_key_l = 1
+    imp_neg_power_by_ts_s_l = sum_dict_along_key_element(v_imp_p.c_imp_neg, gen_position_in_key_l)
+    return imp_neg_power_by_ts_s_l
+end
+
+function get_imp_pos_power(v_imp_p::Workflow.ImposableModeler)
+    #sum along the gen to produce a dict by (ts,s)
+    gen_position_in_key_l = 1
+    imp_pos_power_by_ts_s_l = sum_dict_along_key_element(v_imp_p.c_imp_pos, gen_position_in_key_l)
+    return imp_pos_power_by_ts_s_l
+end
+
+function get_vals_dict_from_vars_dict(dict_p::Dict{<:Any,VariableRef})
+    values_dict_l = Dict{keytype(dict_p), Float64}()
+
+    for (key_l, variable_l) in dict_p
+        values_dict_l[key_l] = value(variable_l)
+    end
+
+    return values_dict_l
+end
+
+#=========
+   I/O
+=========#
+
+function print_nz(variables)
     for x in variables
         if abs(value(x[2])) > 1e-6
             println(x, " = ", value(x[2]));
         end
     end
-end    
+end
 
 function clear_output_files(launcher)
     for output_file_l in CLEARED_OUTPUT
@@ -664,7 +724,8 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
     end
 end
 
-function write_extra_output_csv(launcher::Workflow.Launcher, ech::DateTime, v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
+function write_extra_output_csv(launcher::Workflow.Launcher, ech::DateTime,
+                                v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
     open(joinpath(launcher.dirpath, RESERVE_CSV), "a") do file
         if filesize(file) == 0
             write(file, @sprintf("%s;%s;%s;%s\n", "ech", "TS", "S", "res"));
@@ -695,6 +756,59 @@ function write_extra_output_csv(launcher::Workflow.Launcher, ech::DateTime, v_re
         for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
             write(file, @sprintf("%s;%s;%s;%s;%f\n", ech, branch_l, ts_l, s_l, value(flow_var_l)));
         end
+    end
+end
+
+
+function write_kpi_csv(launcher_p::Workflow.Launcher, ech_p::DateTime,
+                    obj_p::Workflow.ObjectiveModeler,
+                    v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler,
+                    v_res::Workflow.ReserveModeler)
+
+    open(joinpath(launcher_p.dirpath, SEVERED_POWERS_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s\n",
+                                "ech", "s", "ts",
+                                "lim_severed_power","imp_severed_power","imp_increased_power","pos_res","neg_res"));
+        end
+
+        lim_severed_power_l = get_lim_severed_power(v_lim_p)
+        imp_neg_power_l = get_imp_neg_power(v_imp_p)
+        imp_pos_power_l = get_imp_pos_power(v_imp_p)
+        pos_reserve_l = get_vals_dict_from_vars_dict(v_res.p_res_pos)
+        neg_reserve_l = get_vals_dict_from_vars_dict(v_res.p_res_neg)
+        for (ts_l,s_l) in union(keys(lim_severed_power_l), keys(imp_neg_power_l), keys(imp_pos_power_l))
+            write(file, @sprintf("%s;%s;%s;%f;%f;%f;%f;%f\n",
+                                ech_p,
+                                s_l,
+                                ts_l,
+                                lim_severed_power_l[ts_l, s_l],
+                                imp_neg_power_l[ts_l, s_l],
+                                imp_pos_power_l[ts_l, s_l],
+                                pos_reserve_l[ts_l, s_l],
+                                neg_reserve_l[ts_l, s_l]
+                        )
+            )
+        end
+    end
+
+    open(joinpath(launcher_p.dirpath, COSTS_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s\n",
+                                "ech", "penalties_cost", "lim_cost", "imp_prop_cost", "imp_starting_cost", "total_cost"
+                        )
+            );
+        end
+
+        write(file, @sprintf("%s;%f;%f;%f;%f;%f\n",
+                                ech_p,
+                                value(obj_p.penalties),
+                                value(obj_p.lim_cost_obj),
+                                value(obj_p.imp_prop_cost_obj),
+                                value(obj_p.imp_starting_cost_obj),
+                                value(obj_p.full_obj)
+                    )
+        )
     end
 end
 
