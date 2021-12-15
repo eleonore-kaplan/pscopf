@@ -73,6 +73,14 @@ module Workflow
         p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     end
 
+    @with_kw mutable struct ObjectiveModeler
+        penalties = AffExpr(0)
+        lim_cost_obj = AffExpr(0)
+        imp_prop_cost_obj = AffExpr(0)
+        imp_starting_cost_obj = AffExpr(0)
+        full_obj = AffExpr(0)
+    end
+
     function read_ptdf(dir_path::String)
         result = Dict{Tuple{String,String}, Float64}();
         open(joinpath(dir_path, "pscopf_ptdf.txt"), "r") do file

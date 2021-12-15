@@ -331,41 +331,56 @@ function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_ma
 end
 
 function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler)
-    eod_obj = AffExpr(0);
-    w_lim = 1 / length(S);
+    eod_obj_l = AffExpr(0);
+
+    penalties_obj_l = AffExpr(0);
+    lim_cost_obj_l = AffExpr(0);
+    imp_prop_cost_obj_l = AffExpr(0);
+    imp_starting_cost_obj_l = AffExpr(0);
+
+    w_scenario_l = 1 / length(S);
+
     for x in v_lim.c_lim
         # implicit looping on #ts, #s and gen
         gen = x[1][1];
         cProp = launcher.units[gen][4];
-        eod_obj += w_lim * cProp * x[2];
+        lim_cost_obj_l += w_scenario_l * cProp * x[2];
     end
     if length(v_lim.is_limited) > 0
-        eod_obj += sum(1e-4 * x[2] for x in v_lim.is_limited);
+        penalties_obj_l += sum(1e-4 * x[2] for x in v_lim.is_limited);
     end
+
     for x in v_imp.p_start
         gen = x[1][1];
         cStart = launcher.units[gen][3];
-        eod_obj += w_lim * cStart * x[2];
+        imp_starting_cost_obj_l += w_scenario_l * cStart * x[2];
     end
     for x in v_imp.c_imp_pos
         gen = x[1][1];
         cProp = launcher.units[gen][4];
-        eod_obj += w_lim * cProp * x[2];
+        imp_prop_cost_obj_l += w_scenario_l * cProp * x[2];
     end
     for x in v_imp.c_imp_neg
         gen = x[1][1];
         cProp = launcher.units[gen][4];
-        eod_obj += w_lim * cProp * x[2];
+        imp_prop_cost_obj_l += w_scenario_l * cProp * x[2];
     end
+
     for x in v_res.p_res_pos
-        eod_obj += (1e-3)*w_lim*x[2];
+        penalties_obj_l += (1e-3)*w_scenario_l*x[2];
     end
     for x in v_res.p_res_neg
-        eod_obj += (1e-3)*w_lim* x[2];
+        penalties_obj_l += (1e-3)*w_scenario_l* x[2];
     end
-    @objective(model, Min, eod_obj);
-end
 
+    eod_obj_l += penalties_obj_l
+    eod_obj_l += lim_cost_obj_l
+    eod_obj_l += imp_prop_cost_obj_l
+    eod_obj_l += imp_starting_cost_obj_l
+    obj_l = @objective(model, Min, eod_obj_l);
+
+    return Workflow.ObjectiveModeler( penalties_obj_l, lim_cost_obj_l, imp_prop_cost_obj_l, imp_starting_cost_obj_l, obj_l)
+end
 
 function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, netloads)
     v_flow = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -474,7 +489,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
     # println(units_by_bus)
     # println(eod_expr)
-    add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
+    obj_l = add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
 
     # println(model)
     set_optimizer(model, OPTIMIZER);
