@@ -2,10 +2,10 @@
 module SCOPF
     using Base: String
     using LinearAlgebra:length
-    using SparseArrays, LinearAlgebra 
+    using SparseArrays, LinearAlgebra
     using ..AmplTxt
     using Printf
-    
+
     mutable struct Bus
         id::Int
         name::String
@@ -57,10 +57,10 @@ module SCOPF
             num  = parse(Int, branch[2]);
             num_or = parse(Int, branch[3]);
             num_ex = parse(Int, branch[4]);
-                       
+
             on_CC0 = haskey(network.CC0, num_or) && haskey(network.CC0, num_ex);
 
-            if on_CC0 && num_or != -1  && num_ex != -1 
+            if on_CC0 && num_or != -1  && num_ex != -1
                 id = get_or_add(num, network.branch_to_i);
                 ior = get_or_add(num_or, network.bus_to_i);
                 iex = get_or_add(num_ex, network.bus_to_i);
@@ -107,19 +107,19 @@ module SCOPF
 
             ior = kvp[2].from;
             iex = kvp[2].to;
-            
+
 
             # ior->iex
             # + dans ior
             # - dans iex
-            
+
             # diagonal part
             # sur ior
-            # +theta_ior 
+            # +theta_ior
             # -theta_iex
             B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
             B_dict[ior, iex] = get(B_dict, (ior, iex), 0) - b;
-            
+
             # sur iex
             # -theta_ior
             # +theta_iex
@@ -129,7 +129,7 @@ module SCOPF
 
             # B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
             # B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) - b;
-            
+
             # B_dict[ior, iex] = get(B_dict, (ior, iex), 0) + b;
             # B_dict[iex, ior] = get(B_dict, (iex, ior), 0) - b;
         end
@@ -174,7 +174,7 @@ module SCOPF
         return binv
     end
 
-    function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)    
+    function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)
         n = length(network.bus_to_i);
         m = length(network.branches);
         println("n ", n)
@@ -186,7 +186,7 @@ module SCOPF
             branchid = kvp[1];
             ior = kvp[2].from;
             iex = kvp[2].to;
-            
+
             for i in 1:n
                 PTDF[branchid, i] += b * binv[ior, i];
                 PTDF[branchid, i] -= b * binv[iex, i];
@@ -235,7 +235,7 @@ module SCOPF
     function write_slack_distribution(file_path::String, network::Network, coeffs_p::Vector{Float64})
         n = length(network.bus_to_i);
         m = length(network.branches);
-        open(file_path, "w") do file     
+        open(file_path, "w") do file
             write(file, @sprintf("#%20s %20s\n", "BUS", "COEFF"))
             for bus_i_l in 1:n
                 bus_name =  @sprintf("\"%s\"", network.buses[bus_i_l].name)
@@ -247,7 +247,7 @@ module SCOPF
     function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Matrix, PTDF_TRIMMER::Float64)
         n = length(network.bus_to_i);
         m = length(network.branches);
-        open(file_path, "w") do file     
+        open(file_path, "w") do file
             ref_name =  @sprintf("\"%s\"", network.buses[ref_bus].name)
             write(file, @sprintf("#%20s %20s\n", "REF_BUS", ref_name))
             for branch_id in 1:m
