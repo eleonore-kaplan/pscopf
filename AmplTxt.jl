@@ -28,7 +28,7 @@ module AmplTxt
     );
     export AmplTxtDataRow;
     export split_with_space;
-    
+
     mutable struct AmplTxtDataRow
         colNameIdx::Dict{String,Int64};
 
@@ -49,7 +49,7 @@ module AmplTxt
         data = Vector{String}[];
         open(file_path) do file
             for ln in eachline(file)
-                # don't read commentted line 
+                # don't read commentted line
                 if ln[1] != '#'
                     push!(data, split_with_space(ln));
                 end
@@ -62,14 +62,14 @@ module AmplTxt
     function readNetworkData(name::String)
         return readNetworkData(name, ".");
     end
-    
+
     function split_with_space(str::String)
         result = String[];
         if length(str) > 0
             start_with_quote = startswith(str, "\"");
             buffer_quote = split(str, keepempty=false, "\"");
             i = 1;
-            while i <= length(buffer_quote) 
+            while i <= length(buffer_quote)
                 if i > 1 || !start_with_quote
                     str2 = buffer_quote[i];
                     buffer_space = split(str2, keepempty=false);
@@ -83,7 +83,7 @@ module AmplTxt
                     i += 1;
                 end
             end
-        end    
+        end
         return result;
     end
     function read()
