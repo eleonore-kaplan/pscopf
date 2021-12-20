@@ -34,6 +34,7 @@ module Workflow
         NO_IMPOSABLE::Bool;
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
+        NO_DMO::Bool;
 
         dirpath::String;
         # uncertainties, name-scenario-h-ech->value
@@ -177,7 +178,13 @@ module Workflow
     end
 
     function Launcher(input_path::String, dir_path::String)
-        return Launcher(false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
+        if !isdir(input_path)
+            error("Input folder does not exist : "*input_path)
+        end
+        if !isdir(dir_path)
+            mkpath(dir_path)
+        end
+        return Launcher(false, false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
     end
 
     function Launcher(dir_path::String)        

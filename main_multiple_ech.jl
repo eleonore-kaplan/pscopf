@@ -20,6 +20,7 @@ launcher = Workflow.Launcher(dir_path);
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
+launcher.NO_DMO = false;
 p_res = 0;
 p_res_min = -p_res;
 p_res_max = p_res;
