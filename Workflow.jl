@@ -252,29 +252,45 @@ module Workflow
     include("WorkflowWorstCase.jl");
 
     """
-        run(launcher::Launcher, p_res_min, p_res_max)
+        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
 
     Launch the optimization for multiple launch dates
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `lst_ech_p` : List of launch dates to consider
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    """
+    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+        dict_results_l = Dict{DateTime, Any}()
+
+        clear_output_files(launcher_p);
+        for (index_l, ech_l)  in enumerate(lst_ech_p)
+            println("-"^45)
+            result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
+            dict_results_l[ech_l] = result_l
+            if index_l < length(lst_ech_p)
+                @printf("Update schedule for %s :", lst_ech_p[index_l+1])
+                println(update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l[2], result_l[3]))
+            end
+        end
+        write_previsions(launcher_p)
+        return dict_results_l
+    end
+
+    """
+        run(launcher::Launcher, p_res_min::Number, p_res_max::Number)
+
+    Launch the optimization for all launch dates listed in pscopf_uncertainties.txt
 
     # Arguments
     - `launcher::Launcher` : the optimization launcher containing the necessary data
     - `p_res_min` : The minimum allowed reserve level
     - `p_res_max` : The maximum allowed reserve level
     """
-    function run(launcher_p::Launcher, p_res_min, p_res_max)
+    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number)
         ECH = Workflow.get_sorted_ech(launcher_p);
-        dict_results_l = Dict{DateTime, Any}()
-
-        clear_output_files(launcher_p);
-        for (index_l, ech_l)  in enumerate(ECH)
-            result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
-            dict_results_l[ech_l] = result_l
-            if index_l < length(ECH)
-                @printf("Update schedule for %s :", ECH[index_l+1])
-                println(update_schedule!(launcher_p, ECH[index_l+1], ech_l, result_l[2], result_l[3]))
-            end
-        end
-        write_previsions(launcher_p)
-        return dict_results_l
+        run(launcher_p, ECH, p_res_min, p_res_max)
     end
 end
