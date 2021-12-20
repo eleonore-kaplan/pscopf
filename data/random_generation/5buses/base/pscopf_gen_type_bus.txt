@@ -1,0 +1,10 @@
+alta Imposable 1
+park_city Imposable 1
+wind_1 Limitable 1
+solitude Imposable 3
+wind_3 Limitable 3
+wind_2 Limitable 2
+sundance Imposable 4
+wind_4 Limitable 4
+brighton Imposable 5
+wind_5 Limitable 5
