@@ -158,9 +158,9 @@ module Workflow
         end
         return result;
     end    
-    function read_previsions(dir_path::String)
+    function read_previsions(dir_path::String, filename_p="pscopf_previsions.txt")
         result = Dict{Tuple{String,DateTime,DateTime},Float64}();
-        open(joinpath(dir_path, "pscopf_previsions.txt"), "r") do file
+        open(joinpath(dir_path, filename_p), "r") do file
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
