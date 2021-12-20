@@ -25,6 +25,7 @@ println("ech : ", ech)
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
+launcher.NO_DMO = true; #If true (non-default), will act as if ( TS - DMO(unit) = ECH ) for all imposable units
 p_res = 250;
 p_res_min = -p_res;
 p_res_max = p_res;

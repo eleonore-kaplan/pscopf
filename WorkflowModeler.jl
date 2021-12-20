@@ -203,7 +203,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
             pMax = launcher.units[gen][2];
             dmo_l = launcher.units[gen][5];
             for ts in TS
-                for s in S
+                for (s_index_l, s) in enumerate(S)
                     name =  @sprintf("p_imp[%s,%s,%s]", gen, ts, s);
                     p_imp[gen, ts, s] = @variable(model, base_name = name);
 
@@ -245,17 +245,17 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
                     @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
 
-                    if is_already_fixed(ech, ts, dmo_l)
+                    if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
                     # it is too late to change the production level
-                        #FIXME : Discuss uncertainties : cause if the uncertainties are different for this scenario it will be considered as imposed
+                        #FIXME : Discuss uncertainties : The value from previsions will be imposed
                         @printf("%s: unit %s is already decided for timestep %s.\n", ech, gen, ts)
                         prev0 = launcher.previsions[gen, ts, ech];
                         @constraint(model, p_imposable[gen, ts, s] == prev0);
-                    elseif is_to_decide(ech, ts, dmo_l)
+                    elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
                     # must decide now on production level
                         @printf("%s: unit %s must be fixed for timestep %s.\n", ech, gen, ts)
-                        for ((_,_,s_other_l), _) in filter(x ->  ( (x[1][1]==gen) && (x[1][2]==ts) ), p_imposable)
-                            #iterate on other scenarios for which we already defined a variable : for s' in S st s' < s
+                        if s_index_l > 1
+                            s_other_l = S[s_index_l-1]
                             @constraint(model, p_imposable[gen, ts, s] == p_imposable[gen, ts, s_other_l]);
                         end
                     else
