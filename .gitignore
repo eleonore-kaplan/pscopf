@@ -1,1 +1,14 @@
 /RC_PPE2035_S0_deboucle
+
+#temp and cache
+.ipynb_checkpoints/
+
+
+#ignored data directories
+data/*
+!data/dmo
+!data/2ech
+!data/data_slack/*/base
+
+#build directories
+/docs/build

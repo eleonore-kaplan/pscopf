@@ -20,15 +20,23 @@ module Workflow
     U_ECH=4;
     K_LIMITABLE="Limitable";
     K_IMPOSABLE="Imposable";
-    
+
+    IMPOSITION_CSV = "imposition.csv"
+    LIMITATION_CSV = "limitation.csv"
+    FLOWS_CSV = "flows.csv"
+    RESERVE_CSV = "reserve.csv"
+    SCHEDULE_CSV = "previsions.csv"
+    COSTS_CSV = "costs.csv"
+    SEVERED_POWERS_CSV = "severed_power.csv"
+    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV]
+
     @with_kw    mutable struct Launcher
         NO_IMPOSABLE::Bool;
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
+        NO_DMO::Bool;
 
         dirpath::String;
-        # amplTxt description of the network
-        ampltxt;
         # uncertainties, name-scenario-h-ech->value
         uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
         # previsionnal planning
@@ -46,18 +54,17 @@ module Workflow
 
     @with_kw    mutable struct ImposableModeler
         p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
-        p_is_imp = Dict{Tuple{String,DateTime},VariableRef}();
-        p_is_imp_and_on = Dict{Tuple{String,DateTime},VariableRef}();
-        p_imp = Dict{Tuple{String,DateTime},VariableRef}();
-        p_start = Dict{Tuple{String,DateTime},VariableRef}();
-        p_on = Dict{Tuple{String,DateTime},VariableRef}();
+        p_is_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
+        p_is_imp_and_on = Dict{Tuple{String,DateTime,String},VariableRef}();
+        p_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
+        p_start = Dict{Tuple{String,DateTime,String},VariableRef}();
+        p_on = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_imp_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_imp_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
     end
-    
+
     @with_kw mutable struct LimitableModeler
         p_lim = Dict{Tuple{String,DateTime},VariableRef}();
-        
         is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
         is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -67,6 +74,14 @@ module Workflow
     @with_kw mutable struct ReserveModeler
         p_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
         p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
+    end
+
+    @with_kw mutable struct ObjectiveModeler
+        penalties = AffExpr(0)
+        lim_cost_obj = AffExpr(0)
+        imp_prop_cost_obj = AffExpr(0)
+        imp_starting_cost_obj = AffExpr(0)
+        full_obj = AffExpr(0)
     end
 
     function read_ptdf(dir_path::String)
@@ -117,7 +132,7 @@ module Workflow
                 # don't read commentted line 
                 if ln[1] != '#'
                     buffer = AmplTxt.split_with_space(ln);
-                    result[buffer[1]] = (parse.(Float64, buffer[3:6]));
+                    result[buffer[1]] = (parse.(Float64, buffer[3:7]));
                 end
             end
         end
@@ -162,9 +177,20 @@ module Workflow
         return result;
     end
 
-    function Launcher(dir_path::String)        
-        return Launcher(false, false, false, dir_path, AmplTxt.read(dir_path),read_uncertainties(dir_path), read_previsions(dir_path), read_units(dir_path), read_gen_type_bus(dir_path), read_ptdf(dir_path), read_limits(dir_path))
+    function Launcher(input_path::String, dir_path::String)
+        if !isdir(input_path)
+            error("Input folder does not exist : "*input_path)
+        end
+        if !isdir(dir_path)
+            mkpath(dir_path)
+        end
+        return Launcher(false, false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
     end
+
+    function Launcher(dir_path::String)        
+        return Launcher(dir_path, dir_path)
+    end
+
 
     function read_ampl_txt(launcher::Launcher, dir_path::String)
         launcher.ampltxt = AmplTxt.read(dir_path);
@@ -173,7 +199,7 @@ module Workflow
     function add_uncertainties(launcher::Launcher, name::String, bus_name::String, ech::DateTime, ts::DateTime, value)
         launcher.uncertainties[name, bus_name, ech, ts] = value;
     end
-    
+
 
     function get_bus(launcher::Launcher, names::Set{String})
         result = Set{String}();
@@ -228,6 +254,50 @@ module Workflow
         end 
         return result;
     end
+
     include("WorkflowModeler.jl");
     include("WorkflowWorstCase.jl");
+
+    """
+        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+
+    Launch the optimization for multiple launch dates
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `lst_ech_p` : List of launch dates to consider
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    """
+    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+        dict_results_l = Dict{DateTime, Any}()
+
+        clear_output_files(launcher_p);
+        for (index_l, ech_l)  in enumerate(lst_ech_p)
+            println("-"^45)
+            result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
+            dict_results_l[ech_l] = result_l
+            if index_l < length(lst_ech_p)
+                @printf("Update schedule for %s :", lst_ech_p[index_l+1])
+                println(update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l[2], result_l[3]))
+            end
+        end
+        write_previsions(launcher_p)
+        return dict_results_l
+    end
+
+    """
+        run(launcher::Launcher, p_res_min::Number, p_res_max::Number)
+
+    Launch the optimization for all launch dates listed in pscopf_uncertainties.txt
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    """
+    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number)
+        ECH = Workflow.get_sorted_ech(launcher_p);
+        run(launcher_p, ECH, p_res_min, p_res_max)
+    end
 end
