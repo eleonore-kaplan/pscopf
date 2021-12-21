@@ -196,8 +196,10 @@ function write_instance(data_generator_p::RandomDataGenerator, instance_path_p::
     output_l=joinpath(instance_path_p, "pscopf_uncertainties.txt")
     write_pscopf_uncertainties(output_l, data_generator_p)
 
-    output_l=joinpath(instance_path_p, "pscopf_limits.txt")
-    write_pscopf_limits(output_l, data_generator_p)
+    if do_create_limits(data_generator_p)
+        output_l=joinpath(instance_path_p, "pscopf_limits.txt")
+        write_pscopf_limits(output_l, data_generator_p)
+    end
 end
 
 
@@ -260,10 +262,10 @@ function get_total_base_consumption(base_values_data_p, units_types_data_p)
     return total_base_consumption_l
 end
 
-function get_limitable_base_values(data_generator_p)
+function get_limitable_base_values(data_generator_p::RandomDataGenerator)
     return filter( x -> is_unit_limitable(x[1], data_generator_p) , data_generator_p.base_values_data_)
 end
-function get_imposable_base_values(data_generator_p)
+function get_imposable_base_values(data_generator_p::RandomDataGenerator)
     return filter( x -> is_unit_imposable(x[1], data_generator_p) , data_generator_p.base_values_data_)
 end
 
@@ -290,7 +292,8 @@ end
 
 function create_load!(data_generator_p::RandomDataGenerator,
                     sigma_load_p::Number=0.05,
-                    mu_load_p::Number=0.)
+                    mu_load_p::Number=0.,
+                    different_per_scenario_p::Bool=true)
 
     n_scenarios_l = length(data_generator_p.lst_scenarios_)
     total_base_consumption_l = get_total_base_consumption(data_generator_p)
@@ -307,15 +310,18 @@ function create_load!(data_generator_p::RandomDataGenerator,
         for ech_l in data_generator_p.lst_horizons_
             factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
             adjusted_sigma_load_l = factor_l * sigma_load_p
-            rand_deviations_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l), n_scenarios_l);
+            if different_per_scenario_p
+                rand_deviations_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l), n_scenarios_l);
+            else
+                deviation_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l))
+                rand_deviations_l = fill(deviation_l, n_scenarios_l);
+            end
             for scenario_index_l in 1:n_scenarios_l
                 random_value_l = total_base_consumption_l * (1 + rand_deviations_l[scenario_index_l])
                 random_total_consumption_l[ts_l, ech_l, data_generator_p.lst_scenarios_[scenario_index_l]] = max(random_value_l, 0)
             end
         end
     end
-    println("random_total_consumption")
-    SCOPFutils.pretty_print(random_total_consumption_l, sort_p=true)
 
     # distribute the total random consumption on buses
     for ((ts_l, ech_l, scenario_l), total_load_l) in random_total_consumption_l
@@ -330,7 +336,6 @@ end
 function create_prod_uncertainties!(data_generator_p::RandomDataGenerator)
     n_scenarios_l = length(data_generator_p.lst_scenarios_)
 
-    #Create uncertainties for limitables
     for ts_l in data_generator_p.lst_timesteps_
         for ech_l in data_generator_p.lst_horizons_
             for (gen_l,base_value_l) in data_generator_p.base_values_data_
@@ -342,6 +347,7 @@ function create_prod_uncertainties!(data_generator_p::RandomDataGenerator)
                 adjusted_sigma_l = factor_l * sigma_l
                 adjusted_mu_l = factor_l * mu_l
 
+                #@printf("generate production levels for unit %s at horizon %s with parameters σ'=%f and μ'=%f .\n", gen_l, ech_l, adjusted_sigma_l, adjusted_mu_l)
                 rand_deviations = rand(Distributions.Normal(adjusted_mu_l, adjusted_sigma_l), n_scenarios_l);
                 for scenario_index_l in 1:n_scenarios_l
                     rand_value_l = base_value_l + rand_deviations[scenario_index_l] * p_max_l
@@ -381,21 +387,27 @@ end
 ================================#
 
 function create_instance!(data_generator_p::RandomDataGenerator,
-                        n_scenarios_p::Int64, lst_delta_for_horizons_p::Vector{Dates.Minute},
-                        sigma_load_p::Number=0.05, mu_load_p::Number=0.)
+                        n_scenarios_p::Int64, lst_delta_for_horizons_p::Vector{Dates.Minute};
+                        sigma_load_p::Number=0.05, mu_load_p::Number=0., different_load_per_scenario_p::Bool=true)
+    @printf("Generate instance from base folder %s .\n", data_generator_p.basedata_path_)
     reset!(data_generator_p)
 
+    @printf("generate %d scenarios.\n", n_scenarios_p)
     create_scenarios!(data_generator_p, n_scenarios_p)
     create_horizons!(data_generator_p, lst_delta_for_horizons_p)
-    create_load!(data_generator_p, sigma_load_p, mu_load_p)
+    println("Considered horizon dates : ", data_generator_p.lst_horizons_)
+    @printf("generate random loads with base parameters σ=%f and μ=%f .\n", sigma_load_p, mu_load_p)
+    create_load!(data_generator_p, sigma_load_p, mu_load_p, different_load_per_scenario_p)
+    println("generate random uncertainties.")
     create_prod_uncertainties!(data_generator_p)
     if do_create_limits(data_generator_p)
+        println("generate random branch limits.")
         create_limits!(data_generator_p)
     end
 
     instance_name = @sprintf("random_si%.5f_mu%.5f_%dS_%05d", sigma_load_p, mu_load_p, n_scenarios_p, rand(0:99999))
     instance_path = rstrip(data_generator_p.basedata_path_, '/')*"_"*instance_name
-    println("writing ", instance_path)
+    println("writing the generated instance to ", instance_path)
     write_instance(data_generator_p, instance_path)
 end
 
@@ -410,5 +422,3 @@ data_generator = RandomDataGenerator(basedata_path)
 
 lst_delta_for_horizons = [Dates.Minute(60),Dates.Minute(120),Dates.Minute(180),Dates.Minute(300),Dates.Minute(600)]
 create_instance!(data_generator, 5, lst_delta_for_horizons)
-
-@show(data_generator)
