@@ -1,0 +1,10 @@
+fuel_1 Imposable 1
+gas_1 Imposable 1
+wind_1 Limitable 1
+fuel_3 Imposable 3
+wind_3 Limitable 3
+wind_2 Limitable 2
+fuel_4 Imposable 4
+wind_4 Limitable 4
+fuel_5 Imposable 5
+wind_5 Limitable 5

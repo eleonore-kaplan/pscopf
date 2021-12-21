@@ -11,24 +11,21 @@ include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 
 
-test_name = length(ARGS) > 0 ? ARGS[1] : "5buses_wind";
+test_name = length(ARGS) > 0 ? ARGS[1] : "data/dmo/2buses/mix";
 println("test case : ", test_name)
 dir_path = joinpath(root_path, test_name);
 
-launcher = Workflow.Launcher(dir_path);
+launcher = Workflow.Launcher(dir_path, joinpath(dir_path, "with_dmo"));
 
 ech = length(ARGS) > 1 ? DateTime(ARGS[2]) : DateTime("2015-01-01T09:00:00");
-# ech = DateTime("2015-01-01T09:00:00");
-# ech = DateTime("2015-01-01T11:00:00"); #test
 println("ech : ", ech)
 
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
-launcher.NO_DMO = true; #If true (non-default), will act as if ( TS - DMO(unit) = ECH ) for all imposable units
-p_res = 250;
+launcher.NO_DMO = false;
+p_res = 0;
 p_res_min = -p_res;
 p_res_max = p_res;
-model, p_lim, p_imposable = Workflow.sc_opf(launcher, ech, p_res_min, p_res_max);
 
-# Workflow.worse_case(launcher, ech);
+Workflow.run(launcher, [ech], p_res_min, p_res_max);
