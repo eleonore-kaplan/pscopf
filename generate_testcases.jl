@@ -15,6 +15,12 @@ include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 include(joinpath(root_path, "scopf_utils.jl"))
 
+#======================================================
+        Constants
+======================================================#
+
+DATEFORMAT_g = Dates.DateFormat("Y-m-dTH:M:S");
+# DATEFORMAT_g = dateformat"yyyy-mm-ddTHH:MM:SS"
 
 
 #======================================================
@@ -23,31 +29,39 @@ include(joinpath(root_path, "scopf_utils.jl"))
 
 mutable struct RandomDataGenerator
     basedata_path_::String;
+    first_ts::Dates.DateTime;
     units_data_::Dict{String, Vector{Float64}};
     units_types_data_::Dict{String, Vector{String}};
     ptdf_data_::Dict{Tuple{String, String}, Float64};
-    #gen,ts,ech => value
-    base_values_data_::Dict{Tuple{String, Dates.DateTime, Dates.DateTime}, Float64};
-    #lim_gen => maxP, sigma, mu
+    #gen => value
+    base_values_data_::Dict{String, Float64};
+    #gen => maxP, sigma, mu
     uncertain_properties_::Dict{String, Vector{Float64}};
 
     #gen,ts,ech,s => value
     created_uncertainties_::Dict{Tuple{String, Dates.DateTime, Dates.DateTime, String}, Float64};
     branch_limits_::Dict{String, Float64};
     lst_scenarios_::Vector{String};
+    lst_horizons_::Vector{Dates.DateTime};
+    lst_timesteps_::Vector{Dates.DateTime};
 
 end
 
 function RandomDataGenerator(basedata_path_p::String)
+    ts_l, base_values_data_l = read_base_values(basedata_path_p)
+
     return RandomDataGenerator(basedata_path_p,
+                            ts_l,
                             Workflow.read_units(basedata_path_p),
                             Workflow.read_gen_type_bus(basedata_path_p),
                             Workflow.read_ptdf(basedata_path_p),
-                            Workflow.read_previsions(basedata_path_p, "base_values.txt"),
+                            base_values_data_l,
                             read_uncertain_properties(basedata_path_p),
                             Dict{Tuple{String, Dates.DateTime, Dates.DateTime, String}, Float64}(),
                             Dict{String, Float64}(),
-                            Vector{String}()
+                            Vector{String}(),
+                            Vector{Dates.DateTime}(),
+                            [ts_l]
                             )
 end
 
@@ -60,6 +74,7 @@ end
 function reset!(data_generator_p::RandomDataGenerator)
     data_generator_p.created_uncertainties_ = Dict{Tuple{String, Dates.DateTime, Dates.DateTime, String}, Float64}()
     data_generator_p.lst_scenarios_ = Vector{String}()
+    data_generator_p.lst_horizons_ = Vector{String}()
     reset_limits!(data_generator_p)
 
     return data_generator_p
@@ -71,8 +86,8 @@ Reading functions
 
 function read_uncertain_properties(dir_path_p::String)
     result_l = Dict{String,Vector{Float64}}();
-    file_path = joinpath(dir_path_p, "uncertain_properties.txt");
-    open(file_path) do file
+    file_path_l = joinpath(dir_path_p, "uncertain_properties.txt");
+    open(file_path_l) do file
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
@@ -84,16 +99,47 @@ function read_uncertain_properties(dir_path_p::String)
     return result_l;
 end
 
+function read_base_values(dir_path_p::String)
+    TS_l = Set{Dates.DateTime}()
+    result_l = Dict{String,Float64}();
+    file_path_l = joinpath(dir_path_p, "base_values.txt");
+    open(file_path_l) do file_l
+        for ln in eachline(file_l)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer_l = AmplTxt.split_with_space(ln);
+                result_l[buffer_l[1]] = parse(Float64, buffer_l[3])
+                push!(TS_l, Dates.DateTime(buffer_l[2] ,DATEFORMAT_g))
+            end
+        end
+    end
+    if length(TS_l) != 1
+        error("base values file should indicate a single timestep : "*file_path_l)
+    end
+    ts_l = first(TS_l)
+
+    return ts_l, result_l
+end
+
 #================
 Writing functions
 ================#
+function copy_file(from_dir_p::String, to_dir_p::String, filename_p::String)
+    from_filepath_l = joinpath(from_dir_p, filename_p)
+    to_filepath_l = joinpath(to_dir_p, filename_p)
+    cp(from_filepath_l, to_filepath_l)
+end
 
 function copy_ready_pscopf_files(basedata_path_p::String, instance_path_p::String)
-    files_to_copy = ["pscopf_units.txt", "pscopf_ptdf.txt", "pscopf_gen_type_bus.txt", "pscopf_previsions.txt"]
+    limits_filename_l = "pscopf_limits.txt"
+    origin_limits_filepath_l = joinpath(basedata_path_p, limits_filename_l)
+    if isfile(origin_limits_filepath_l)
+        copy_file(basedata_path_p, instance_path_p, limits_filename_l)
+    end
+
+    files_to_copy = ["pscopf_units.txt", "pscopf_ptdf.txt", "pscopf_gen_type_bus.txt"]
     for filename_l in files_to_copy
-        from_filepath_l = joinpath(basedata_path_p, filename_l)
-        to_filepath_l = joinpath(instance_path_p, filename_l)
-        cp(from_filepath_l, to_filepath_l)
+        copy_file(basedata_path_p, instance_path_p, filename_l)
     end
 end
 
@@ -123,10 +169,29 @@ function write_pscopf_limits(output_file_p,
     end
 end
 
+
+function write_pscopf_previsions(output_file_p, data_generator_p::RandomDataGenerator)
+    write_pscopf_previsions(output_file_p, data_generator_p.base_values_data_, data_generator_p.lst_timesteps_, data_generator_p.lst_horizons_[1])
+end
+function write_pscopf_previsions(output_file_path, base_values_data_p, lst_timesteps_p, first_horizon_p::Dates.DateTime)
+    open(output_file_path, "w") do file_l
+        write(file_l, @sprintf("#%-9s%25s%25s%10s\n", "id", "h_15m", "ech", "v"))
+        ech_l = first_horizon_p
+        for ts_l in lst_timesteps_p
+            for (gen_l,value_l) in base_values_data_p
+                write(file_l, @sprintf("%-10s%25s%25s%10.3f\n", gen_l, ts_l, ech_l,  value_l))
+            end
+        end
+    end
+end
+
 function write_instance(data_generator_p::RandomDataGenerator, instance_path_p::String)
     mkpath(instance_path_p)
 
     copy_ready_pscopf_files(data_generator_p.basedata_path_, instance_path_p)
+
+    output_l=joinpath(instance_path_p, "pscopf_previsions.txt")
+    write_pscopf_previsions(output_l, data_generator_p)
 
     output_l=joinpath(instance_path_p, "pscopf_uncertainties.txt")
     write_pscopf_uncertainties(output_l, data_generator_p)
@@ -187,21 +252,19 @@ function get_total_base_consumption(random_generator_p::RandomDataGenerator)
     return get_total_base_consumption(random_generator_p.base_values_data_, random_generator_p.units_types_data_)
 end
 function get_total_base_consumption(base_values_data_p, units_types_data_p)
-    #base total consumption by ts,ech
-    total_base_consumption_l = Dict{Tuple{Dates.DateTime, Dates.DateTime}, Float64}()
-    for ((gen_l,ts_l,ech_l),prev_l) in filter( x -> is_unit(x[1][1], units_types_data_p) , base_values_data_p)
-        get!(total_base_consumption_l, (ts_l,ech_l), 0)
-        total_base_consumption_l[ts_l,ech_l] += prev_l
+    total_base_consumption_l = 0
+    for (_,base_val_l) in filter( x -> is_unit(x[1], units_types_data_p) , base_values_data_p)
+        total_base_consumption_l += base_val_l
     end
 
     return total_base_consumption_l
 end
 
 function get_limitable_base_values(data_generator_p)
-    return filter( x -> is_unit_limitable(x[1][1], data_generator_p) , data_generator_p.base_values_data_)
+    return filter( x -> is_unit_limitable(x[1], data_generator_p) , data_generator_p.base_values_data_)
 end
 function get_imposable_base_values(data_generator_p)
-    return filter( x -> is_unit_imposable(x[1][1], data_generator_p) , data_generator_p.base_values_data_)
+    return filter( x -> is_unit_imposable(x[1], data_generator_p) , data_generator_p.base_values_data_)
 end
 
 #================================
@@ -211,6 +274,18 @@ end
 function create_scenarios!(data_generator_p::RandomDataGenerator, n_scenarios_p::Int64)
     data_generator_p.lst_scenarios_ = [@sprintf("S%d", x) for x in 1:n_scenarios_p];
     return data_generator_p.lst_scenarios_
+end
+
+function create_horizons!(data_generator_p::RandomDataGenerator, lst_delta_for_horizons_p::Vector{Dates.Minute})
+    lst_deltas_l = sort(unique(lst_delta_for_horizons_p), rev=true)
+    lst_horizons_l = []
+    for delta_l in lst_deltas_l
+        ech_l = data_generator_p.first_ts - delta_l
+        push!(lst_horizons_l, ech_l)
+    end
+
+    data_generator_p.lst_horizons_ = lst_horizons_l
+    return data_generator_p.lst_horizons_
 end
 
 function create_load!(data_generator_p::RandomDataGenerator,
@@ -226,61 +301,55 @@ function create_load!(data_generator_p::RandomDataGenerator,
     coeffs_l = coeffs_l / sum(coeffs_l)
     buses_coeffs_l = Dict(zip(buses_l,coeffs_l))
 
-    # Create random total loads
+    # Create random total loads (ts,ech,s)
     random_total_consumption_l = Dict{Tuple{Dates.DateTime, Dates.DateTime, String}, Float64}()
-    for ((ts_l,ech_l), load_l) in total_base_consumption_l
-        factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
-        adjusted_sigma_load_l = factor_l * sigma_load_p
-        rand_deviations_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l), n_scenarios_l);
-        for s in 1:n_scenarios_l
-            random_value_l = load_l * (1 + rand_deviations_l[s])
-            random_total_consumption_l[ts_l, ech_l, data_generator_p.lst_scenarios_[s]] = max(random_value_l, 0)
+    for ts_l in data_generator_p.lst_timesteps_
+        for ech_l in data_generator_p.lst_horizons_
+            factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
+            adjusted_sigma_load_l = factor_l * sigma_load_p
+            rand_deviations_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l), n_scenarios_l);
+            for scenario_index_l in 1:n_scenarios_l
+                random_value_l = total_base_consumption_l * (1 + rand_deviations_l[scenario_index_l])
+                random_total_consumption_l[ts_l, ech_l, data_generator_p.lst_scenarios_[scenario_index_l]] = max(random_value_l, 0)
+            end
         end
     end
     println("random_total_consumption")
     SCOPFutils.pretty_print(random_total_consumption_l, sort_p=true)
 
     # distribute the total random consumption on buses
-    for ((ts_l, ech_l, s_l), total_load_l) in random_total_consumption_l
+    for ((ts_l, ech_l, scenario_l), total_load_l) in random_total_consumption_l
         for (bus_l,coeff_l) in buses_coeffs_l
-            data_generator_p.created_uncertainties_[bus_l,ts_l,ech_l,s_l] = coeff_l * total_load_l
+            data_generator_p.created_uncertainties_[bus_l,ts_l,ech_l,scenario_l] = coeff_l * total_load_l
         end
     end
 
     return data_generator_p.created_uncertainties_
 end
 
-function create_limitable_uncertainties!(data_generator_p::RandomDataGenerator)
+function create_prod_uncertainties!(data_generator_p::RandomDataGenerator)
     n_scenarios_l = length(data_generator_p.lst_scenarios_)
 
     #Create uncertainties for limitables
-    for ((gen_l,ts_l,ech_l),prev_l) in get_limitable_base_values(data_generator_p)
-        p_max_l = data_generator_p.uncertain_properties_[gen_l][1]
+    for ts_l in data_generator_p.lst_timesteps_
+        for ech_l in data_generator_p.lst_horizons_
+            for (gen_l,base_value_l) in data_generator_p.base_values_data_
+                p_max_l = data_generator_p.uncertain_properties_[gen_l][1]
 
-        sigma_l = data_generator_p.uncertain_properties_[gen_l][2]
-        mu_l = data_generator_p.uncertain_properties_[gen_l][3]
-        factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
-        adjusted_sigma_l = factor_l * sigma_l
-        adjusted_mu_l = factor_l * mu_l
+                sigma_l = data_generator_p.uncertain_properties_[gen_l][2]
+                mu_l = data_generator_p.uncertain_properties_[gen_l][3]
+                factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
+                adjusted_sigma_l = factor_l * sigma_l
+                adjusted_mu_l = factor_l * mu_l
 
-        rand_deviations = rand(Distributions.Normal(adjusted_mu_l, adjusted_sigma_l), n_scenarios_l);
-        for s in 1:n_scenarios_l
-            rand_value_l = prev_l + rand_deviations[s] * p_max_l
-            rand_value_l = min(rand_value_l, p_max_l)
-            rand_value_l = max(rand_value_l, 0)
-            data_generator_p.created_uncertainties_[gen_l,ts_l,ech_l,data_generator_p.lst_scenarios_[s]] = rand_value_l
-        end
-    end
-
-    return data_generator_p.created_uncertainties_
-end
-
-function create_imposable_uncertainties!(data_generator_p::RandomDataGenerator)
-    n_scenarios_l = length(data_generator_p.lst_scenarios_)
-
-    for ((gen_l,ts_l,ech_l),prev_l) in get_imposable_base_values(data_generator_p)
-        for s in 1:n_scenarios_l
-            data_generator_p.created_uncertainties_[gen_l,ts_l,ech_l,data_generator_p.lst_scenarios_[s]] = prev_l
+                rand_deviations = rand(Distributions.Normal(adjusted_mu_l, adjusted_sigma_l), n_scenarios_l);
+                for scenario_index_l in 1:n_scenarios_l
+                    rand_value_l = base_value_l + rand_deviations[scenario_index_l] * p_max_l
+                    rand_value_l = min(rand_value_l, p_max_l)
+                    rand_value_l = max(rand_value_l, 0)
+                    data_generator_p.created_uncertainties_[gen_l,ts_l,ech_l,data_generator_p.lst_scenarios_[scenario_index_l]] = rand_value_l
+                end
+            end
         end
     end
 
@@ -289,13 +358,12 @@ end
 
 function create_limits!(data_generator_p::RandomDataGenerator)
     total_base_consumption_l = get_total_base_consumption(data_generator_p)
-    max_total_power_l = maximum(values(total_base_consumption_l))
 
     branches_l = get_branches(data_generator_p)
     n_branches_l = length(branches_l)
     n_buses_l = length(get_buses(data_generator_p))
     lst_limits_coeffs_l = [1, 1/n_branches_l, 0.5 * 1 / n_branches_l, 2 * 1 / n_branches_l, 1 / n_buses_l]
-    lst_limits_l = max_total_power_l * lst_limits_coeffs_l
+    lst_limits_l = total_base_consumption_l * lst_limits_coeffs_l
 
     limits_l = rand(Set(lst_limits_l), n_branches_l)
     data_generator_p.branch_limits_ = Dict(zip(branches_l, limits_l))
@@ -303,39 +371,44 @@ function create_limits!(data_generator_p::RandomDataGenerator)
     return data_generator_p.branch_limits_
 end
 
+function do_create_limits(data_generator_p::RandomDataGenerator)
+    filepath_l = joinpath(data_generator_p.basedata_path_, "pscopf_limits.txt")
+    return !isfile(filepath_l)
+end
+
 #================================
     main generation function
 ================================#
 
-function create_instance!(data_generator_p::RandomDataGenerator, n_scenarios_p::Int64,
-                        n_limits_p::Int=1, sigma_load_p::Number=0.05, mu_load_p::Number=0.)
+function create_instance!(data_generator_p::RandomDataGenerator,
+                        n_scenarios_p::Int64, lst_delta_for_horizons_p::Vector{Dates.Minute},
+                        sigma_load_p::Number=0.05, mu_load_p::Number=0.)
     reset!(data_generator_p)
 
     create_scenarios!(data_generator_p, n_scenarios_p)
+    create_horizons!(data_generator_p, lst_delta_for_horizons_p)
     create_load!(data_generator_p, sigma_load_p, mu_load_p)
-    create_limitable_uncertainties!(data_generator_p)
-    create_imposable_uncertainties!(data_generator_p)
-
-    for limit_count_i in 1:n_limits_p
-        reset_limits!(data_generator_p)
+    create_prod_uncertainties!(data_generator_p)
+    if do_create_limits(data_generator_p)
         create_limits!(data_generator_p)
-
-        instance_name = @sprintf("random_si%.5f_mu%.5f_%dS_l%d_%05d", sigma_load_p, mu_load_p, n_scenarios_p, limit_count_i, rand(0:99999))
-        instance_path = rstrip(data_generator_p.basedata_path_, '/')*"_"*instance_name
-        println("writing ", instance_path)
-        write_instance(data_generator_p, instance_path)
     end
+
+    instance_name = @sprintf("random_si%.5f_mu%.5f_%dS_%05d", sigma_load_p, mu_load_p, n_scenarios_p, rand(0:99999))
+    instance_path = rstrip(data_generator_p.basedata_path_, '/')*"_"*instance_name
+    println("writing ", instance_path)
+    write_instance(data_generator_p, instance_path)
 end
 
 #======================================================
         main
 ======================================================#
 
-basedata_folder = "data/random_generation/5buses/base"
+basedata_folder = "data/random_generation_for_ech/2buses/base"
 basedata_path = joinpath(root_path, basedata_folder);
 
 data_generator = RandomDataGenerator(basedata_path)
 
-create_instance!(data_generator, 5)
+lst_delta_for_horizons = [Dates.Minute(60),Dates.Minute(120),Dates.Minute(180),Dates.Minute(300),Dates.Minute(600)]
+create_instance!(data_generator, 5, lst_delta_for_horizons)
 
 @show(data_generator)
