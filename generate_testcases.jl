@@ -426,7 +426,7 @@ end
         main
 ======================================================#
 
-basedata_folder = "data/random_generation_for_ech/2buses/base"
+basedata_folder = "data/random_generation/5buses/base"
 basedata_path = joinpath(root_path, basedata_folder);
 
 data_generator = RandomDataGenerator(basedata_path)
