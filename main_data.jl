@@ -3,7 +3,8 @@ using Dates;
 using Printf;
 using Distributions;
 
-root_path = raw"D:\AppliRTE\repo\scopf-quanti";
+# root_path = raw"D:\AppliRTE\repo\scopf-quanti";
+root_path = @__DIR__;
 push!(LOAD_PATH, root_path);
 cd(root_path);
 include(joinpath(root_path, "AmplTxt.jl"));
