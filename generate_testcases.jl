@@ -269,6 +269,17 @@ function get_imposable_base_values(data_generator_p::RandomDataGenerator)
     return filter( x -> is_unit_imposable(x[1], data_generator_p) , data_generator_p.base_values_data_)
 end
 
+function get_dmo_list(data_generator_p::RandomDataGenerator)
+    return get_dmo_list(data_generator_p.units_data_)
+end
+function get_dmo_list(units_data_p::Dict{String, Vector{Float64}};)
+    dmo_list_l = Vector{Dates.Minute}()
+    for (_,gen_data_l) in units_data_p
+        push!(dmo_list_l, Dates.Minute(Dates.Second(gen_data_l[5])))
+    end
+    return dmo_list_l
+end
+
 #================================
    Instance creation functions
 ================================#
@@ -420,5 +431,10 @@ basedata_path = joinpath(root_path, basedata_folder);
 
 data_generator = RandomDataGenerator(basedata_path)
 
-lst_delta_for_horizons = [Dates.Minute(60),Dates.Minute(120),Dates.Minute(180),Dates.Minute(300),Dates.Minute(600)]
+# List of horizons
+# FIXME : should we remove ECH=TS ?
+lst_deltas_from_markets = [Dates.Minute(120), Dates.Minute(30), Dates.Minute(60)]
+lst_deltas_from_dmo = get_dmo_list(data_generator)
+lst_delta_for_horizons = union(lst_deltas_from_markets, lst_deltas_from_dmo)
+
 create_instance!(data_generator, 5, lst_delta_for_horizons)
