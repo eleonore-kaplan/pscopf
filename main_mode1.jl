@@ -39,7 +39,8 @@ launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
 launcher.NO_DMO = false; #If true (non-default), will act as if ( TS - DMO(unit) = ECH ) for all imposable units
-launcher.NO_EOD_SLACK = false; #If true (non-default), will not introduce infeasibility slacks for the EOD
+launcher.NO_CUT_PRODUCTION = false; #If true (non-default), will not introduce infeasibility slacks to cut consumption
+launcher.NO_CUT_CONSUMPTION = false; #If true (non-default), will not introduce infeasibility slacks to cut production
 launcher.NO_BRANCH_SLACK = false; #If true (non-default), will not introduce infeasibility slacks for the flow limits
 
 p_res = 10;
@@ -47,6 +48,3 @@ p_res_min = -p_res;
 p_res_max = p_res;
 
 results = Workflow.run(launcher, p_res_min, p_res_max, mode_p=1);
-
-println("-"^120)
-println(results)

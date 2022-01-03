@@ -146,7 +146,8 @@ function print_config(launcher_p::Launcher)
     println("NO_LIMITABLE   : ", launcher_p.NO_LIMITABLE);
     println("NO_LIMITATION  : ", launcher_p.NO_LIMITATION);
     println("NO_DMO         : ", launcher_p.NO_DMO);
-    println("NO_EOD_SLACK   : ", launcher_p.NO_EOD_SLACK);
+    println("NO_CUT_PRODUCTION   : ", launcher_p.NO_CUT_PRODUCTION);
+    println("NO_CUT_CONSUMPTION   : ", launcher_p.NO_CUT_CONSUMPTION);
     println("NO_BRANCH_SLACK: ", launcher_p.NO_BRANCH_SLACK);
 end
 
@@ -333,12 +334,16 @@ function add_slack!(launcher, ech, model, TS, S)
     v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
     v_extra_flow_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
 
-    if ! launcher.NO_EOD_SLACK
+    if ! launcher.NO_CUT_PRODUCTION
+        for ts in TS, s in S
+            name =  @sprintf("p_extra_res_neg[%s,%s]", ts, s);
+            p_extra_res_neg[ts, s] = @variable(model, base_name = name, lower_bound = 0);
+        end
+    end
+    if ! launcher.NO_CUT_CONSUMPTION
         for ts in TS, s in S
             name =  @sprintf("p_extra_res_pos[%s,%s]", ts, s);
             p_extra_res_pos[ts, s] = @variable(model, base_name = name, lower_bound = 0);
-            name =  @sprintf("p_extra_res_neg[%s,%s]", ts, s);
-            p_extra_res_neg[ts, s] = @variable(model, base_name = name, lower_bound = 0);
         end
     end
 

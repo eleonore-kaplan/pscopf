@@ -35,7 +35,8 @@ module Workflow
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
         NO_DMO::Bool;
-        NO_EOD_SLACK::Bool;
+        NO_CUT_PRODUCTION::Bool;
+        NO_CUT_CONSUMPTION::Bool;
         NO_BRANCH_SLACK::Bool;
 
         dirpath::String;
@@ -210,7 +211,7 @@ module Workflow
         if !isdir(dir_path)
             mkpath(dir_path)
         end
-        return Launcher(false, false, false, false, false, false,
+        return Launcher(false, false, false, false, false, false, false,
                         dir_path,
                         read_uncertainties(input_path), read_previsions(input_path),
                         read_units(input_path), read_gen_type_bus(input_path),

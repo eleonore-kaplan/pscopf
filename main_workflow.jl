@@ -26,7 +26,8 @@ launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
 launcher.NO_DMO = true; #If true (non-default), will act as if ( TS - DMO(unit) = ECH ) for all imposable units
-launcher.NO_EOD_SLACK = true; #If true (non-default), will not introduce infeasibility slacks for the EOD
+launcher.NO_CUT_PRODUCTION = true; #If true (non-default), will not introduce infeasibility slacks to cut consumption
+launcher.NO_CUT_CONSUMPTION = true; #If true (non-default), will not introduce infeasibility slacks to cut production
 launcher.NO_BRANCH_SLACK = true; #If true (non-default), will not introduce infeasibility slacks for the flow limits
 p_res = 250;
 p_res_min = -p_res;
