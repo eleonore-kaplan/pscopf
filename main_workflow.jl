@@ -26,9 +26,11 @@ launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
 launcher.NO_DMO = true; #If true (non-default), will act as if ( TS - DMO(unit) = ECH ) for all imposable units
+launcher.NO_EOD_SLACK = true; #If true (non-default), will not introduce infeasibility slacks for the EOD
+launcher.NO_BRANCH_SLACK = true; #If true (non-default), will not introduce infeasibility slacks for the flow limits
 p_res = 250;
 p_res_min = -p_res;
 p_res_max = p_res;
-model, p_lim, p_imposable = Workflow.sc_opf(launcher, ech, p_res_min, p_res_max);
+Workflow.sc_opf(launcher, ech, p_res_min, p_res_max);
 
 # Workflow.worse_case(launcher, ech);
