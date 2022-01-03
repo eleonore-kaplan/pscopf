@@ -288,10 +288,23 @@ module Workflow
     include("WorkflowModeler.jl");
     include("WorkflowWorstCase.jl");
 
-    """
-        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
 
-    Launch the optimization for multiple launch dates
+    function market_update!(launcher_p, ech_p)
+        @printf("market action at %s not implemented!\n", ech_p)
+    end
+
+    function market_action!(launcher_p::Launcher, ech_p)
+        #I/O still to specify :
+        #probably this will read probabilistic uncertainties
+        #write the uncertainties to consider by pscopf
+        #FIXME : read market ECH to only launch market at specific dates ?
+        market_update!(launcher_p, ech_p)
+    end
+
+    """
+        run_mode1(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+
+    Launch the optimization for multiple launch dates in coordinated mode (fr. mode de gestion coordonnee)
 
     # Arguments
     - `launcher::Launcher` : the optimization launcher containing the necessary data
@@ -299,17 +312,18 @@ module Workflow
     - `p_res_min` : The minimum allowed reserve level
     - `p_res_max` : The maximum allowed reserve level
     """
-    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
-        dict_results_l = Dict{DateTime, ModelContainer}()
+    function run_mode1(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+        println("Launch PSCOPF mode 1 for horizons : ", lst_ech_p)
 
+        dict_results_l = Dict{DateTime, ModelContainer}()
         clear_output_files(launcher_p);
         for (index_l, ech_l)  in enumerate(lst_ech_p)
             println("-"^45)
-            # TODO: market action
+            market_action!(launcher_p, ech_l)
             result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
             dict_results_l[ech_l] = result_l
             if index_l < length(lst_ech_p)
-                @printf("Update schedule for %s :", lst_ech_p[index_l+1])
+                @printf("Update schedule for %s\n", lst_ech_p[index_l+1])
                 update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
             end
         end
@@ -318,7 +332,28 @@ module Workflow
     end
 
     """
-        run(launcher::Launcher, p_res_min::Number, p_res_max::Number)
+        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number, mode_p::Int64)
+
+    Launch the optimization for the specified launch dates
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `lst_ech_p` : List of launch dates to consider
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    - `mode_p::Int64` : Launch mode (fr. mode de gestion : 1:coordonnee, 2:alternee, 3:separee)
+    """
+    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number, mode_p::Int64)
+        if mode_p == 1
+            return run_mode1(launcher_p, lst_ech_p, p_res_min, p_res_max)
+        else
+            msg_l = @sprintf("mode %d is not implemented!", mode_p)
+            error(msg_l)
+        end
+    end
+
+    """
+        run(launcher::Launcher, p_res_min::Number, p_res_max::Number, mode_p::Int64)
 
     Launch the optimization for all launch dates listed in pscopf_uncertainties.txt
 
@@ -326,9 +361,10 @@ module Workflow
     - `launcher::Launcher` : the optimization launcher containing the necessary data
     - `p_res_min` : The minimum allowed reserve level
     - `p_res_max` : The maximum allowed reserve level
+    - `mode_p::Int64` : Launch mode (fr. mode de gestion : 1:coordonnee, 2:alternee, 3:separee)
     """
-    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number)
+    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number; mode_p::Int64=1)
         ECH = Workflow.get_sorted_ech(launcher_p);
-        run(launcher_p, ECH, p_res_min, p_res_max)
+        return run(launcher_p, ECH, p_res_min, p_res_max, mode_p)
     end
 end
