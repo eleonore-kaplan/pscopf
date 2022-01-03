@@ -15,7 +15,7 @@ test_name = length(ARGS) > 0 ? ARGS[1] : "data/dmo/2buses/mix";
 println("test case : ", test_name)
 dir_path = joinpath(root_path, test_name);
 
-launcher = Workflow.Launcher(dir_path, joinpath(dir_path, "with_dmo"));
+launcher = Workflow.Launcher(dir_path, joinpath(dir_path, "test"));
 
 ech = length(ARGS) > 1 ? DateTime(ARGS[2]) : DateTime("2015-01-01T09:00:00");
 println("ech : ", ech)
@@ -24,6 +24,8 @@ launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;
 launcher.NO_LIMITATION = false;
 launcher.NO_DMO = false;
+launcher.NO_EOD_SLACK = false;
+launcher.NO_BRANCH_SLACK = false;
 p_res = 0;
 p_res_min = -p_res;
 p_res_max = p_res;
