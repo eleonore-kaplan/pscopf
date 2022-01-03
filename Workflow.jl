@@ -364,6 +364,8 @@ module Workflow
     - `mode_p::Int64` : Launch mode (fr. mode de gestion : 1:coordonnee, 2:alternee, 3:separee)
     """
     function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number; mode_p::Int64=1)
+        print_config(launcher_p)
+
         ECH = Workflow.get_sorted_ech(launcher_p);
         return run(launcher_p, ECH, p_res_min, p_res_max, mode_p)
     end
