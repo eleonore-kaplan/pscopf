@@ -41,7 +41,7 @@ module Workflow
         uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
         # previsionnal planning
         previsions::Dict{Tuple{String,DateTime,DateTime},Float64};
-        # name->minP-maxP-startCost-propCost
+        # name->minP-maxP-startCost-propCost-dmo
         units::Dict{String, Vector{Float64}};
         # gen->type-bus
         gen_type_bus::Dict{String, Vector{String}};
@@ -184,7 +184,11 @@ module Workflow
         if !isdir(dir_path)
             mkpath(dir_path)
         end
-        return Launcher(false, false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
+        return Launcher(false, false, false, false, false, false,
+                        dir_path,
+                        read_uncertainties(input_path), read_previsions(input_path),
+                        read_units(input_path), read_gen_type_bus(input_path),
+                        read_ptdf(input_path), read_limits(input_path))
     end
 
     function Launcher(dir_path::String)        

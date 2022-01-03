@@ -20,7 +20,7 @@ catch e_xpress
                 using Cbc;
                 global OPTIMIZER = Cbc.Optimizer
             else
-                throw(e_xpress)
+                throw(e_cplex)
             end
         end
     else
@@ -202,7 +202,18 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
             pMin = launcher.units[gen][1];
             pMax = launcher.units[gen][2];
             dmo_l = launcher.units[gen][5];
+
             for ts in TS
+                prev0 = launcher.previsions[gen, ts, ech];
+
+                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
+                    @printf("production level of unit %s is already fixed to %10.3f for timestep %s.\n", gen, prev0, ts)
+                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
+                    @printf("unit %s must be fixed for timestep %s.\n", gen, ts)
+                else
+                    @printf("still early to fix unit %s for timestep %s.\n", gen, ts)
+                end
+
                 for (s_index_l, s) in enumerate(S)
                     name =  @sprintf("p_imp[%s,%s,%s]", gen, ts, s);
                     p_imp[gen, ts, s] = @variable(model, base_name = name);
@@ -218,12 +229,6 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
 
                     name =  @sprintf("p_is_imp_and_on[%s,%s,%s]", gen, ts, s);
                     p_is_imp_and_on[gen, ts, s] = @variable(model, base_name = name, binary = true);
-
-                    # if in(gen, ["park_city", "alta", "sundance"])
-                    #     println("WARNING");
-                    #     @constraint(model,  p_on[gen, ts]==0);
-                    #     @constraint(model,  p_is_imp[gen, ts]==0);
-                    # end
 
                     p0 = launcher.uncertainties[gen, s, ts, ech];
                     name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
@@ -247,22 +252,18 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
 
                     if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
                     # it is too late to change the production level
-                        #FIXME : Discuss uncertainties : The value from previsions will be imposed
-                        @printf("%s: unit %s is already decided for timestep %s.\n", ech, gen, ts)
-                        prev0 = launcher.previsions[gen, ts, ech];
                         @constraint(model, p_imposable[gen, ts, s] == prev0);
                     elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
                     # must decide now on production level
-                        @printf("%s: unit %s must be fixed for timestep %s.\n", ech, gen, ts)
                         if s_index_l > 1
                             s_other_l = S[s_index_l-1]
                             @constraint(model, p_imposable[gen, ts, s] == p_imposable[gen, ts, s_other_l]);
                         end
-                    else
-                        @printf("%s: still early to fix unit %s for timestep %s.\n", ech, gen, ts)
+                    #else no special constraints for now. TODO : limit the decision window (power levels variation between the scenarios)
                     end
                 end
             end
+
             for s in S
                 for (i,ts) in enumerate(TS)
                     if i > 1
@@ -272,7 +273,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                         @constraint(model, p_start[gen, ts, s] >= p_on[gen, ts, s] - p_on[gen, ts_1, s]);
                     else
                         prev0 = launcher.previsions[gen, ts, ech];
-                        println(@sprintf("%s %s is at %f\n", gen, ts, prev0));
+                        @printf("%s %s is at %f\n", gen, ts, prev0)
                         if abs(prev0) < 1
                             @constraint(model, p_start[gen, ts, s] == p_on[gen, ts, s]);
                         end
@@ -319,6 +320,11 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
 end
 
 function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_max)
+    if p_res_min > 0
+        msg_l = @sprintf("Illegal value (%f) for argument p_res_min : a non-positive value is required.", p_res_min)
+        throw(ArgumentError(msg_l))
+    end
+
     p_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
     p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     for ts in TS, s in S
@@ -493,15 +499,17 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
     # println(model)
     set_optimizer(model, OPTIMIZER);
-    write_to_file(model, @sprintf("%s/model_%s.lp", launcher.dirpath, ech))
+    model_file_l = joinpath(launcher.dirpath, @sprintf("model_%s.lp", ech))
+    write_to_file(model, model_file_l)
+
+    println("Call optimizer")
     optimize!(model);
 
-    println("end of optim.")
     if termination_status(model) == INFEASIBLE
         error("Model is infeasible")
     end
-    println(termination_status(model))
-    println(objective_value(model))
+    @printf("Termination status : %s\n", termination_status(model))
+    @printf("Objective value : %f\n", objective_value(model))
 
     # print_nz(p_imposable);
     # print_nz(p_is_imp);
@@ -512,6 +520,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     println("NO_IMPOSABLE   : ", launcher.NO_IMPOSABLE);
     println("NO_LIMITABLE   : ", launcher.NO_LIMITABLE);
     println("NO_LIMITATION  : ", launcher.NO_LIMITATION);
+    println("NO_DMO         : ", launcher.NO_DMO);
     println("BUSES          : ", BUSES);
     println("NAMES          : ", NAMES);
     println("TS             : ", TS);
