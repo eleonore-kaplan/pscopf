@@ -777,6 +777,7 @@ update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_
     - `v_imp_p::ImposableModeler` : container for the decision values for imposable units at time ech_p
 """
 function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler)
+    @assert( next_ech_p > ech_p )
     # keep previsionnal planning for dates != next_ech_p
     filter!( x -> x[1][3] !=  next_ech_p, launcher_p.previsions)
 

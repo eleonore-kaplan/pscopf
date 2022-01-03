@@ -4,13 +4,12 @@ root_path = @__DIR__;
 push!(LOAD_PATH, root_path);
 cd(root_path);
 
-include("DataGenerator.jl")
-
-
 #======================================================
     Generate use case
 ======================================================#
-println("-"^100)
+include("DataGenerator.jl")
+
+println("-"^120)
 println("Generate use case")
 basedata_folder = "data/random_generation/2buses/base"
 basedata_path = joinpath(root_path, basedata_folder);
@@ -26,15 +25,13 @@ lst_delta_for_horizons = union(lst_deltas_from_markets, lst_deltas_from_dmo)
 instance_path = DataGenerator.create_instance!(data_generator, 5, lst_delta_for_horizons, instance_name_p="my_instance")
 
 
-
 #======================================================
     Launch Mode 1
 ======================================================#
-println("-"^100)
-println("Launch Mode 1")
 include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 
+println("-"^120)
 println("test case : ", instance_path)
 launcher = Workflow.Launcher(instance_path);
 
@@ -49,8 +46,7 @@ p_res = 10;
 p_res_min = -p_res;
 p_res_max = p_res;
 
-results = Workflow.run(launcher, p_res_min, p_res_max);
+results = Workflow.run(launcher, p_res_min, p_res_max, mode_p=1);
 
-
-println("-"^100)
+println("-"^120)
 println(results)
