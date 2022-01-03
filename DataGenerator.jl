@@ -120,22 +120,22 @@ module DataGenerator
     #================
     Writing functions
     ================#
-    function copy_file(from_dir_p::String, to_dir_p::String, filename_p::String)
+    function copy_file(from_dir_p::String, to_dir_p::String, filename_p::String; force_p::Bool=false)
         from_filepath_l = joinpath(from_dir_p, filename_p)
         to_filepath_l = joinpath(to_dir_p, filename_p)
-        cp(from_filepath_l, to_filepath_l)
+        cp(from_filepath_l, to_filepath_l, force=force_p)
     end
 
     function copy_ready_pscopf_files(basedata_path_p::String, instance_path_p::String)
         limits_filename_l = "pscopf_limits.txt"
         origin_limits_filepath_l = joinpath(basedata_path_p, limits_filename_l)
         if isfile(origin_limits_filepath_l)
-            copy_file(basedata_path_p, instance_path_p, limits_filename_l)
+            copy_file(basedata_path_p, instance_path_p, limits_filename_l, force_p=true)
         end
 
         files_to_copy = ["pscopf_units.txt", "pscopf_ptdf.txt", "pscopf_gen_type_bus.txt"]
         for filename_l in files_to_copy
-            copy_file(basedata_path_p, instance_path_p, filename_l)
+            copy_file(basedata_path_p, instance_path_p, filename_l, force_p=true)
         end
     end
 
