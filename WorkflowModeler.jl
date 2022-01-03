@@ -1056,7 +1056,7 @@ end
 function write_previsions(launcher_p::Workflow.Launcher)
     open(joinpath(launcher_p.dirpath, SCHEDULE_CSV), "w") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s\n", "unit", "TS", "h_15m", "value", "decision_type"));
+            write(file, @sprintf("%s;%s;%s;%s;%s\n", "unit", "h_15m", "ech", "value", "decision_type"));
         end
         for ((gen_l, ts_l, ech_l), value_l) in launcher_p.previsions
             dmo_l = launcher_p.units[gen_l][5]
