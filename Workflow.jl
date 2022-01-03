@@ -35,6 +35,8 @@ module Workflow
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
         NO_DMO::Bool;
+        NO_EOD_SLACK::Bool;
+        NO_BRANCH_SLACK::Bool;
 
         dirpath::String;
         # uncertainties, name-scenario-h-ech->value
@@ -76,12 +78,36 @@ module Workflow
         p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     end
 
+    @with_kw mutable struct SlackModeler
+        #ts, s
+        p_extra_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
+        p_extra_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
+        #branch, ts, s
+        v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+        v_extra_flow_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
+    end
+
     @with_kw mutable struct ObjectiveModeler
         penalties = AffExpr(0)
         lim_cost_obj = AffExpr(0)
         imp_prop_cost_obj = AffExpr(0)
         imp_starting_cost_obj = AffExpr(0)
+
+        cut_production_obj = AffExpr(0)
+        cut_consumption_obj = AffExpr(0)
+        branch_capacity_obj = AffExpr(0)
+
         full_obj = AffExpr(0)
+    end
+
+    @with_kw mutable struct ModelContainer
+        model = Model()
+        imposable_modeler::ImposableModeler = ImposableModeler()
+        limitable_modeler::LimitableModeler = LimitableModeler()
+        reserve_modeler::ReserveModeler = ReserveModeler()
+        slack_modeler::SlackModeler = SlackModeler()
+        objective_modeler::ObjectiveModeler = ObjectiveModeler()
+        v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
     end
 
     function read_ptdf(dir_path::String)
@@ -274,16 +300,17 @@ module Workflow
     - `p_res_max` : The maximum allowed reserve level
     """
     function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
-        dict_results_l = Dict{DateTime, Any}()
+        dict_results_l = Dict{DateTime, ModelContainer}()
 
         clear_output_files(launcher_p);
         for (index_l, ech_l)  in enumerate(lst_ech_p)
             println("-"^45)
+            # TODO: market action
             result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
             dict_results_l[ech_l] = result_l
             if index_l < length(lst_ech_p)
                 @printf("Update schedule for %s :", lst_ech_p[index_l+1])
-                println(update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l[2], result_l[3]))
+                update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
             end
         end
         write_previsions(launcher_p)
