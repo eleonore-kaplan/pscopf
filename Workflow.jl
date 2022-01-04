@@ -28,7 +28,8 @@ module Workflow
     SCHEDULE_CSV = "previsions.csv"
     COSTS_CSV = "costs.csv"
     SEVERED_POWERS_CSV = "severed_power.csv"
-    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV]
+    CUT_CONSO_CSV = "cut_consumption.csv"
+    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV, CUT_CONSO_CSV]
 
     @with_kw    mutable struct Launcher
         NO_IMPOSABLE::Bool;
@@ -80,7 +81,8 @@ module Workflow
     end
 
     @with_kw mutable struct SlackModeler
-        p_extra_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
+        #bus, ts, s
+        p_cut_conso = Dict{Tuple{String,DateTime,String},VariableRef}();
         #gen,ts, s
         p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
         #branch, ts, s
