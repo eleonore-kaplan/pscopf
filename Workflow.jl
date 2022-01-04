@@ -292,16 +292,12 @@ module Workflow
     include("WorkflowWorstCase.jl");
 
 
-    function market_update!(launcher_p, ech_p)
-        @printf("market action at %s not implemented!\n", ech_p)
-    end
-
-    function market_action!(launcher_p::Launcher, ech_p)
+    function balance_scenarios_eod!(launcher_p::Launcher, ech_p)
         #I/O still to specify :
         #probably this will read probabilistic uncertainties
         #write the uncertainties to consider by pscopf
         #FIXME : read market ECH to only launch market at specific dates ?
-        market_update!(launcher_p, ech_p)
+        @printf("by scenario balance action at ech %s not implemented!\n", ech_p)
     end
 
     """
@@ -317,14 +313,22 @@ module Workflow
     """
     function run_mode1(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
         println("Launch PSCOPF mode 1 for horizons : ", lst_ech_p)
-
         dict_results_l = Dict{DateTime, ModelContainer}()
         clear_output_files(launcher_p);
+
         for (index_l, ech_l)  in enumerate(lst_ech_p)
             println("-"^45)
-            market_action!(launcher_p, ech_l)
+
+            #Balance the uncertainties for each scenario separately
+            balance_scenarios_eod!(launcher_p, ech_l)
+
+            #Decide on the production levels of the units based on the DMO and ech
+            #Decisions can be fixed for all scenarios (limitables and DMO>=ECH) or by scenario (DMO<ECH)
             result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
             dict_results_l[ech_l] = result_l
+
+            #Propagate PSCOPF decisions
+            #If needed, Update the production schedule to be considered in the following ech
             if index_l < length(lst_ech_p)
                 @printf("Update schedule for %s\n", lst_ech_p[index_l+1])
                 update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
@@ -371,5 +375,9 @@ module Workflow
 
         ECH = Workflow.get_sorted_ech(launcher_p);
         return run(launcher_p, ECH, p_res_min, p_res_max, mode_p)
+    end
+
+    function assessment_step(launcher::Launcher, results::Dict{Dates.DateTime, ModelContainer}, p_res_min::Number, p_res_max::Number)
+        println("assessment_step not implemented!")
     end
 end

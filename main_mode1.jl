@@ -22,7 +22,7 @@ lst_deltas_from_markets = [Dates.Minute(120), Dates.Minute(30), Dates.Minute(60)
 lst_deltas_from_dmo = DataGenerator.get_dmo_list(data_generator)
 lst_delta_for_horizons = union(lst_deltas_from_markets, lst_deltas_from_dmo)
 
-instance_path = DataGenerator.create_instance!(data_generator, 5, lst_delta_for_horizons, instance_name_p="my_instance")
+instance_path = DataGenerator.create_instance!(data_generator, 5, lst_delta_for_horizons, instance_name_p="test")
 
 
 #======================================================
@@ -47,4 +47,10 @@ p_res = 10;
 p_res_min = -p_res;
 p_res_max = p_res;
 
-results = Workflow.run(launcher, p_res_min, p_res_max, mode_p=1);
+#results = Workflow.run(launcher, p_res_min, p_res_max, mode_p=1);
+
+ECH = Workflow.get_sorted_ech(launcher);
+
+Workflow.print_config(launcher)
+results = Workflow.run_mode1(launcher, ECH, p_res_min, p_res_max)
+Workflow.assessment_step(launcher, results, p_res_min, p_res_max)
