@@ -80,9 +80,9 @@ module Workflow
     end
 
     @with_kw mutable struct SlackModeler
-        #ts, s
         p_extra_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
-        p_extra_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
+        #gen,ts, s
+        p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
         #branch, ts, s
         v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
         v_extra_flow_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
