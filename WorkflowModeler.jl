@@ -27,7 +27,7 @@ catch e_xpress
         throw(e_xpress)
     end
 end
-println("optimizer: ", OPTIMIZER)
+@debug "optimizer: $(OPTIMIZER)"
 
 using Dates
 import Statistics
@@ -156,13 +156,13 @@ function get_branches(ptdf_data_p::Dict{Tuple{String, String}, Float64})
 end
 
 function print_config(launcher_p::Launcher)
-    println("NO_IMPOSABLE   : ", launcher_p.NO_IMPOSABLE);
-    println("NO_LIMITABLE   : ", launcher_p.NO_LIMITABLE);
-    println("NO_LIMITATION  : ", launcher_p.NO_LIMITATION);
-    println("NO_DMO         : ", launcher_p.NO_DMO);
-    println("NO_CUT_PRODUCTION   : ", launcher_p.NO_CUT_PRODUCTION);
-    println("NO_CUT_CONSUMPTION   : ", launcher_p.NO_CUT_CONSUMPTION);
-    println("NO_BRANCH_SLACK: ", launcher_p.NO_BRANCH_SLACK);
+    @info "NO_IMPOSABLE       : $(launcher_p.NO_IMPOSABLE)"
+    @info "NO_LIMITABLE       : $(launcher_p.NO_LIMITABLE)"
+    @info "NO_LIMITATION      : $(launcher_p.NO_LIMITATION)"
+    @info "NO_DMO             : $(launcher_p.NO_DMO)"
+    @info "NO_CUT_PRODUCTION  : $(launcher_p.NO_CUT_PRODUCTION)"
+    @info "NO_CUT_CONSUMPTION : $(launcher_p.NO_CUT_CONSUMPTION)"
+    @info "NO_BRANCH_SLACK    : $(launcher_p.NO_BRANCH_SLACK)"
 end
 
 function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind, TS, S)
@@ -260,11 +260,11 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                 prev0 = launcher.previsions[gen, ts, ech];
 
                 if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
-                    @printf("production level of unit %s is already fixed to %.3f for timestep %s.\n", gen, prev0, ts)
+                    @debug "production level of unit $(gen) is already fixed to $(prev0) for timestep $(ts)."
                 elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
-                    @printf("unit %s must be fixed for timestep %s.\n", gen, ts)
+                    @debug "unit $(gen) must be fixed for timestep $(ts)."
                 else
-                    @printf("still early to fix unit %s for timestep %s.\n", gen, ts)
+                    @debug "still early to fix unit $(gen) for timestep $(ts)."
                 end
 
                 for (s_index_l, s) in enumerate(S)
@@ -326,7 +326,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                         @constraint(model, p_start[gen, ts, s] >= p_on[gen, ts, s] - p_on[gen, ts_1, s]);
                     else
                         prev0 = launcher.previsions[gen, ts, ech];
-                        @printf("%s %s is at %f\n", gen, ts, prev0)
+                        @debug "ts:$(ts): unit $(gen) is at $(prev0)"
                         if abs(prev0) < 1
                             @constraint(model, p_start[gen, ts, s] == p_on[gen, ts, s]);
                         end
@@ -399,9 +399,6 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
             end
             if ! launcher.NO_LIMITABLE
                 for gen in units_by_bus[K_LIMITABLE][bus]
-                    p0 = launcher.uncertainties[gen, s, ts, ech];
-                    # println(gen, " ", ts, " ", s, " ", p0);
-                    #eod_expr[ts, s] +=  ((1 -  v_lim.is_limited[gen, ts, s]) * p0 + v_lim.is_limited_x_p_lim[gen, ts, s]);
                     eod_expr[ts, s] += v_lim.p_enr[gen,ts,s]
                 end
             end
@@ -421,7 +418,6 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
         end
     end
 
-    # println(launcher.uncertainties)
     for ts in TS, s in S
         load = 0;
         for bus in BUSES
@@ -434,6 +430,7 @@ end
 function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_max)
     if p_res_min > 0
         msg_l = @sprintf("Illegal value (%f) for argument p_res_min : a non-positive value is required.", p_res_min)
+        @error msg_l
         throw(ArgumentError(msg_l))
     end
 
@@ -603,7 +600,7 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus,
         end
         ptdf_by_branch[branch][bus] = ptdf[2];
     end
-    println("ptdf_by_branch : ", ptdf_by_branch);
+    @debug "ptdf_by_branch : $(ptdf_by_branch)"
     for ts in TS, s in S
         for limit in launcher.limits
             branch = limit[1];
@@ -654,15 +651,16 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     units_by_kind = Workflow.get_units_by_kind(launcher);
     units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
 
-    println("NAMES : ", NAMES);
-    println("BUSES : ", BUSES);
-    println("units_by_bus : ", units_by_bus);
-    println("TS             : ", TS);
-    println("S              : ", S);
+    @info "-"^10 * "   launch PSCOPF step   " * "-"^20
 
-    println("ech: ", ech);
-    println("Number of scenario ", length(S));
-    println("Number of time step is ", length(TS));
+    @debug "NAMES        : $(NAMES)"
+    @debug "BUSES        : $(BUSES)"
+    @debug "units_by_bus : $(units_by_bus)"
+    @debug "TS           : $(TS)"
+    @debug "S            : $(S)"
+    @debug "ech: $(ech)"
+    @debug "Number of scenarios : $(length(S))"
+    @debug "Number of timesteps : $(length(TS))"
     K_IMPOSABLE = Workflow.K_IMPOSABLE;
     K_LIMITABLE = Workflow.K_LIMITABLE;
 
@@ -675,7 +673,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     for ((name, s, ts, ech), v) in launcher.uncertainties
         eod_slack[ts,  s] += factor[name] * v;
     end
-    println("eod_slack is $eod_slack");
+    @debug "eod_slack is $(eod_slack)"
     ##############################################################
     # to be in a function ...
     ##############################################################
@@ -717,73 +715,65 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     model_file_l = joinpath(launcher.dirpath, @sprintf("model_%s.lp", ech))
     write_to_file(model, model_file_l)
 
-    println("Call optimizer")
+    @debug "Call optimizer"
     solver_logfile_l = joinpath(launcher.dirpath, @sprintf("model_%s.log", ech))
     redirect_to_file(solver_logfile_l) do
         optimize!(model)
     end
 
     if termination_status(model) == INFEASIBLE
-        error("Model is infeasible")
+        msg_l = "Model is infeasible"
+        @error msg_l
+        error(msg_l)
     end
-    @printf("Termination status : %s\n", termination_status(model))
-    @printf("Objective value : %f\n", objective_value(model))
+    @info "Termination status : $(termination_status(model))"
+    @info "Objective value : $(objective_value(model))"
 
-    # print_nz(p_imposable);
-    # print_nz(p_is_imp);
-    # print_nz(p_start);
-    # print_nz(p_on);
-    # print_nz(is_limited);
-
-    @printf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0");
+    @debug @sprintf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0")
     if ! launcher.NO_LIMITABLE
-        # println(launcher.uncertainties)
         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_LIMITABLE][bus]
             b_lim = value(is_limited[gen, ts, s]);
             if b_lim > 0.5
-                @printf("%10s[%s,%s] LIMITED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s,%s] LIMITED\n", gen, ts, s);
             end
             p0 = launcher.uncertainties[gen, s, ts, ech];
             b_enr = value(is_limited[gen, ts, s]);
             p_enr = value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
             p_lim_enr = value(p_lim[gen, ts]);
-            # println(value(is_limited_x_p_lim[gen, ts, s]) - b_enr * p_lim_enr)
             if b_enr > 0.5
-                @printf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
+                @debug @sprintf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
             end
-            # println(gen, " : ", value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]))
         end
     end
     if ! launcher.NO_IMPOSABLE
-        # println(launcher.uncertainties)
         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_IMPOSABLE][bus]
             b_start = value(p_start[gen, ts, s]);
             b_imp = value(p_is_imp[gen, ts, s]);
             if b_imp > 0.5
-                @printf("%10s[%s, %s] IMPOSED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s, %s] IMPOSED\n", gen, ts, s);
             end
             if b_start > 0.5
-                @printf("%10s[%s, %s] STARTED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s, %s] STARTED\n", gen, ts, s);
             end
             b_on = value(p_on[gen, ts, s]);
             if b_on > 0.5
-                @printf("%10s[%s, %s] %10.3f\n", gen, ts, s, value(v_imp.p_imposable[gen, ts, s]));
+                @debug @sprintf("%10s[%s, %s] %10.3f\n", gen, ts, s, value(v_imp.p_imposable[gen, ts, s]));
             end
         end
     end
-    println("v_res.p_res_pos");
+    @debug "v_res.p_res_pos"
     print_nz(v_res.p_res_pos);
-    println("v_res.p_res_neg");
+    @debug "v_res.p_res_neg"
     print_nz(v_res.p_res_neg);
-    println("v_res.v_flow");
+    @debug "v_res.v_flow"
     print_nz(v_flow);
-    println("v_slack.p_cut_conso (cut consumption)");
+    @debug "v_slack.p_cut_conso"
     print_nz(v_slack.p_cut_conso);
-    println("v_slack.p_cut_prod (cut production)");
+    @debug "v_slack.p_cut_prod"
     print_nz(v_slack.p_cut_prod);
-    println("v_slack.v_extra_flow_pos");
+    @debug "v_slack.v_extra_flow_pos"
     print_nz(v_slack.v_extra_flow_pos)
-    println("v_slack.v_extra_flow_neg");
+    @debug "v_slack.v_extra_flow_neg"
     print_nz(v_slack.v_extra_flow_neg)
 
     write_output_csv(launcher, ech, TS, S, model_container_l)
@@ -894,7 +884,7 @@ end
 function print_nz(variables)
     for x in variables
         if abs(value(x[2])) > 1e-6
-            println(x, " = ", value(x[2]));
+            @debug "$x = $(value(x[2]))"
         end
     end
 end
@@ -904,7 +894,7 @@ function clear_output_files(launcher)
         output_path_l = joinpath(launcher.dirpath, output_file_l)
         if isfile(output_path_l)
             rm(output_path_l)
-            println("removed ", output_path_l)
+            @debug "removed $(output_path_l)"
         end
     end
 end

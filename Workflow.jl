@@ -174,7 +174,6 @@ module Workflow
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
-                    # println(ln)
                     buffer = AmplTxt.split_with_space(ln);
                     name = buffer[1];
                     h = DateTime(buffer[2]);
@@ -193,7 +192,6 @@ module Workflow
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
-                    # println(ln)
                     buffer = AmplTxt.split_with_space(ln);
                     name = buffer[1];
                     h = DateTime(buffer[2]);
@@ -293,11 +291,12 @@ module Workflow
 
 
     function balance_scenarios_eod!(launcher_p::Launcher, ech_p)
+        @info "-"^10 * "   balance scenarios   " * "-"^20
         #I/O still to specify :
         #probably this will read probabilistic uncertainties
         #write the uncertainties to consider by pscopf
         #FIXME : read market ECH to only launch market at specific dates ?
-        @printf("by scenario balance action at ech %s not implemented!\n", ech_p)
+        @warn "balance action by scenario at ech $(ech_p) not implemented!"
     end
 
     """
@@ -312,12 +311,12 @@ module Workflow
     - `p_res_max` : The maximum allowed reserve level
     """
     function run_mode1(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
-        println("Launch PSCOPF mode 1 for horizons : ", lst_ech_p)
+        @info "Launch PSCOPF mode 1 for horizons : $(lst_ech_p)"
         dict_results_l = Dict{DateTime, ModelContainer}()
         clear_output_files(launcher_p);
 
         for (index_l, ech_l)  in enumerate(lst_ech_p)
-            println("-"^45)
+            @info "-"^30 * "   ECH : $ech_l   " * "-"^60
 
             #Balance the uncertainties for each scenario separately
             balance_scenarios_eod!(launcher_p, ech_l)
@@ -330,7 +329,7 @@ module Workflow
             #Propagate PSCOPF decisions
             #If needed, Update the production schedule to be considered in the following ech
             if index_l < length(lst_ech_p)
-                @printf("Update schedule for %s\n", lst_ech_p[index_l+1])
+                @info "Update schedule for upcoming iteration : $(lst_ech_p[index_l+1])"
                 update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
             end
         end
@@ -378,6 +377,6 @@ module Workflow
     end
 
     function assessment_step(launcher::Launcher, results::Dict{Dates.DateTime, ModelContainer}, p_res_min::Number, p_res_max::Number)
-        println("assessment_step not implemented!")
+        @warn "assessment_step not implemented!"
     end
 end
