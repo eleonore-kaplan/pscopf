@@ -340,9 +340,12 @@ end
 
 #FIXME : add_slack!(::ModelContainer, ::Launcher)
 #FIXME : add_slack!(::ModelContainer, ::Launcher, branches, TS, S)
-function add_slack!(launcher, ech, model, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler)
-    #ts, s
-    p_extra_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
+function add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES,
+                    v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler,
+                    netloads)
+    #bus, ts, s
+    p_cut_conso = Dict{Tuple{String,DateTime,String},VariableRef}();
+    #gen, ts, s
     p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
     #branch, ts, s
     v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -350,14 +353,14 @@ function add_slack!(launcher, ech, model, TS, S, v_lim::Workflow.LimitableModele
 
     if ! launcher.NO_CUT_PRODUCTION
         if ! launcher.NO_LIMITABLE
-            for (gen,_) in get_units_by_kind(launcher)[K_LIMITABLE], ts in TS, s in S
+            for (gen,_) in units_by_kind[K_LIMITABLE], ts in TS, s in S
                 name =  @sprintf("p_cut_prod[%s,%s,%s]", gen, ts, s);
                 p_cut_prod[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
                 @constraint(model, p_cut_prod[gen, ts, s] <= v_lim.p_enr[gen, ts, s]);
             end
         end
         if ! launcher.NO_IMPOSABLE
-            for (gen,_) in get_units_by_kind(launcher)[K_IMPOSABLE], ts in TS, s in S
+            for (gen,_) in units_by_kind[K_IMPOSABLE], ts in TS, s in S
                 name =  @sprintf("p_cut_prod[%s,%s,%s]", gen, ts, s);
                 p_cut_prod[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
                 @constraint(model, p_cut_prod[gen, ts, s] <= v_imp.p_imposable[gen, ts, s]);
@@ -365,9 +368,9 @@ function add_slack!(launcher, ech, model, TS, S, v_lim::Workflow.LimitableModele
         end
     end
     if ! launcher.NO_CUT_CONSUMPTION
-        for ts in TS, s in S
-            name =  @sprintf("p_extra_res_pos[%s,%s]", ts, s);
-            p_extra_res_pos[ts, s] = @variable(model, base_name = name, lower_bound = 0);
+        for bus in BUSES, ts in TS, s in S
+            name =  @sprintf("p_cut_conso[%s,%s,%s]", bus, ts, s);
+            p_cut_conso[bus, ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound=netloads[bus, ts, s]);
         end
     end
 
@@ -380,7 +383,7 @@ function add_slack!(launcher, ech, model, TS, S, v_lim::Workflow.LimitableModele
         end
     end
 
-    return Workflow.SlackModeler(p_extra_res_pos, p_cut_prod, v_extra_flow_pos, v_extra_flow_neg);
+    return Workflow.SlackModeler(p_cut_conso, p_cut_prod, v_extra_flow_pos, v_extra_flow_neg);
 end
 
 function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES,
@@ -409,7 +412,7 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
         eod_expr[ts, s] -= v_res.p_res_neg[ts, s];
     end
 
-    for ((ts_l,s_l), var_l) in v_slack.p_extra_res_pos
+    for ((bus_l,ts_l,s_l), var_l) in v_slack.p_cut_conso
         eod_expr[ts_l, s_l] += var_l;
     end
     if ! launcher.NO_CUT_PRODUCTION
@@ -560,7 +563,7 @@ function add_obj!(launcher::Launcher, model, TS, S,
     end
 
     w_cut_consumption_l = get_cut_consumption_cost(launcher)
-    for x in v_slack.p_extra_res_pos
+    for x in v_slack.p_cut_conso
         cut_consumption_obj_l += w_cut_consumption_l * x[2]
     end
 
@@ -698,7 +701,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     v_res = add_reserve!(launcher, ech, model, TS, S, p_res_min, p_res_max);
     model_container_l.reserve_modeler = v_res
 
-    v_slack = add_slack!(launcher, ech, model, TS, S, v_lim, v_imp)
+    v_slack = add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES, v_lim, v_imp, netloads)
     model_container_l.slack_modeler = v_slack
 
     add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_res, v_slack, netloads);
@@ -774,8 +777,8 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     print_nz(v_res.p_res_neg);
     println("v_res.v_flow");
     print_nz(v_flow);
-    println("v_slack.p_extra_res_pos (cut consumption)");
-    print_nz(v_slack.p_extra_res_pos);
+    println("v_slack.p_cut_conso (cut consumption)");
+    print_nz(v_slack.p_cut_conso);
     println("v_slack.p_cut_prod (cut production)");
     print_nz(v_slack.p_cut_prod);
     println("v_slack.v_extra_flow_pos");
@@ -1010,7 +1013,7 @@ function write_power_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, model_c
             write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
                                 "ech", "s", "ts",
                                 "lim_severed_power","imp_severed_power","imp_increased_power","pos_res","neg_res",
-                                "pos_extra_res", "neg_extra_res",
+                                "cut_consumption", "cut_production",
                                 ));
         end
 
@@ -1019,8 +1022,10 @@ function write_power_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, model_c
         imp_pos_power_l = get_imp_pos_power(model_container_p.imposable_modeler)
         pos_reserve_l = get_vals_dict_from_vars_dict(model_container_p.reserve_modeler.p_res_pos)
         neg_reserve_l = get_vals_dict_from_vars_dict(model_container_p.reserve_modeler.p_res_neg)
-        pos_extra_reserve_l = get_vals_dict_from_vars_dict(model_container_p.slack_modeler.p_extra_res_pos)
-        neg_extra_reserve_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_prod, 1)
+        #sum the cut consumption along units for each ts and scenario
+        cut_consumption_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_conso, 1)
+        #sum the cut production along buses for each ts and scenario
+        cut_production = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_prod, 1)
         for (ts_l,s_l) in union(keys(lim_severed_power_l), keys(imp_neg_power_l), keys(imp_pos_power_l))
             write(file, @sprintf("%s;%s;%s;%f;%f;%f;%f;%f;%f;%f\n",
                                 ech_p,
@@ -1031,8 +1036,8 @@ function write_power_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, model_c
                                 imp_pos_power_l[ts_l, s_l],
                                 pos_reserve_l[ts_l, s_l],
                                 neg_reserve_l[ts_l, s_l],
-                                pos_extra_reserve_l[ts_l, s_l],
-                                neg_extra_reserve_l[ts_l, s_l]
+                                cut_consumption_l[ts_l, s_l],
+                                cut_production[ts_l, s_l]
                         )
             )
         end
@@ -1065,6 +1070,23 @@ function write_costs_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, obj_p::
     end
 end
 
+function write_cut_conso_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, v_slack_p::Workflow.SlackModeler)
+    open(joinpath(launcher_p.dirpath, CUT_CONSO_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s\n",
+                                "ech", "bus", "s", "ts", "cut_consumption"
+                                ));
+        end
+
+        for ((bus_l, ts_l, s_l), var_cut_conso_l) in v_slack_p.p_cut_conso
+            write(file, @sprintf("%s;%s;%s;%s;%f\n",
+                                ech_p, bus_l, s_l, ts_l,
+                                value(var_cut_conso_l)
+                        )
+            )
+        end
+    end
+end
 
 function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, model_container_p::Workflow.ModelContainer)
     write_limitations_csv(launcher, ech, model_container_p.limitable_modeler, model_container_p.slack_modeler)
@@ -1073,6 +1095,7 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, model_contain
     write_flows_csv(launcher, ech, model_container_p.v_flow, model_container_p.slack_modeler)
     write_power_csv(launcher, ech, model_container_p)
     write_costs_csv(launcher, ech, model_container_p.objective_modeler)
+    write_cut_conso_csv(launcher, ech, model_container_p.slack_modeler)
 end
 
 function write_previsions(launcher_p::Workflow.Launcher)
