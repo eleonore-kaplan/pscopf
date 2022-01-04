@@ -28,12 +28,14 @@ instance_path = DataGenerator.create_instance!(data_generator, 5, lst_delta_for_
 #======================================================
     Launch Mode 1
 ======================================================#
+include(joinpath(root_path, "scopf_utils.jl"));
 include(joinpath(root_path, "AmplTxt.jl"));
 include(joinpath(root_path, "Workflow.jl"));
 
 println("-"^120)
 println("test case : ", instance_path)
 launcher = Workflow.Launcher(instance_path);
+SCOPFutils.init_logging(launcher.dirpath)
 
 launcher.NO_LIMITABLE = false;
 launcher.NO_IMPOSABLE = false;

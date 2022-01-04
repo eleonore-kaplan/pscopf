@@ -10,7 +10,6 @@ module DataGenerator
     ======================================================#
     include("AmplTxt.jl"); # need split_with_space
     include("Workflow.jl"); # need only reading functions
-    include("scopf_utils.jl");
 
     #======================================================
             Constants
