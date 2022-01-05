@@ -156,6 +156,7 @@ function get_branches(ptdf_data_p::Dict{Tuple{String, String}, Float64})
 end
 
 function print_config(launcher_p::Launcher)
+    @info "DIRPATH            : $(launcher_p.dirpath)"
     @info "NO_IMPOSABLE       : $(launcher_p.NO_IMPOSABLE)"
     @info "NO_LIMITABLE       : $(launcher_p.NO_LIMITABLE)"
     @info "NO_LIMITATION      : $(launcher_p.NO_LIMITATION)"
@@ -720,14 +721,16 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     redirect_to_file(solver_logfile_l) do
         optimize!(model)
     end
+    status_l = update_status!(model_container_l)
+    @info "pscopf model status: $status_l"
 
     if termination_status(model) == INFEASIBLE
         msg_l = "Model is infeasible"
         @error msg_l
         error(msg_l)
     end
-    @info "Termination status : $(termination_status(model))"
-    @info "Objective value : $(objective_value(model))"
+    @debug "Termination status : $(termination_status(model))"
+    @debug "Objective value : $(objective_value(model))"
 
     @debug @sprintf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0")
     if ! launcher.NO_LIMITABLE
@@ -820,6 +823,62 @@ function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::Dat
     end
 
     return launcher_p.previsions
+end
+
+function has_cut_prod(model_container_p::Workflow.ModelContainer)
+    return any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.p_cut_prod)
+end
+function has_cut_conso(model_container_p::Workflow.ModelContainer)
+    return any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.p_cut_conso)
+end
+function has_branch_slack(model_container_p::Workflow.ModelContainer)
+    return ( any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_extra_flow_pos)
+            || any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_extra_flow_neg))
+end
+
+"""
+update_status!(model_container_p::Workflow.ModelContainer)
+
+    updates the status attribute of the ModelContainer wrt the variables values
+
+    # Arguments
+    - `model_container_p::Workflow.ModelContainer` : the model container for which the status will be updated
+
+    # Returns
+    - the updated status of the model container (cf. Workflow.PSCOPFStatus)
+"""
+function update_status!(model_container_p::Workflow.ModelContainer)
+    solver_status_l = termination_status(model_container_p.model)
+
+    if solver_status_l == OPTIMIZE_NOT_CALLED
+        model_container_p.status = pscopf_UNSOLVED
+        return model_container_p.status
+    end
+
+    if solver_status_l == INFEASIBLE
+        model_container_p.status = pscopf_INFEASIBLE
+        return model_container_p.status
+    end
+
+    if solver_status_l != OPTIMAL
+        @warn "solver termination status was not optimal : $(solver_status_l)"
+    end
+
+    has_cut_prod_l = has_cut_prod(model_container_p)
+    has_cut_conso_l = has_cut_conso(model_container_p)
+    has_branch_slack_l = has_branch_slack(model_container_p)
+    if !has_cut_prod_l && !has_cut_conso_l && !has_branch_slack_l
+        model_container_p.status = pscopf_OPTIMAL
+    elseif has_cut_prod_l && !has_cut_conso_l && !has_branch_slack_l
+        model_container_p.status = pscopf_CUT_PROD
+    elseif has_cut_conso_l && !has_cut_prod_l && !has_branch_slack_l
+        model_container_p.status = pscopf_CUT_CONSO
+    elseif has_branch_slack_l && !has_cut_conso_l && !has_cut_prod_l
+        model_container_p.status = pscopf_BRANCH_CAPA
+    elseif has_branch_slack_l || has_cut_conso_l || has_cut_prod_l
+        model_container_p.status = pscopf_SLACK_FEASIBLE
+    end
+    return model_container_p.status
 end
 
 """
