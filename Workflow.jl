@@ -103,6 +103,28 @@ module Workflow
         full_obj = AffExpr(0)
     end
 
+
+    """
+    Possible status values for a pscopf model container
+
+        - pscopf_OPTIMAL : a solution that does not use slacks was retrieved
+        - pscopf_CUT_PROD : retrieved solution uses a cut production slack variable
+        - pscopf_CUT_CONSO : retrieved solution uses a cut consumption slack variable
+        - pscopf_BRANCH_CAPA : retrieved solution uses a branch capacity slack variable
+        - pscopf_SLACK_FEASIBLE : retrieved solution uses more than one type of slack variables
+        - pscopf_INFEASIBLE : no solution was retrieved
+        - pscopf_UNSOLVED : model is not solved yet
+    """
+    @enum PSCOPFStatus begin
+        pscopf_OPTIMAL
+        pscopf_CUT_PROD
+        pscopf_CUT_CONSO
+        pscopf_BRANCH_CAPA
+        pscopf_SLACK_FEASIBLE
+        pscopf_INFEASIBLE
+        pscopf_UNSOLVED
+    end
+
     @with_kw mutable struct ModelContainer
         model = Model()
         imposable_modeler::ImposableModeler = ImposableModeler()
@@ -111,6 +133,7 @@ module Workflow
         slack_modeler::SlackModeler = SlackModeler()
         objective_modeler::ObjectiveModeler = ObjectiveModeler()
         v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
+        status::PSCOPFStatus = pscopf_UNSOLVED
     end
 
     function read_ptdf(dir_path::String)
