@@ -918,7 +918,7 @@ function write_limitations_csv(launcher::Workflow.Launcher, ech, v_lim::Workflow
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
             prod = value(v_lim.p_enr[gen, ts, s])
-            cut_prod = value(v_slack.p_cut_prod[gen, ts, s])
+            cut_prod = value(get(v_slack.p_cut_prod, (gen, ts, s), 0.))
             write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f;%f;%f\n", ech, gen, ts, s, is_lim, p_sol, p0, prev0, prod, cut_prod));
         end
     end
@@ -941,7 +941,7 @@ function write_impositions_csv(launcher::Workflow.Launcher, ech, v_imp::Workflow
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
             prod = value(v_imp.p_imposable[gen, ts, s])
-            cut_prod = value(v_slack.p_cut_prod[gen, ts, s])
+            cut_prod = value(get(v_slack.p_cut_prod, (gen, ts, s), 0.))
             write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f;%f;%f\n", ech, gen, ts, s, is_imp, p_sol, p0, prev0, prod, cut_prod));
         end
     end
@@ -989,8 +989,10 @@ function write_flows_csv(launcher::Workflow.Launcher, ech::DateTime,
             write(file, @sprintf("%s;%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "flow", "capacity_increase"));
         end
         for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
-            @assert ( (value(v_slack.v_extra_flow_neg[branch_l,ts_l,s_l])<1e-6) || (value(v_slack.v_extra_flow_pos[branch_l,ts_l,s_l])<1e-6) )
-            increase_l = max( value(v_slack.v_extra_flow_neg[branch_l,ts_l,s_l]), value(v_slack.v_extra_flow_pos[branch_l,ts_l,s_l]) )
+            neg_slack_l = value(get(v_slack.v_extra_flow_neg, (branch_l,ts_l,s_l), 0.))
+            pos_slack_l = value(get(v_slack.v_extra_flow_pos, (branch_l,ts_l,s_l), 0.))
+            @assert ( (neg_slack_l<1e-6) || (pos_slack_l<1e-6) )
+            increase_l = max( neg_slack_l, pos_slack_l )
             increase_l = increase_l > 1e-6 ? increase_l : 0.
             write(file, @sprintf("%s;%s;%s;%s;%f;%f\n", ech, branch_l, ts_l, s_l, value(flow_var_l),increase_l));
         end
@@ -1015,19 +1017,19 @@ function write_power_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, model_c
         #sum the cut consumption along units for each ts and scenario
         cut_consumption_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_conso, 1)
         #sum the cut production along buses for each ts and scenario
-        cut_production = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_prod, 1)
+        cut_production_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_prod, 1)
         for (ts_l,s_l) in union(keys(lim_severed_power_l), keys(imp_neg_power_l), keys(imp_pos_power_l))
             write(file, @sprintf("%s;%s;%s;%f;%f;%f;%f;%f;%f;%f\n",
                                 ech_p,
                                 s_l,
                                 ts_l,
-                                lim_severed_power_l[ts_l, s_l],
-                                imp_neg_power_l[ts_l, s_l],
-                                imp_pos_power_l[ts_l, s_l],
-                                pos_reserve_l[ts_l, s_l],
-                                neg_reserve_l[ts_l, s_l],
-                                cut_consumption_l[ts_l, s_l],
-                                cut_production[ts_l, s_l]
+                                get(lim_severed_power_l, (ts_l, s_l), 0),
+                                get(imp_neg_power_l, (ts_l, s_l), 0),
+                                get(imp_pos_power_l, (ts_l, s_l), 0),
+                                get(pos_reserve_l, (ts_l, s_l), 0),
+                                get(neg_reserve_l, (ts_l, s_l), 0),
+                                get(cut_consumption_l, (ts_l, s_l), 0),
+                                get(cut_production_l, (ts_l, s_l), 0)
                         )
             )
         end
