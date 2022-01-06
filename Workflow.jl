@@ -40,7 +40,10 @@ module Workflow
         NO_CUT_PRODUCTION::Bool;
         NO_CUT_CONSUMPTION::Bool;
         NO_BRANCH_SLACK::Bool;
-        SCENARIOS_FLEXIBILITY::Float64;
+        SCENARIOS_FLEXIBILITY::Union{Float64,Nothing}; #allowed difference between the production levels of the different scenarios for an imposable, given a unit,ts,ech
+        COEFF_CUT_PROD::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables cutting production (if NO_CUT_PRODUCTION is false)
+        COEFF_CUT_CONSO::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables cutting consumption (if NO_CUT_CONSUMPTION is false)
+        COEFF_BRANCH_SLACK::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables increasing branch capacity (if NO_BRANCH_SLACK is false)
 
         dirpath::String;
         # uncertainties, name-scenario-h-ech->value
@@ -237,12 +240,12 @@ module Workflow
             mkpath(dir_path)
         end
 
-        units_l = read_units(input_path)
         return Launcher(false, false, false, false, false, false, false,
-                        get_highest_pmax(units_l),
+                        nothing,
+                        nothing, nothing, nothing,
                         dir_path,
                         read_uncertainties(input_path), read_previsions(input_path),
-                        units_l, read_gen_type_bus(input_path),
+                        read_units(input_path), read_gen_type_bus(input_path),
                         read_ptdf(input_path), read_limits(input_path))
     end
 
