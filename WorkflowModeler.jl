@@ -364,8 +364,8 @@ function add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES,
     #gen, ts, s
     p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
     #branch, ts, s
-    v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
-    v_extra_flow_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
+    v_branch_slack_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+    v_branch_slack_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
 
     if ! launcher.NO_CUT_PRODUCTION
         if ! launcher.NO_LIMITABLE
@@ -392,14 +392,14 @@ function add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES,
 
     if ! launcher.NO_BRANCH_SLACK
         for branch in get_branches(launcher), ts in TS, s in S
-            name =  @sprintf("v_extra_flow_pos[%s,%s,%s]", branch, ts, s);
-            v_extra_flow_pos[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
-            name =  @sprintf("v_extra_flow_neg[%s,%s,%s]", branch, ts, s);
-            v_extra_flow_neg[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+            name =  @sprintf("v_branch_slack_pos[%s,%s,%s]", branch, ts, s);
+            v_branch_slack_pos[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+            name =  @sprintf("v_branch_slack_neg[%s,%s,%s]", branch, ts, s);
+            v_branch_slack_neg[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
         end
     end
 
-    return Workflow.SlackModeler(p_cut_conso, p_cut_prod, v_extra_flow_pos, v_extra_flow_neg);
+    return Workflow.SlackModeler(p_cut_conso, p_cut_prod, v_branch_slack_pos, v_branch_slack_neg);
 end
 
 function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES,
@@ -518,7 +518,7 @@ function get_cut_consumption_cost(launcher_p::Launcher)
     cost_l = miniwork_cost_l + max_mini_p_l * get_cut_production_cost(launcher_p)
     return next_pow10(cost_l)
 end
-function get_branch_capa_cost(launcher_p::Launcher)
+function get_branch_slack_cost(launcher_p::Launcher)
     return next_pow10(get_cut_consumption_cost(launcher_p))
 end
 
@@ -533,7 +533,7 @@ function add_obj!(launcher::Launcher, model, TS, S,
     imp_starting_cost_obj_l = AffExpr(0);
     cut_production_obj_l = AffExpr(0);
     cut_consumption_obj_l = AffExpr(0);
-    branch_capacity_obj_l = AffExpr(0);
+    branch_slack_obj_l = AffExpr(0);
 
     w_scenario_l = 1 / length(S);
 
@@ -580,12 +580,12 @@ function add_obj!(launcher::Launcher, model, TS, S,
         cut_consumption_obj_l += w_cut_consumption_l * x[2]
     end
 
-    w_branch_capa_l = get_branch_capa_cost(launcher)
-    for x in v_slack.v_extra_flow_neg
-        branch_capacity_obj_l += w_branch_capa_l * x[2]
+    w_branch_slack_l = get_branch_slack_cost(launcher)
+    for x in v_slack.v_branch_slack_neg
+        branch_slack_obj_l += w_branch_slack_l * x[2]
     end
-    for x in v_slack.v_extra_flow_pos
-        branch_capacity_obj_l += w_branch_capa_l * x[2]
+    for x in v_slack.v_branch_slack_pos
+        branch_slack_obj_l += w_branch_slack_l * x[2]
     end
 
     sum_obj_l += penalties_obj_l
@@ -594,12 +594,12 @@ function add_obj!(launcher::Launcher, model, TS, S,
     sum_obj_l += imp_starting_cost_obj_l
     sum_obj_l += cut_production_obj_l
     sum_obj_l += cut_consumption_obj_l
-    sum_obj_l += branch_capacity_obj_l
+    sum_obj_l += branch_slack_obj_l
 
     obj_l = @objective(model, Min, sum_obj_l);
 
     return Workflow.ObjectiveModeler( penalties_obj_l, lim_cost_obj_l, imp_prop_cost_obj_l, imp_starting_cost_obj_l,
-                                    cut_production_obj_l, cut_consumption_obj_l, branch_capacity_obj_l,
+                                    cut_production_obj_l, cut_consumption_obj_l, branch_slack_obj_l,
                                     obj_l)
 end
 
@@ -638,8 +638,8 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus,
                     end
                 end
             end
-            pos_slack_l = get(v_slack.v_extra_flow_pos, (branch, ts, s), 0.)
-            neg_slack_l = get(v_slack.v_extra_flow_neg, (branch, ts, s), 0.)
+            pos_slack_l = get(v_slack.v_branch_slack_pos, (branch, ts, s), 0.)
+            neg_slack_l = get(v_slack.v_branch_slack_neg, (branch, ts, s), 0.)
             @constraint(model, v_flow[branch, ts, s] + pos_slack_l - neg_slack_l == f_ref + xpr);
         end
     end
@@ -796,10 +796,10 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     print_nz(v_slack.p_cut_conso);
     @debug "v_slack.p_cut_prod"
     print_nz(v_slack.p_cut_prod);
-    @debug "v_slack.v_extra_flow_pos"
-    print_nz(v_slack.v_extra_flow_pos)
-    @debug "v_slack.v_extra_flow_neg"
-    print_nz(v_slack.v_extra_flow_neg)
+    @debug "v_slack.v_branch_slack_pos"
+    print_nz(v_slack.v_branch_slack_pos)
+    @debug "v_slack.v_branch_slack_neg"
+    print_nz(v_slack.v_branch_slack_neg)
 
     write_output_csv(launcher, ech, TS, S, model_container_l)
 
@@ -854,8 +854,8 @@ function has_cut_conso(model_container_p::Workflow.ModelContainer)
     return any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.p_cut_conso)
 end
 function has_branch_slack(model_container_p::Workflow.ModelContainer)
-    return ( any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_extra_flow_pos)
-            || any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_extra_flow_neg))
+    return ( any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_branch_slack_pos)
+            || any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_branch_slack_neg))
 end
 
 """
@@ -896,7 +896,7 @@ function update_status!(model_container_p::Workflow.ModelContainer)
     elseif has_cut_conso_l && !has_cut_prod_l && !has_branch_slack_l
         model_container_p.status = pscopf_CUT_CONSO
     elseif has_branch_slack_l && !has_cut_conso_l && !has_cut_prod_l
-        model_container_p.status = pscopf_BRANCH_CAPA
+        model_container_p.status = pscopf_BRANCH_SLACK
     elseif has_branch_slack_l || has_cut_conso_l || has_cut_prod_l
         model_container_p.status = pscopf_SLACK_FEASIBLE
     end
@@ -1070,8 +1070,8 @@ function write_flows_csv(launcher::Workflow.Launcher, ech::DateTime,
             write(file, @sprintf("%s;%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "flow", "capacity_increase"));
         end
         for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
-            neg_slack_l = value(get(v_slack.v_extra_flow_neg, (branch_l,ts_l,s_l), 0.))
-            pos_slack_l = value(get(v_slack.v_extra_flow_pos, (branch_l,ts_l,s_l), 0.))
+            neg_slack_l = value(get(v_slack.v_branch_slack_neg, (branch_l,ts_l,s_l), 0.))
+            pos_slack_l = value(get(v_slack.v_branch_slack_pos, (branch_l,ts_l,s_l), 0.))
             @assert ( (neg_slack_l<1e-6) || (pos_slack_l<1e-6) )
             increase_l = max( neg_slack_l, pos_slack_l )
             increase_l = increase_l > 1e-6 ? increase_l : 0.
@@ -1136,7 +1136,7 @@ function write_costs_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, obj_p::
                                 value(obj_p.imp_starting_cost_obj),
                                 value(obj_p.cut_production_obj),
                                 value(obj_p.cut_consumption_obj),
-                                value(obj_p.branch_capacity_obj),
+                                value(obj_p.branch_slack_obj),
                                 value(obj_p.full_obj)
                     )
         )
