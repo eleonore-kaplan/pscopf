@@ -1,0 +1,2 @@
+# branch limit
+"1_2"    20
