@@ -499,7 +499,7 @@ function get_max_miniwork_cost(launcher_p::Launcher)
     end
     return max_cost_l
 end
-function get_max_mini_p(launcher_p::Launcher)
+function get_highest_pmin(launcher_p::Launcher)
     max_min_p_l = 0.
     for (_,gen_data_l) in launcher_p.units
         min_prod_level_l = gen_data_l[1]
@@ -508,18 +508,18 @@ function get_max_mini_p(launcher_p::Launcher)
     return max_min_p_l
 end
 
-function get_cut_production_cost(launcher_p::Launcher)
+function default_cut_production_cost(launcher_p::Launcher)
     cost_l = get_max_miniwork_cost(launcher_p)
     return next_pow10(cost_l)
 end
-function get_cut_consumption_cost(launcher_p::Launcher)
+function default_cut_consumption_cost(launcher_p::Launcher)
     miniwork_cost_l = get_max_miniwork_cost(launcher_p)
-    max_mini_p_l = max(1., get_max_mini_p(launcher_p))
-    cost_l = miniwork_cost_l + max_mini_p_l * get_cut_production_cost(launcher_p)
+    max_mini_p_l = max(1., get_highest_pmin(launcher_p))
+    cost_l = miniwork_cost_l + max_mini_p_l * default_cut_production_cost(launcher_p)
     return next_pow10(cost_l)
 end
-function get_branch_slack_cost(launcher_p::Launcher)
-    return next_pow10(get_cut_consumption_cost(launcher_p))
+function default_branch_slack_cost(launcher_p::Launcher)
+    return next_pow10(default_cut_consumption_cost(launcher_p))
 end
 
 function add_obj!(launcher::Launcher, model, TS, S,
@@ -570,17 +570,17 @@ function add_obj!(launcher::Launcher, model, TS, S,
         penalties_obj_l += (1e-3)*w_scenario_l* x[2];
     end
 
-    w_cut_prod_l = get_cut_production_cost(launcher)
+    w_cut_prod_l = launcher.COEFF_CUT_PROD
     for x in v_slack.p_cut_prod
         cut_production_obj_l += w_cut_prod_l * x[2]
     end
 
-    w_cut_consumption_l = get_cut_consumption_cost(launcher)
+    w_cut_consumption_l = launcher.COEFF_CUT_CONSO
     for x in v_slack.p_cut_conso
         cut_consumption_obj_l += w_cut_consumption_l * x[2]
     end
 
-    w_branch_slack_l = get_branch_slack_cost(launcher)
+    w_branch_slack_l = launcher.COEFF_BRANCH_SLACK
     for x in v_slack.v_branch_slack_neg
         branch_slack_obj_l += w_branch_slack_l * x[2]
     end
@@ -646,10 +646,43 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus,
     return v_flow;
 end
 
+function default_scenarios_flexibility(launcher_p::Launcher)
+    return get_highest_pmax(launcher_p.units)
+end
+
 function check_validity(launcher_p::Launcher)
+    if isnothing(launcher_p.SCENARIOS_FLEXIBILITY)
+        launcher_p.SCENARIOS_FLEXIBILITY = default_scenarios_flexibility(launcher_p)
+        @warn("launcher_p.SCENARIOS_FLEXIBILITY set to default value : $(launcher_p.SCENARIOS_FLEXIBILITY)")
+    end
     if launcher_p.SCENARIOS_FLEXIBILITY < 0
         throw(ArgumentError("Must set Launcher.SCENARIOS_FLEXIBILITY to a non-negative value before launching optimization."))
     end
+
+    if isnothing(launcher_p.COEFF_CUT_PROD)
+        launcher_p.COEFF_CUT_PROD = default_cut_production_cost(launcher_p)
+        @warn("launcher_p.COEFF_CUT_PROD set to default value : $(launcher_p.COEFF_CUT_PROD)")
+    end
+    if launcher_p.COEFF_CUT_PROD < 0
+        throw(ArgumentError("Must set Launcher.COEFF_CUT_PROD to a non-negative value before launching optimization."))
+    end
+
+    if isnothing(launcher_p.COEFF_CUT_CONSO)
+        launcher_p.COEFF_CUT_CONSO = default_cut_consumption_cost(launcher_p)
+        @warn("launcher_p.COEFF_CUT_CONSO set to default value : $(launcher_p.COEFF_CUT_CONSO)")
+    end
+    if launcher_p.COEFF_CUT_CONSO < 0
+        throw(ArgumentError("Must set Launcher.COEFF_CUT_CONSO to a non-negative value before launching optimization."))
+    end
+
+    if isnothing(launcher_p.COEFF_BRANCH_SLACK)
+        launcher_p.COEFF_BRANCH_SLACK = default_branch_slack_cost(launcher_p)
+        @warn("launcher_p.COEFF_BRANCH_SLACK set to default value : $(launcher_p.COEFF_BRANCH_SLACK)")
+    end
+    if launcher_p.COEFF_BRANCH_SLACK < 0
+        throw(ArgumentError("Must set Launcher.COEFF_BRANCH_SLACK to a non-negative value before launching optimization."))
+    end
+
 end
 
 """
