@@ -6,6 +6,8 @@ Manifest.toml
 #temp and cache
 .ipynb_checkpoints/
 
+#test results
+test/tests_data/**/out_*
 
 #ignored data directories
 data/*
