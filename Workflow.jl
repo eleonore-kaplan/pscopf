@@ -39,6 +39,7 @@ module Workflow
         NO_CUT_PRODUCTION::Bool;
         NO_CUT_CONSUMPTION::Bool;
         NO_BRANCH_SLACK::Bool;
+        SCENARIOS_FLEXIBILITY::Float64;
 
         dirpath::String;
         # uncertainties, name-scenario-h-ech->value
@@ -234,10 +235,13 @@ module Workflow
         if !isdir(dir_path)
             mkpath(dir_path)
         end
+
+        units_l = read_units(input_path)
         return Launcher(false, false, false, false, false, false, false,
+                        get_highest_pmax(units_l),
                         dir_path,
                         read_uncertainties(input_path), read_previsions(input_path),
-                        read_units(input_path), read_gen_type_bus(input_path),
+                        units_l, read_gen_type_bus(input_path),
                         read_ptdf(input_path), read_limits(input_path))
     end
 
@@ -307,6 +311,10 @@ module Workflow
             result[kind][bus] = tmp;
         end 
         return result;
+    end
+
+    function get_highest_pmax(units_p::Dict{String, Vector{Float64}})
+        return maximum([gen_data_l[2] for (_,gen_data_l) in units_p])
     end
 
     include("WorkflowModeler.jl");

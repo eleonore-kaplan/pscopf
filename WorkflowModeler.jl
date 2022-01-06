@@ -303,20 +303,35 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_is_imp[gen, ts, s]);
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
                     @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
+                end #S
 
-                    if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
+                #DMO related constraints
+                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
                     # it is too late to change the production level
-                        @constraint(model, p_imposable[gen, ts, s] == prev0);
-                    elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
-                    # must decide now on production level
+                    for s_l in S
+                        @constraint(model, p_imposable[gen, ts, s_l] == prev0);
+                    end
+                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
+                    # must decide now on production level : i.e. p_imposable[gen, ts(, s)] no longer depends on scenario s
+                    for (s_index_l, s_l) in enumerate(S)
                         if s_index_l > 1
                             s_other_l = S[s_index_l-1]
-                            @constraint(model, p_imposable[gen, ts, s] == p_imposable[gen, ts, s_other_l]);
+                            @constraint(model, p_imposable[gen, ts, s_l] == p_imposable[gen, ts, s_other_l]);
                         end
-                    #else no special constraints for now. TODO : limit the decision window (power levels variation between the scenarios)
                     end
+                else
+                    #limit the decision window (power levels variation between the scenarios)
+                    name =  @sprintf("max_p_imposable[%s,%s]", gen, ts);
+                    temp_max_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
+                    name =  @sprintf("min_p_imposable[%s,%s]", gen, ts);
+                    temp_min_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
+                    for s_l in S
+                        @constraint(model, temp_max_p_imposable_l >= p_imposable[gen, ts, s_l]);
+                        @constraint(model, temp_min_p_imposable_l <= p_imposable[gen, ts, s_l]);
+                    end
+                    @constraint(model, temp_max_p_imposable_l - temp_min_p_imposable_l <= launcher.SCENARIOS_FLEXIBILITY);
                 end
-            end
+            end #TS
 
             for s in S
                 for (i,ts) in enumerate(TS)
@@ -631,6 +646,11 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus,
     return v_flow;
 end
 
+function check_validity(launcher_p::Launcher)
+    if launcher_p.SCENARIOS_FLEXIBILITY < 0
+        throw(ArgumentError("Must set Launcher.SCENARIOS_FLEXIBILITY to a non-negative value before launching optimization."))
+    end
+end
 
 """
     sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
@@ -644,6 +664,8 @@ Launch a single optimization iteration
 - `p_res_max` : The maximum allowed reserve level
 """
 function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
+    check_validity(launcher)
+
     ##############################################################
     ### optimisation modelling sets
     ##############################################################
