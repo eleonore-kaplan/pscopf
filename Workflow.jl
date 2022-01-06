@@ -32,6 +32,7 @@ module Workflow
     CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV, CUT_CONSO_CSV]
 
     @with_kw    mutable struct Launcher
+        #TODO : create a LauncherConfig
         NO_IMPOSABLE::Bool;
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
@@ -87,8 +88,8 @@ module Workflow
         #gen,ts, s
         p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
         #branch, ts, s
-        v_extra_flow_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
-        v_extra_flow_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
+        v_branch_slack_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+        v_branch_slack_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
     end
 
     @with_kw mutable struct ObjectiveModeler
@@ -99,7 +100,7 @@ module Workflow
 
         cut_production_obj = AffExpr(0)
         cut_consumption_obj = AffExpr(0)
-        branch_capacity_obj = AffExpr(0)
+        branch_slack_obj = AffExpr(0)
 
         full_obj = AffExpr(0)
     end
@@ -111,7 +112,7 @@ module Workflow
         - pscopf_OPTIMAL : a solution that does not use slacks was retrieved
         - pscopf_CUT_PROD : retrieved solution uses a cut production slack variable
         - pscopf_CUT_CONSO : retrieved solution uses a cut consumption slack variable
-        - pscopf_BRANCH_CAPA : retrieved solution uses a branch capacity slack variable
+        - pscopf_BRANCH_SLACK : retrieved solution uses a branch capacity slack variable
         - pscopf_SLACK_FEASIBLE : retrieved solution uses more than one type of slack variables
         - pscopf_INFEASIBLE : no solution was retrieved
         - pscopf_UNSOLVED : model is not solved yet
@@ -120,7 +121,7 @@ module Workflow
         pscopf_OPTIMAL
         pscopf_CUT_PROD
         pscopf_CUT_CONSO
-        pscopf_BRANCH_CAPA
+        pscopf_BRANCH_SLACK
         pscopf_SLACK_FEASIBLE
         pscopf_INFEASIBLE
         pscopf_UNSOLVED
