@@ -572,20 +572,20 @@ function add_obj!(launcher::Launcher, model, TS, S,
 
     w_cut_prod_l = launcher.COEFF_CUT_PROD
     for x in v_slack.p_cut_prod
-        cut_production_obj_l += w_cut_prod_l * x[2]
+        cut_production_obj_l += w_scenario_l * w_cut_prod_l * x[2]
     end
 
     w_cut_consumption_l = launcher.COEFF_CUT_CONSO
     for x in v_slack.p_cut_conso
-        cut_consumption_obj_l += w_cut_consumption_l * x[2]
+        cut_consumption_obj_l += w_scenario_l * w_cut_consumption_l * x[2]
     end
 
     w_branch_slack_l = launcher.COEFF_BRANCH_SLACK
     for x in v_slack.v_branch_slack_neg
-        branch_slack_obj_l += w_branch_slack_l * x[2]
+        branch_slack_obj_l += w_scenario_l * w_branch_slack_l * x[2]
     end
     for x in v_slack.v_branch_slack_pos
-        branch_slack_obj_l += w_branch_slack_l * x[2]
+        branch_slack_obj_l += w_scenario_l * w_branch_slack_l * x[2]
     end
 
     sum_obj_l += penalties_obj_l
