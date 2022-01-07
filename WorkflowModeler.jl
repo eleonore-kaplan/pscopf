@@ -142,10 +142,10 @@ function get_units(gen_type_bus_p::Dict{String, Vector{String}})
 end
 
 function get_buses(launcher_p::Launcher)
-    return get_buses(launcher_p.gen_type_bus)
+    return get_buses(launcher_p.ptdf)
 end
-function get_buses(gen_type_bus_p::Dict{String, Vector{String}})
-    return unique([values_i[2] for (_,values_i) in gen_type_bus_p])
+function get_buses(ptdf_p::Dict{Tuple{String,String}, Float64})
+    return unique([bus_i for ((_,bus_i),_) in ptdf_p])
 end
 
 function get_branches(launcher_p::Launcher)
@@ -685,6 +685,67 @@ function check_validity(launcher_p::Launcher)
 
 end
 
+function get_netloads(launcher, ech_p)
+    TS, S, NAMES = Workflow.get_ts_s_name(launcher, ech_p);
+    BUSES =  Workflow.get_bus(launcher, NAMES);
+    return Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech_p] for bus in BUSES, ts in TS, s in S]);
+end
+
+function print_eod_slack(launcher, S, TS, NAMES, BUSES)
+    eod_slack = Dict([(ts,s) => 0.0 for s in S, ts in TS]);
+    factor = Dict([name => 1 for name in NAMES]);
+    for bus in BUSES
+        factor[bus] = -1;
+    end
+    for ((name, s, ts, ech), v) in launcher.uncertainties
+        eod_slack[ts,  s] += factor[name] * v;
+    end
+    @debug "eod_slack is $(eod_slack)"
+end
+
+function compute_non_optimized_flows(launcher::Workflow.Launcher, ech_p)
+    TS, S, NAMES = Workflow.get_ts_s_name(launcher, ech_p);
+    BUSES =  Workflow.get_bus(launcher, NAMES);
+    units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
+    netloads = get_netloads(launcher, ech_p)
+
+    #branch, ts, s
+    flows = Dict{Tuple{String,DateTime,String},Float64}();
+
+    ptdf_by_branch = Dict{String,Dict{String,Float64}}() ;
+    for ptdf in launcher.ptdf
+        branch, bus = ptdf[1]
+        if ! haskey(ptdf_by_branch, branch)
+            ptdf_by_branch[branch] = Dict{String,Float64}();
+        end
+        ptdf_by_branch[branch][bus] = ptdf[2];
+    end
+
+    for ts in TS, s in S
+        for limit in launcher.limits
+            branch = limit[1];
+            flow_l = 0.
+            for (bus, ptdf) in ptdf_by_branch[branch]
+                flow_l -= ptdf * netloads[bus, ts, s];
+                if ! launcher.NO_IMPOSABLE
+                    for gen in units_by_bus[K_IMPOSABLE][bus]
+                        flow_l += ptdf * launcher.uncertainties[gen, s, ts, ech_p]
+                    end
+                end
+                if ! launcher.NO_LIMITABLE
+                    for gen in units_by_bus[K_LIMITABLE][bus]
+                        flow_l += ptdf * launcher.uncertainties[gen, s, ts, ech_p]
+                    end
+                end
+            end
+            flows[branch, ts, s] = flow_l
+        end
+    end
+
+    @debug "non optimised flows : $flows"
+    return flows
+end
+
 """
     sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
 
@@ -721,15 +782,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     K_LIMITABLE = Workflow.K_LIMITABLE;
 
     netloads = Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech] for bus in BUSES, ts in TS, s in S]);
-    eod_slack = Dict([(ts,s) => 0.0 for s in S, ts in TS]);
-    factor = Dict([name => 1 for name in NAMES]);
-    for bus in BUSES
-        factor[bus] = -1;
-    end
-    for ((name, s, ts, ech), v) in launcher.uncertainties
-        eod_slack[ts,  s] += factor[name] * v;
-    end
-    @debug "eod_slack is $(eod_slack)"
+    print_eod_slack(launcher, S, TS, NAMES, BUSES)
     ##############################################################
     # to be in a function ...
     ##############################################################
@@ -785,7 +838,7 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
         error(msg_l)
     end
     @debug "Termination status : $(termination_status(model))"
-    @debug "Objective value : $(objective_value(model))"
+    @info "Objective value : $(objective_value(model))"
 
     @debug @sprintf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0")
     if ! launcher.NO_LIMITABLE
@@ -1098,9 +1151,12 @@ end
 function write_flows_csv(launcher::Workflow.Launcher, ech::DateTime,
                         v_flow::Dict{Tuple{String,DateTime,String},VariableRef},
                         v_slack::Workflow.SlackModeler)
+    #branch, ts, s
+    non_opt_flows_l = compute_non_optimized_flows(launcher, ech)
+
     open(joinpath(launcher.dirpath, FLOWS_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "flow", "capacity_increase"));
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "non_optimised_flow", "flow", "capacity_increase"));
         end
         for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
             neg_slack_l = value(get(v_slack.v_branch_slack_neg, (branch_l,ts_l,s_l), 0.))
@@ -1108,7 +1164,9 @@ function write_flows_csv(launcher::Workflow.Launcher, ech::DateTime,
             @assert ( (neg_slack_l<1e-6) || (pos_slack_l<1e-6) )
             increase_l = max( neg_slack_l, pos_slack_l )
             increase_l = increase_l > 1e-6 ? increase_l : 0.
-            write(file, @sprintf("%s;%s;%s;%s;%f;%f\n", ech, branch_l, ts_l, s_l, value(flow_var_l),increase_l));
+            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", ech, branch_l, ts_l, s_l,
+                                                        non_opt_flows_l[branch_l, ts_l, s_l],
+                                                        value(flow_var_l), increase_l));
         end
     end
 end
