@@ -20,17 +20,38 @@ catch e_xpress
                 using Cbc;
                 global OPTIMIZER = Cbc.Optimizer
             else
-                throw(e_xpress)
+                throw(e_cplex)
             end
         end
     else
         throw(e_xpress)
     end
 end
-println("optimizer: ", OPTIMIZER)
+@debug "optimizer: $(OPTIMIZER)"
 
 using Dates
 import Statistics
+
+"""
+    redirect_to_file(f::Function, file_p::String, mode_p="w")
+
+Execute function `f` while redirecting C and Julia level stdout to the file file_p.
+Note that `file_p` is open in write mode by default.
+
+# Arguments
+- `f::Function` : the function to execute
+- `file_p::String` : name of the file to print to
+- `mode_p` : open mode of the file (defaults to "w")
+"""
+function redirect_to_file(f::Function, file_p::String, mode_p="w")
+    open(file_p, mode_p) do file_l
+        Base.Libc.flush_cstdio()
+        redirect_stdout(file_l) do
+            f()
+            Base.Libc.flush_cstdio()
+        end
+    end
+end
 
 function get_bus(launcher::Launcher, names::Set{String})
     result = Set{String}();
@@ -112,6 +133,39 @@ function get_units_by_bus(launcher::Launcher, buses::Set{String})
     end 
     return result;
 end
+
+function get_units(launcher_p::Launcher)
+    return get_buses(launcher_p.gen_type_bus)
+end
+function get_units(gen_type_bus_p::Dict{String, Vector{String}})
+    return unique([gen_i for (gen_i,_) in gen_type_bus_p])
+end
+
+function get_buses(launcher_p::Launcher)
+    return get_buses(launcher_p.ptdf)
+end
+function get_buses(ptdf_p::Dict{Tuple{String,String}, Float64})
+    return unique([bus_i for ((_,bus_i),_) in ptdf_p])
+end
+
+function get_branches(launcher_p::Launcher)
+    return get_branches(launcher_p.ptdf)
+end
+function get_branches(ptdf_data_p::Dict{Tuple{String, String}, Float64})
+    return unique([branch_i for ((branch_i,_),_) in ptdf_data_p])
+end
+
+function print_config(launcher_p::Launcher)
+    @info "DIRPATH            : $(launcher_p.dirpath)"
+    @info "NO_IMPOSABLE       : $(launcher_p.NO_IMPOSABLE)"
+    @info "NO_LIMITABLE       : $(launcher_p.NO_LIMITABLE)"
+    @info "NO_LIMITATION      : $(launcher_p.NO_LIMITATION)"
+    @info "NO_DMO             : $(launcher_p.NO_DMO)"
+    @info "NO_CUT_PRODUCTION  : $(launcher_p.NO_CUT_PRODUCTION)"
+    @info "NO_CUT_CONSUMPTION : $(launcher_p.NO_CUT_CONSUMPTION)"
+    @info "NO_BRANCH_SLACK    : $(launcher_p.NO_BRANCH_SLACK)"
+end
+
 function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind, TS, S)
     p_lim = Dict{Tuple{String,DateTime},VariableRef}();
     is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -202,7 +256,18 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
             pMin = launcher.units[gen][1];
             pMax = launcher.units[gen][2];
             dmo_l = launcher.units[gen][5];
+
             for ts in TS
+                prev0 = launcher.previsions[gen, ts, ech];
+
+                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
+                    @debug "production level of unit $(gen) is already fixed to $(prev0) for timestep $(ts)."
+                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
+                    @debug "unit $(gen) must be fixed for timestep $(ts)."
+                else
+                    @debug "still early to fix unit $(gen) for timestep $(ts)."
+                end
+
                 for (s_index_l, s) in enumerate(S)
                     name =  @sprintf("p_imp[%s,%s,%s]", gen, ts, s);
                     p_imp[gen, ts, s] = @variable(model, base_name = name);
@@ -218,12 +283,6 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
 
                     name =  @sprintf("p_is_imp_and_on[%s,%s,%s]", gen, ts, s);
                     p_is_imp_and_on[gen, ts, s] = @variable(model, base_name = name, binary = true);
-
-                    # if in(gen, ["park_city", "alta", "sundance"])
-                    #     println("WARNING");
-                    #     @constraint(model,  p_on[gen, ts]==0);
-                    #     @constraint(model,  p_is_imp[gen, ts]==0);
-                    # end
 
                     p0 = launcher.uncertainties[gen, s, ts, ech];
                     name =  @sprintf("p_imposable[%s,%s,%s]", gen, ts, s);
@@ -244,25 +303,36 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_is_imp[gen, ts, s]);
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
                     @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
+                end #S
 
-                    if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
+                #DMO related constraints
+                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
                     # it is too late to change the production level
-                        #FIXME : Discuss uncertainties : The value from previsions will be imposed
-                        @printf("%s: unit %s is already decided for timestep %s.\n", ech, gen, ts)
-                        prev0 = launcher.previsions[gen, ts, ech];
-                        @constraint(model, p_imposable[gen, ts, s] == prev0);
-                    elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
-                    # must decide now on production level
-                        @printf("%s: unit %s must be fixed for timestep %s.\n", ech, gen, ts)
+                    for s_l in S
+                        @constraint(model, p_imposable[gen, ts, s_l] == prev0);
+                    end
+                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
+                    # must decide now on production level : i.e. p_imposable[gen, ts(, s)] no longer depends on scenario s
+                    for (s_index_l, s_l) in enumerate(S)
                         if s_index_l > 1
                             s_other_l = S[s_index_l-1]
-                            @constraint(model, p_imposable[gen, ts, s] == p_imposable[gen, ts, s_other_l]);
+                            @constraint(model, p_imposable[gen, ts, s_l] == p_imposable[gen, ts, s_other_l]);
                         end
-                    else
-                        @printf("%s: still early to fix unit %s for timestep %s.\n", ech, gen, ts)
                     end
+                else
+                    #limit the decision window (power levels variation between the scenarios)
+                    name =  @sprintf("max_p_imposable[%s,%s]", gen, ts);
+                    temp_max_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
+                    name =  @sprintf("min_p_imposable[%s,%s]", gen, ts);
+                    temp_min_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
+                    for s_l in S
+                        @constraint(model, temp_max_p_imposable_l >= p_imposable[gen, ts, s_l]);
+                        @constraint(model, temp_min_p_imposable_l <= p_imposable[gen, ts, s_l]);
+                    end
+                    @constraint(model, temp_max_p_imposable_l - temp_min_p_imposable_l <= launcher.SCENARIOS_FLEXIBILITY);
                 end
-            end
+            end #TS
+
             for s in S
                 for (i,ts) in enumerate(TS)
                     if i > 1
@@ -272,7 +342,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                         @constraint(model, p_start[gen, ts, s] >= p_on[gen, ts, s] - p_on[gen, ts_1, s]);
                     else
                         prev0 = launcher.previsions[gen, ts, ech];
-                        println(@sprintf("%s %s is at %f\n", gen, ts, prev0));
+                        @debug "ts:$(ts): unit $(gen) is at $(prev0)"
                         if abs(prev0) < 1
                             @constraint(model, p_start[gen, ts, s] == p_on[gen, ts, s]);
                         end
@@ -284,7 +354,57 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
     return Workflow.ImposableModeler(p_imposable, p_is_imp, p_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
 end
 
-function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler, netloads )
+#FIXME : add_slack!(::ModelContainer, ::Launcher)
+#FIXME : add_slack!(::ModelContainer, ::Launcher, branches, TS, S)
+function add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES,
+                    v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler,
+                    netloads)
+    #bus, ts, s
+    p_cut_conso = Dict{Tuple{String,DateTime,String},VariableRef}();
+    #gen, ts, s
+    p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
+    #branch, ts, s
+    v_branch_slack_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+    v_branch_slack_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
+
+    if ! launcher.NO_CUT_PRODUCTION
+        if ! launcher.NO_LIMITABLE
+            for (gen,_) in units_by_kind[K_LIMITABLE], ts in TS, s in S
+                name =  @sprintf("p_cut_prod[%s,%s,%s]", gen, ts, s);
+                p_cut_prod[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+                @constraint(model, p_cut_prod[gen, ts, s] <= v_lim.p_enr[gen, ts, s]);
+            end
+        end
+        if ! launcher.NO_IMPOSABLE
+            for (gen,_) in units_by_kind[K_IMPOSABLE], ts in TS, s in S
+                name =  @sprintf("p_cut_prod[%s,%s,%s]", gen, ts, s);
+                p_cut_prod[gen, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+                @constraint(model, p_cut_prod[gen, ts, s] <= v_imp.p_imposable[gen, ts, s]);
+            end
+        end
+    end
+    if ! launcher.NO_CUT_CONSUMPTION
+        for bus in BUSES, ts in TS, s in S
+            name =  @sprintf("p_cut_conso[%s,%s,%s]", bus, ts, s);
+            p_cut_conso[bus, ts, s] = @variable(model, base_name = name, lower_bound = 0, upper_bound=netloads[bus, ts, s]);
+        end
+    end
+
+    if ! launcher.NO_BRANCH_SLACK
+        for branch in get_branches(launcher), ts in TS, s in S
+            name =  @sprintf("v_branch_slack_pos[%s,%s,%s]", branch, ts, s);
+            v_branch_slack_pos[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+            name =  @sprintf("v_branch_slack_neg[%s,%s,%s]", branch, ts, s);
+            v_branch_slack_neg[branch, ts, s] = @variable(model, base_name = name, lower_bound = 0);
+        end
+    end
+
+    return Workflow.SlackModeler(p_cut_conso, p_cut_prod, v_branch_slack_pos, v_branch_slack_neg);
+end
+
+function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S, BUSES,
+                            v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler, v_slack::Workflow.SlackModeler,
+                            netloads )
     eod_expr = Dict([(ts, s) => AffExpr(0) for ts in TS, s in S]);
     for ts in TS, s in S
         for bus in BUSES
@@ -295,9 +415,6 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
             end
             if ! launcher.NO_LIMITABLE
                 for gen in units_by_bus[K_LIMITABLE][bus]
-                    p0 = launcher.uncertainties[gen, s, ts, ech];
-                    # println(gen, " ", ts, " ", s, " ", p0);
-                    #eod_expr[ts, s] +=  ((1 -  v_lim.is_limited[gen, ts, s]) * p0 + v_lim.is_limited_x_p_lim[gen, ts, s]);
                     eod_expr[ts, s] += v_lim.p_enr[gen,ts,s]
                 end
             end
@@ -307,8 +424,16 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
         eod_expr[ts, s] += v_res.p_res_pos[ts, s];
         eod_expr[ts, s] -= v_res.p_res_neg[ts, s];
     end
-    
-    # println(launcher.uncertainties)
+
+    for ((bus_l,ts_l,s_l), var_l) in v_slack.p_cut_conso
+        eod_expr[ts_l, s_l] += var_l;
+    end
+    if ! launcher.NO_CUT_PRODUCTION
+        for ((gen_l,ts_l,s_l), var_l) in v_slack.p_cut_prod
+            eod_expr[ts_l, s_l] -= var_l;
+        end
+    end
+
     for ts in TS, s in S
         load = 0;
         for bus in BUSES
@@ -319,6 +444,12 @@ function add_eod_constraint!(launcher::Launcher, ech, model, units_by_bus, TS, S
 end
 
 function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_max)
+    if p_res_min > 0
+        msg_l = @sprintf("Illegal value (%f) for argument p_res_min : a non-positive value is required.", p_res_min)
+        @error msg_l
+        throw(ArgumentError(msg_l))
+    end
+
     p_res_pos = Dict{Tuple{DateTime,String},VariableRef}();
     p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     for ts in TS, s in S
@@ -330,13 +461,79 @@ function add_reserve!(launcher::Launcher, ech, model, TS, S, p_res_min, p_res_ma
     return Workflow.ReserveModeler(p_res_pos, p_res_neg);
 end
 
-function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler)
-    eod_obj_l = AffExpr(0);
+"""
+    next_pow10(input_p::Number)
+
+returns the next power of ten
+
+# Arguments
+- `input_p` : The input number
+
+# Examples
+```jldoctest
+julia> next_pow10(5)
+10
+
+julia> next_pow10(5.5)
+10
+
+julia> next_pow10(10)
+100
+
+julia> next_pow10(62.005)
+100
+```
+"""
+function next_pow10(input_p::Number)
+    return 10^length(string(floor(Int, input_p)))
+end
+
+function get_max_miniwork_cost(launcher_p::Launcher)
+    max_cost_l = 0.
+    for (_,gen_data_l) in launcher_p.units
+        min_prod_level_l = max(1., gen_data_l[1])
+        start_cost_l = gen_data_l[3]
+        prop_cost_l = gen_data_l[4]
+        work_cost_l = start_cost_l + min_prod_level_l * prop_cost_l
+        max_cost_l = max(max_cost_l, work_cost_l)
+    end
+    return max_cost_l
+end
+function get_highest_pmin(launcher_p::Launcher)
+    max_min_p_l = 0.
+    for (_,gen_data_l) in launcher_p.units
+        min_prod_level_l = gen_data_l[1]
+        max_min_p_l = max(max_min_p_l, min_prod_level_l)
+    end
+    return max_min_p_l
+end
+
+function default_cut_production_cost(launcher_p::Launcher)
+    cost_l = get_max_miniwork_cost(launcher_p)
+    return next_pow10(cost_l)
+end
+function default_cut_consumption_cost(launcher_p::Launcher)
+    miniwork_cost_l = get_max_miniwork_cost(launcher_p)
+    max_mini_p_l = max(1., get_highest_pmin(launcher_p))
+    cost_l = miniwork_cost_l + max_mini_p_l * default_cut_production_cost(launcher_p)
+    return next_pow10(cost_l)
+end
+function default_branch_slack_cost(launcher_p::Launcher)
+    return next_pow10(default_cut_consumption_cost(launcher_p))
+end
+
+function add_obj!(launcher::Launcher, model, TS, S,
+                v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_res::Workflow.ReserveModeler,
+                v_slack::Workflow.SlackModeler)
+    sum_obj_l = AffExpr(0);
 
     penalties_obj_l = AffExpr(0);
     lim_cost_obj_l = AffExpr(0);
     imp_prop_cost_obj_l = AffExpr(0);
     imp_starting_cost_obj_l = AffExpr(0);
+    cut_production_obj_l = AffExpr(0);
+    cut_consumption_obj_l = AffExpr(0);
+    branch_slack_obj_l = AffExpr(0);
 
     w_scenario_l = 1 / length(S);
 
@@ -373,16 +570,42 @@ function add_obj!(launcher::Launcher, model, TS, S, v_lim::Workflow.LimitableMod
         penalties_obj_l += (1e-3)*w_scenario_l* x[2];
     end
 
-    eod_obj_l += penalties_obj_l
-    eod_obj_l += lim_cost_obj_l
-    eod_obj_l += imp_prop_cost_obj_l
-    eod_obj_l += imp_starting_cost_obj_l
-    obj_l = @objective(model, Min, eod_obj_l);
+    w_cut_prod_l = launcher.COEFF_CUT_PROD
+    for x in v_slack.p_cut_prod
+        cut_production_obj_l += w_scenario_l * w_cut_prod_l * x[2]
+    end
 
-    return Workflow.ObjectiveModeler( penalties_obj_l, lim_cost_obj_l, imp_prop_cost_obj_l, imp_starting_cost_obj_l, obj_l)
+    w_cut_consumption_l = launcher.COEFF_CUT_CONSO
+    for x in v_slack.p_cut_conso
+        cut_consumption_obj_l += w_scenario_l * w_cut_consumption_l * x[2]
+    end
+
+    w_branch_slack_l = launcher.COEFF_BRANCH_SLACK
+    for x in v_slack.v_branch_slack_neg
+        branch_slack_obj_l += w_scenario_l * w_branch_slack_l * x[2]
+    end
+    for x in v_slack.v_branch_slack_pos
+        branch_slack_obj_l += w_scenario_l * w_branch_slack_l * x[2]
+    end
+
+    sum_obj_l += penalties_obj_l
+    sum_obj_l += lim_cost_obj_l
+    sum_obj_l += imp_prop_cost_obj_l
+    sum_obj_l += imp_starting_cost_obj_l
+    sum_obj_l += cut_production_obj_l
+    sum_obj_l += cut_consumption_obj_l
+    sum_obj_l += branch_slack_obj_l
+
+    obj_l = @objective(model, Min, sum_obj_l);
+
+    return Workflow.ObjectiveModeler( penalties_obj_l, lim_cost_obj_l, imp_prop_cost_obj_l, imp_starting_cost_obj_l,
+                                    cut_production_obj_l, cut_consumption_obj_l, branch_slack_obj_l,
+                                    obj_l)
 end
 
-function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, netloads)
+function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus,
+                v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler, v_slack::Workflow.SlackModeler,
+                netloads)
     v_flow = Dict{Tuple{String,DateTime,String},VariableRef}();
 
     ptdf_by_branch = Dict{String,Dict{String,Float64}}() ;
@@ -393,7 +616,7 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_l
         end
         ptdf_by_branch[branch][bus] = ptdf[2];
     end
-    println("ptdf_by_branch : ", ptdf_by_branch);
+    @debug "ptdf_by_branch : $(ptdf_by_branch)"
     for ts in TS, s in S
         for limit in launcher.limits
             branch = limit[1];
@@ -415,12 +638,113 @@ function add_flow!(launcher::Workflow.Launcher, model, TS, S,  units_by_bus, v_l
                     end
                 end
             end
-            @constraint(model, v_flow[branch, ts, s] == f_ref + xpr);
+            pos_slack_l = get(v_slack.v_branch_slack_pos, (branch, ts, s), 0.)
+            neg_slack_l = get(v_slack.v_branch_slack_neg, (branch, ts, s), 0.)
+            @constraint(model, v_flow[branch, ts, s] + pos_slack_l - neg_slack_l == f_ref + xpr);
         end
     end
     return v_flow;
 end
 
+function default_scenarios_flexibility(launcher_p::Launcher)
+    return get_highest_pmax(launcher_p.units)
+end
+
+function check_validity(launcher_p::Launcher)
+    if isnothing(launcher_p.SCENARIOS_FLEXIBILITY)
+        launcher_p.SCENARIOS_FLEXIBILITY = default_scenarios_flexibility(launcher_p)
+        @warn("launcher_p.SCENARIOS_FLEXIBILITY set to default value : $(launcher_p.SCENARIOS_FLEXIBILITY)")
+    end
+    if launcher_p.SCENARIOS_FLEXIBILITY < 0
+        throw(ArgumentError("Must set Launcher.SCENARIOS_FLEXIBILITY to a non-negative value before launching optimization."))
+    end
+
+    if isnothing(launcher_p.COEFF_CUT_PROD)
+        launcher_p.COEFF_CUT_PROD = default_cut_production_cost(launcher_p)
+        @warn("launcher_p.COEFF_CUT_PROD set to default value : $(launcher_p.COEFF_CUT_PROD)")
+    end
+    if launcher_p.COEFF_CUT_PROD < 0
+        throw(ArgumentError("Must set Launcher.COEFF_CUT_PROD to a non-negative value before launching optimization."))
+    end
+
+    if isnothing(launcher_p.COEFF_CUT_CONSO)
+        launcher_p.COEFF_CUT_CONSO = default_cut_consumption_cost(launcher_p)
+        @warn("launcher_p.COEFF_CUT_CONSO set to default value : $(launcher_p.COEFF_CUT_CONSO)")
+    end
+    if launcher_p.COEFF_CUT_CONSO < 0
+        throw(ArgumentError("Must set Launcher.COEFF_CUT_CONSO to a non-negative value before launching optimization."))
+    end
+
+    if isnothing(launcher_p.COEFF_BRANCH_SLACK)
+        launcher_p.COEFF_BRANCH_SLACK = default_branch_slack_cost(launcher_p)
+        @warn("launcher_p.COEFF_BRANCH_SLACK set to default value : $(launcher_p.COEFF_BRANCH_SLACK)")
+    end
+    if launcher_p.COEFF_BRANCH_SLACK < 0
+        throw(ArgumentError("Must set Launcher.COEFF_BRANCH_SLACK to a non-negative value before launching optimization."))
+    end
+
+end
+
+function get_netloads(launcher, ech_p)
+    TS, S, NAMES = Workflow.get_ts_s_name(launcher, ech_p);
+    BUSES =  Workflow.get_bus(launcher, NAMES);
+    return Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech_p] for bus in BUSES, ts in TS, s in S]);
+end
+
+function print_eod_slack(launcher, S, TS, NAMES, BUSES)
+    eod_slack = Dict([(ts,s) => 0.0 for s in S, ts in TS]);
+    factor = Dict([name => 1 for name in NAMES]);
+    for bus in BUSES
+        factor[bus] = -1;
+    end
+    for ((name, s, ts, ech), v) in launcher.uncertainties
+        eod_slack[ts,  s] += factor[name] * v;
+    end
+    @debug "eod_slack is $(eod_slack)"
+end
+
+function compute_non_optimized_flows(launcher::Workflow.Launcher, ech_p)
+    TS, S, NAMES = Workflow.get_ts_s_name(launcher, ech_p);
+    BUSES =  Workflow.get_bus(launcher, NAMES);
+    units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
+    netloads = get_netloads(launcher, ech_p)
+
+    #branch, ts, s
+    flows = Dict{Tuple{String,DateTime,String},Float64}();
+
+    ptdf_by_branch = Dict{String,Dict{String,Float64}}() ;
+    for ptdf in launcher.ptdf
+        branch, bus = ptdf[1]
+        if ! haskey(ptdf_by_branch, branch)
+            ptdf_by_branch[branch] = Dict{String,Float64}();
+        end
+        ptdf_by_branch[branch][bus] = ptdf[2];
+    end
+
+    for ts in TS, s in S
+        for limit in launcher.limits
+            branch = limit[1];
+            flow_l = 0.
+            for (bus, ptdf) in ptdf_by_branch[branch]
+                flow_l -= ptdf * netloads[bus, ts, s];
+                if ! launcher.NO_IMPOSABLE
+                    for gen in units_by_bus[K_IMPOSABLE][bus]
+                        flow_l += ptdf * launcher.uncertainties[gen, s, ts, ech_p]
+                    end
+                end
+                if ! launcher.NO_LIMITABLE
+                    for gen in units_by_bus[K_LIMITABLE][bus]
+                        flow_l += ptdf * launcher.uncertainties[gen, s, ts, ech_p]
+                    end
+                end
+            end
+            flows[branch, ts, s] = flow_l
+        end
+    end
+
+    @debug "non optimised flows : $flows"
+    return flows
+end
 
 """
     sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
@@ -434,6 +758,8 @@ Launch a single optimization iteration
 - `p_res_max` : The maximum allowed reserve level
 """
 function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
+    check_validity(launcher)
+
     ##############################################################
     ### optimisation modelling sets
     ##############################################################
@@ -442,39 +768,37 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     units_by_kind = Workflow.get_units_by_kind(launcher);
     units_by_bus =  Workflow.get_units_by_bus(launcher, BUSES);
 
-    println("NAMES : ", NAMES);
-    println("BUSES : ", BUSES);
-    println("units_by_bus : ", units_by_bus);
+    @info "-"^10 * "   launch PSCOPF step   " * "-"^20
 
-    println("ech: ", ech);
-    println("Number of scenario ", length(S));
-    println("Number of time step is ", length(TS));
+    @debug "NAMES        : $(NAMES)"
+    @debug "BUSES        : $(BUSES)"
+    @debug "units_by_bus : $(units_by_bus)"
+    @debug "TS           : $(TS)"
+    @debug "S            : $(S)"
+    @debug "ech: $(ech)"
+    @debug "Number of scenarios : $(length(S))"
+    @debug "Number of timesteps : $(length(TS))"
     K_IMPOSABLE = Workflow.K_IMPOSABLE;
     K_LIMITABLE = Workflow.K_LIMITABLE;
 
     netloads = Dict([(bus, ts, s) => launcher.uncertainties[bus, s, ts, ech] for bus in BUSES, ts in TS, s in S]);
-    eod_slack = Dict([(ts,s) => 0.0 for s in S, ts in TS]);
-    factor = Dict([name => 1 for name in NAMES]);
-    for bus in BUSES
-        factor[bus] = -1;
-    end
-    for ((name, s, ts, ech), v) in launcher.uncertainties
-        eod_slack[ts,  s] += factor[name] * v;
-    end
-    println("eod_slack is $eod_slack");
+    print_eod_slack(launcher, S, TS, NAMES, BUSES)
     ##############################################################
     # to be in a function ...
     ##############################################################
 
-    model = Model();
+    model_container_l = Workflow.ModelContainer()
+    model = model_container_l.model;
+
     v_lim = add_limitable!(launcher, ech, model, units_by_kind, TS, S);
+    model_container_l.limitable_modeler = v_lim
     p_lim = v_lim.p_lim;
     is_limited = v_lim.is_limited;
     is_limited_x_p_lim = v_lim.is_limited_x_p_lim;
     c_lim = v_lim.c_lim;
 
     v_imp = add_imposable!(launcher, ech, model, units_by_kind, TS, S);
-
+    model_container_l.imposable_modeler = v_imp
     p_imposable = v_imp.p_imposable;
     p_is_imp = v_imp.p_is_imp;
     p_imp = v_imp.p_imp;
@@ -482,88 +806,90 @@ function sc_opf(launcher::Launcher, ech::DateTime, p_res_min, p_res_max)
     p_on = v_imp.p_on;
 
     v_res = add_reserve!(launcher, ech, model, TS, S, p_res_min, p_res_max);
+    model_container_l.reserve_modeler = v_res
 
-    add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_res, netloads);
+    v_slack = add_slack!(launcher, ech, model, units_by_kind, TS, S, BUSES, v_lim, v_imp, netloads)
+    model_container_l.slack_modeler = v_slack
 
-    v_flow = add_flow!(launcher, model, TS, S, units_by_bus,  v_lim, v_imp, netloads);
+    add_eod_constraint!(launcher, ech, model, units_by_bus, TS, S, BUSES, v_lim, v_imp, v_res, v_slack, netloads);
 
-    # println(units_by_bus)
-    # println(eod_expr)
-    obj_l = add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res);
+    v_flow = add_flow!(launcher, model, TS, S, units_by_bus,  v_lim, v_imp, v_slack, netloads);
+    model_container_l.v_flow = v_flow
+
+    obj_l = add_obj!(launcher,  model, TS, S, v_lim, v_imp, v_res, v_slack);
+    model_container_l.objective_modeler = obj_l
 
     # println(model)
     set_optimizer(model, OPTIMIZER);
-    write_to_file(model, @sprintf("%s/model_%s.lp", launcher.dirpath, ech))
-    optimize!(model);
+    model_file_l = joinpath(launcher.dirpath, @sprintf("model_%s.lp", ech))
+    write_to_file(model, model_file_l)
 
-    println("end of optim.")
-    if termination_status(model) == INFEASIBLE
-        error("Model is infeasible")
+    @debug "Call optimizer"
+    solver_logfile_l = joinpath(launcher.dirpath, @sprintf("model_%s.log", ech))
+    redirect_to_file(solver_logfile_l) do
+        optimize!(model)
     end
-    println(termination_status(model))
-    println(objective_value(model))
+    status_l = update_status!(model_container_l)
+    @info "pscopf model status: $status_l"
 
-    # print_nz(p_imposable);
-    # print_nz(p_is_imp);
-    # print_nz(p_start);
-    # print_nz(p_on);
-    # print_nz(is_limited);
+    if termination_status(model) == INFEASIBLE
+        msg_l = "Model is infeasible"
+        @error msg_l
+        error(msg_l)
+    end
+    @debug "Termination status : $(termination_status(model))"
+    @info "Objective value : $(objective_value(model))"
 
-    println("NO_IMPOSABLE   : ", launcher.NO_IMPOSABLE);
-    println("NO_LIMITABLE   : ", launcher.NO_LIMITABLE);
-    println("NO_LIMITATION  : ", launcher.NO_LIMITATION);
-    println("BUSES          : ", BUSES);
-    println("NAMES          : ", NAMES);
-    println("TS             : ", TS);
-    println("S              : ", S);
-    
-    @printf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0");
+    @debug @sprintf("%30s[%s,%s] %4s %10s %10s %10s\n", "gen", "ts", "s", "b_enr", "p_enr", "p_lim_enr", "p0")
     if ! launcher.NO_LIMITABLE
-        # println(launcher.uncertainties)
         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_LIMITABLE][bus]
             b_lim = value(is_limited[gen, ts, s]);
             if b_lim > 0.5
-                @printf("%10s[%s,%s] LIMITED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s,%s] LIMITED\n", gen, ts, s);
             end
             p0 = launcher.uncertainties[gen, s, ts, ech];
             b_enr = value(is_limited[gen, ts, s]);
             p_enr = value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]);
             p_lim_enr = value(p_lim[gen, ts]);
-            # println(value(is_limited_x_p_lim[gen, ts, s]) - b_enr * p_lim_enr)
             if b_enr > 0.5
-                @printf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
+                @debug @sprintf("%10s[%s,%s] %4d %10.3f %10.3f %10.3f\n", gen, ts, s, b_enr, p_enr, p_lim_enr, p0);
             end
-            # println(gen, " : ", value((1 - is_limited[gen, ts, s]) * p0 + is_limited_x_p_lim[gen, ts, s]))
         end
     end
     if ! launcher.NO_IMPOSABLE
-        # println(launcher.uncertainties)
         for bus in BUSES, ts in TS, s in S, gen in units_by_bus[K_IMPOSABLE][bus]
             b_start = value(p_start[gen, ts, s]);
             b_imp = value(p_is_imp[gen, ts, s]);
             if b_imp > 0.5
-                @printf("%10s[%s, %s] IMPOSED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s, %s] IMPOSED\n", gen, ts, s);
             end
             if b_start > 0.5
-                @printf("%10s[%s, %s] STARTED\n", gen, ts, s);
+                @debug @sprintf("%10s[%s, %s] STARTED\n", gen, ts, s);
             end
             b_on = value(p_on[gen, ts, s]);
             if b_on > 0.5
-                @printf("%10s[%s, %s] %10.3f\n", gen, ts, s, value(v_imp.p_imposable[gen, ts, s]));
+                @debug @sprintf("%10s[%s, %s] %10.3f\n", gen, ts, s, value(v_imp.p_imposable[gen, ts, s]));
             end
         end
     end
-    println("v_res.p_res_pos");
+    @debug "v_res.p_res_pos"
     print_nz(v_res.p_res_pos);
-    println("v_res.p_res_neg");
+    @debug "v_res.p_res_neg"
     print_nz(v_res.p_res_neg);
-    println("v_res.v_flow");
+    @debug "v_res.v_flow"
     print_nz(v_flow);
-    write_output_csv(launcher, ech, TS, S, v_lim, v_imp);
-    write_extra_output_csv(launcher, ech, v_res, v_flow);
-    write_kpi_csv(launcher, ech, obj_l, v_lim, v_imp, v_res)
+    @debug "v_slack.p_cut_conso"
+    print_nz(v_slack.p_cut_conso);
+    @debug "v_slack.p_cut_prod"
+    print_nz(v_slack.p_cut_prod);
+    @debug "v_slack.v_branch_slack_pos"
+    print_nz(v_slack.v_branch_slack_pos)
+    @debug "v_slack.v_branch_slack_neg"
+    print_nz(v_slack.v_branch_slack_neg)
 
-    return model, v_lim, v_imp, v_res, v_flow;
+    write_output_csv(launcher, ech, TS, S, model_container_l)
+
+    return model_container_l;
 end
 
 """
@@ -579,6 +905,7 @@ update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_
     - `v_imp_p::ImposableModeler` : container for the decision values for imposable units at time ech_p
 """
 function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::DateTime, v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler)
+    @assert( next_ech_p > ech_p )
     # keep previsionnal planning for dates != next_ech_p
     filter!( x -> x[1][3] !=  next_ech_p, launcher_p.previsions)
 
@@ -604,6 +931,62 @@ function update_schedule!(launcher_p::Launcher, next_ech_p::DateTime, ech_p::Dat
     end
 
     return launcher_p.previsions
+end
+
+function has_cut_prod(model_container_p::Workflow.ModelContainer)
+    return any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.p_cut_prod)
+end
+function has_cut_conso(model_container_p::Workflow.ModelContainer)
+    return any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.p_cut_conso)
+end
+function has_branch_slack(model_container_p::Workflow.ModelContainer)
+    return ( any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_branch_slack_pos)
+            || any(e -> value(e[2]) > 1e-6, model_container_p.slack_modeler.v_branch_slack_neg))
+end
+
+"""
+update_status!(model_container_p::Workflow.ModelContainer)
+
+    updates the status attribute of the ModelContainer wrt the variables values
+
+    # Arguments
+    - `model_container_p::Workflow.ModelContainer` : the model container for which the status will be updated
+
+    # Returns
+    - the updated status of the model container (cf. Workflow.PSCOPFStatus)
+"""
+function update_status!(model_container_p::Workflow.ModelContainer)
+    solver_status_l = termination_status(model_container_p.model)
+
+    if solver_status_l == OPTIMIZE_NOT_CALLED
+        model_container_p.status = pscopf_UNSOLVED
+        return model_container_p.status
+    end
+
+    if solver_status_l == INFEASIBLE
+        model_container_p.status = pscopf_INFEASIBLE
+        return model_container_p.status
+    end
+
+    if solver_status_l != OPTIMAL
+        @warn "solver termination status was not optimal : $(solver_status_l)"
+    end
+
+    has_cut_prod_l = has_cut_prod(model_container_p)
+    has_cut_conso_l = has_cut_conso(model_container_p)
+    has_branch_slack_l = has_branch_slack(model_container_p)
+    if !has_cut_prod_l && !has_cut_conso_l && !has_branch_slack_l
+        model_container_p.status = pscopf_OPTIMAL
+    elseif has_cut_prod_l && !has_cut_conso_l && !has_branch_slack_l
+        model_container_p.status = pscopf_CUT_PROD
+    elseif has_cut_conso_l && !has_cut_prod_l && !has_branch_slack_l
+        model_container_p.status = pscopf_CUT_CONSO
+    elseif has_branch_slack_l && !has_cut_conso_l && !has_cut_prod_l
+        model_container_p.status = pscopf_BRANCH_SLACK
+    elseif has_branch_slack_l || has_cut_conso_l || has_cut_prod_l
+        model_container_p.status = pscopf_SLACK_FEASIBLE
+    end
+    return model_container_p.status
 end
 
 """
@@ -668,7 +1051,7 @@ end
 function print_nz(variables)
     for x in variables
         if abs(value(x[2])) > 1e-6
-            println(x, " = ", value(x[2]));
+            @debug "$x = $(value(x[2]))"
         end
     end
 end
@@ -678,15 +1061,15 @@ function clear_output_files(launcher)
         output_path_l = joinpath(launcher.dirpath, output_file_l)
         if isfile(output_path_l)
             rm(output_path_l)
-            println("removed ", output_path_l)
+            @debug "removed $(output_path_l)"
         end
     end
 end
 
-function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workflow.LimitableModeler, v_imp::Workflow.ImposableModeler)
+function write_limitations_csv(launcher::Workflow.Launcher, ech, v_lim::Workflow.LimitableModeler, v_slack::Workflow.SlackModeler)
     open(joinpath(launcher.dirpath, LIMITATION_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;\n", "ech", "gen", "TS","S", "is_lim", "p_lim", "p0", "prev0"));
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n", "ech", "gen", "TS","S", "is_lim", "p_lim", "p0", "prev0", "prod", "cut_prod"));
         end
         for x in v_lim.p_enr
             key = x[1];
@@ -701,12 +1084,17 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             p_sol = value(v_lim.p_lim[gen, ts]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f\n", ech, gen, ts, s, is_lim, p_sol, p0, prev0));
+            prod = value(v_lim.p_enr[gen, ts, s])
+            cut_prod = value(get(v_slack.p_cut_prod, (gen, ts, s), 0.))
+            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f;%f;%f\n", ech, gen, ts, s, is_lim, p_sol, p0, prev0, prod, cut_prod));
         end
     end
+end
+
+function write_impositions_csv(launcher::Workflow.Launcher, ech, v_imp::Workflow.ImposableModeler, v_slack::Workflow.SlackModeler)
     open(joinpath(launcher.dirpath, IMPOSITION_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;\n", "ech", "gen", "TS","S", "is_imp", "p_imp", "p0", "prev0"));
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n", "ech", "gen", "TS","S", "is_imp", "p_imp", "p0", "prev0", "prod", "cut_prod"));
         end
         for x in v_imp.p_imposable
             key = x[1];
@@ -719,103 +1107,165 @@ function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, v_lim::Workfl
             p_sol = value(v_imp.p_imposable[gen, ts, s]);
             p0 = launcher.uncertainties[gen, s, ts, ech];
             prev0 = launcher.previsions[gen, ts, ech];
-            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f\n", ech, gen, ts, s, is_imp, p_sol, p0, prev0));
+            prod = value(v_imp.p_imposable[gen, ts, s])
+            cut_prod = value(get(v_slack.p_cut_prod, (gen, ts, s), 0.))
+            write(file, @sprintf("%s;%s;%s;%s;%s;%f;%f;%f;%f;%f\n", ech, gen, ts, s, is_imp, p_sol, p0, prev0, prod, cut_prod));
         end
     end
 end
 
-function write_extra_output_csv(launcher::Workflow.Launcher, ech::DateTime,
-                                v_res::Workflow.ReserveModeler, v_flow::Dict{Tuple{String,DateTime,String},VariableRef})
+function write_reserve_csv(launcher::Workflow.Launcher, ech::DateTime,
+                            v_res::Workflow.ReserveModeler)
     open(joinpath(launcher.dirpath, RESERVE_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s\n", "ech", "TS", "S", "res"));
+            write(file, @sprintf("%s;%s;%s;%s\n", "ech", "TS", "S", "reserve"));
         end
+
+        TS_l = Set{Dates.DateTime}()
+        S_l = Set{String}()
 
         dict_reserve_l = Dict{Tuple{DateTime,String}, Float64}()
         for ((ts_l,s_l), var_l) in v_res.p_res_pos
+            push!(TS_l, ts_l)
+            push!(S_l, s_l)
             if value(var_l) > 1e-6
                 dict_reserve_l[ts_l, s_l] = value(var_l)
             end
         end
         for ((ts_l,s_l), var_l) in v_res.p_res_neg
+            push!(TS_l, ts_l)
+            push!(S_l, s_l)
             if value(var_l) > 1e-6
                 @assert !haskey(dict_reserve_l, (ts_l,s_l)) #avoid having positive and negative reserves at once
                 dict_reserve_l[ts_l, s_l] = -value(var_l) #negative reserve
             end
         end
 
-        for ((ts_l,s_l), value_l) in dict_reserve_l
-            write(file, @sprintf("%s;%s;%s;%f\n", ech, ts_l, s_l, value_l));
-        end
-    end
-
-    open(joinpath(launcher.dirpath, FLOWS_CSV), "a") do file
-        if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "flow"));
-        end
-        for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
-            write(file, @sprintf("%s;%s;%s;%s;%f\n", ech, branch_l, ts_l, s_l, value(flow_var_l)));
+        for ts_l in TS_l, s_l in S_l
+            reserve_l = get(dict_reserve_l, (ts_l, s_l), 0.)
+            write(file, @sprintf("%s;%s;%s;%f\n", ech, ts_l, s_l, reserve_l));
         end
     end
 end
 
+function write_flows_csv(launcher::Workflow.Launcher, ech::DateTime,
+                        v_flow::Dict{Tuple{String,DateTime,String},VariableRef},
+                        v_slack::Workflow.SlackModeler)
+    #branch, ts, s
+    non_opt_flows_l = compute_non_optimized_flows(launcher, ech)
 
-function write_kpi_csv(launcher_p::Workflow.Launcher, ech_p::DateTime,
-                    obj_p::Workflow.ObjectiveModeler,
-                    v_lim_p::Workflow.LimitableModeler, v_imp_p::Workflow.ImposableModeler,
-                    v_res::Workflow.ReserveModeler)
+    open(joinpath(launcher.dirpath, FLOWS_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s\n", "ech", "branch", "TS", "S", "non_optimised_flow", "flow", "capacity_increase"));
+        end
+        for ((branch_l, ts_l, s_l), flow_var_l) in v_flow
+            neg_slack_l = value(get(v_slack.v_branch_slack_neg, (branch_l,ts_l,s_l), 0.))
+            pos_slack_l = value(get(v_slack.v_branch_slack_pos, (branch_l,ts_l,s_l), 0.))
+            @assert ( (neg_slack_l<1e-6) || (pos_slack_l<1e-6) )
+            increase_l = max( neg_slack_l, pos_slack_l )
+            increase_l = increase_l > 1e-6 ? increase_l : 0.
+            write(file, @sprintf("%s;%s;%s;%s;%f;%f;%f\n", ech, branch_l, ts_l, s_l,
+                                                        non_opt_flows_l[branch_l, ts_l, s_l],
+                                                        value(flow_var_l), increase_l));
+        end
+    end
+end
 
+function write_power_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, model_container_p::Workflow.ModelContainer)
     open(joinpath(launcher_p.dirpath, SEVERED_POWERS_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s\n",
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
                                 "ech", "s", "ts",
-                                "lim_severed_power","imp_severed_power","imp_increased_power","pos_res","neg_res"));
+                                "lim_severed_power","imp_severed_power","imp_increased_power","pos_res","neg_res",
+                                "cut_consumption", "cut_production",
+                                ));
         end
 
-        lim_severed_power_l = get_lim_severed_power(v_lim_p)
-        imp_neg_power_l = get_imp_neg_power(v_imp_p)
-        imp_pos_power_l = get_imp_pos_power(v_imp_p)
-        pos_reserve_l = get_vals_dict_from_vars_dict(v_res.p_res_pos)
-        neg_reserve_l = get_vals_dict_from_vars_dict(v_res.p_res_neg)
+        lim_severed_power_l = get_lim_severed_power(model_container_p.limitable_modeler)
+        imp_neg_power_l = get_imp_neg_power(model_container_p.imposable_modeler)
+        imp_pos_power_l = get_imp_pos_power(model_container_p.imposable_modeler)
+        pos_reserve_l = get_vals_dict_from_vars_dict(model_container_p.reserve_modeler.p_res_pos)
+        neg_reserve_l = get_vals_dict_from_vars_dict(model_container_p.reserve_modeler.p_res_neg)
+        #sum the cut consumption along units for each ts and scenario
+        cut_consumption_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_conso, 1)
+        #sum the cut production along buses for each ts and scenario
+        cut_production_l = sum_dict_along_key_element(model_container_p.slack_modeler.p_cut_prod, 1)
         for (ts_l,s_l) in union(keys(lim_severed_power_l), keys(imp_neg_power_l), keys(imp_pos_power_l))
-            write(file, @sprintf("%s;%s;%s;%f;%f;%f;%f;%f\n",
+            write(file, @sprintf("%s;%s;%s;%f;%f;%f;%f;%f;%f;%f\n",
                                 ech_p,
                                 s_l,
                                 ts_l,
-                                lim_severed_power_l[ts_l, s_l],
-                                imp_neg_power_l[ts_l, s_l],
-                                imp_pos_power_l[ts_l, s_l],
-                                pos_reserve_l[ts_l, s_l],
-                                neg_reserve_l[ts_l, s_l]
+                                get(lim_severed_power_l, (ts_l, s_l), 0),
+                                get(imp_neg_power_l, (ts_l, s_l), 0),
+                                get(imp_pos_power_l, (ts_l, s_l), 0),
+                                get(pos_reserve_l, (ts_l, s_l), 0),
+                                get(neg_reserve_l, (ts_l, s_l), 0),
+                                get(cut_consumption_l, (ts_l, s_l), 0),
+                                get(cut_production_l, (ts_l, s_l), 0)
                         )
             )
         end
     end
+end
 
+function write_costs_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, obj_p::Workflow.ObjectiveModeler)
     open(joinpath(launcher_p.dirpath, COSTS_CSV), "a") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s;%s\n",
-                                "ech", "penalties_cost", "lim_cost", "imp_prop_cost", "imp_starting_cost", "total_cost"
+            write(file, @sprintf("%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
+                                "ech", "penalties_cost", "lim_cost", "imp_prop_cost", "imp_starting_cost",
+                                "cut_production_cost", "cut_consumption_cost", "branch_slack_cost",
+                                "total_cost",
                         )
             );
         end
 
-        write(file, @sprintf("%s;%f;%f;%f;%f;%f\n",
+        write(file, @sprintf("%s;%f;%f;%f;%f;%f;%f;%f;%f\n",
                                 ech_p,
                                 value(obj_p.penalties),
                                 value(obj_p.lim_cost_obj),
                                 value(obj_p.imp_prop_cost_obj),
                                 value(obj_p.imp_starting_cost_obj),
+                                value(obj_p.cut_production_obj),
+                                value(obj_p.cut_consumption_obj),
+                                value(obj_p.branch_slack_obj),
                                 value(obj_p.full_obj)
                     )
         )
     end
 end
 
+function write_cut_conso_csv(launcher_p::Workflow.Launcher, ech_p::DateTime, v_slack_p::Workflow.SlackModeler)
+    open(joinpath(launcher_p.dirpath, CUT_CONSO_CSV), "a") do file
+        if filesize(file) == 0
+            write(file, @sprintf("%s;%s;%s;%s;%s\n",
+                                "ech", "bus", "s", "ts", "cut_consumption"
+                                ));
+        end
+
+        for ((bus_l, ts_l, s_l), var_cut_conso_l) in v_slack_p.p_cut_conso
+            write(file, @sprintf("%s;%s;%s;%s;%f\n",
+                                ech_p, bus_l, s_l, ts_l,
+                                value(var_cut_conso_l)
+                        )
+            )
+        end
+    end
+end
+
+function write_output_csv(launcher::Workflow.Launcher, ech, TS, S, model_container_p::Workflow.ModelContainer)
+    write_limitations_csv(launcher, ech, model_container_p.limitable_modeler, model_container_p.slack_modeler)
+    write_impositions_csv(launcher, ech, model_container_p.imposable_modeler, model_container_p.slack_modeler)
+    write_reserve_csv(launcher, ech, model_container_p.reserve_modeler)
+    write_flows_csv(launcher, ech, model_container_p.v_flow, model_container_p.slack_modeler)
+    write_power_csv(launcher, ech, model_container_p)
+    write_costs_csv(launcher, ech, model_container_p.objective_modeler)
+    write_cut_conso_csv(launcher, ech, model_container_p.slack_modeler)
+end
+
 function write_previsions(launcher_p::Workflow.Launcher)
     open(joinpath(launcher_p.dirpath, SCHEDULE_CSV), "w") do file
         if filesize(file) == 0
-            write(file, @sprintf("%s;%s;%s;%s;%s\n", "unit", "TS", "h_15m", "value", "decision_type"));
+            write(file, @sprintf("%s;%s;%s;%s;%s\n", "unit", "h_15m", "ech", "value", "decision_type"));
         end
         for ((gen_l, ts_l, ech_l), value_l) in launcher_p.previsions
             dmo_l = launcher_p.units[gen_l][5]
