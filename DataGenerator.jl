@@ -232,10 +232,10 @@ module DataGenerator
     end
 
     function get_buses(data_generator_p::RandomDataGenerator)
-        return get_buses(data_generator_p.units_types_data_)
+        return get_buses(data_generator_p.ptdf_data_)
     end
-    function get_buses(units_types_data_p)
-        return unique([val_i[2] for (_,val_i) in units_types_data_p])
+    function get_buses(ptdf_data_p)
+        return unique([bus_i for ((_,bus_i),_) in ptdf_data_p])
     end
 
     function get_branches(data_generator_p::RandomDataGenerator)
@@ -299,16 +299,31 @@ module DataGenerator
     function create_load!(data_generator_p::RandomDataGenerator,
                         sigma_load_p::Number=0.05,
                         mu_load_p::Number=0.,
-                        different_per_scenario_p::Bool=true)
+                        different_per_scenario_p::Bool=true,
+                        buses_coeffs_p=nothing)
 
         n_scenarios_l = length(data_generator_p.lst_scenarios_)
         total_base_consumption_l = get_total_base_consumption(data_generator_p)
 
         # suppose buses coeffs do not change with time
         buses_l = get_buses(data_generator_p)
-        coeffs_l = rand(length(buses_l))
-        coeffs_l = coeffs_l / sum(coeffs_l)
-        buses_coeffs_l = Dict(zip(buses_l,coeffs_l))
+        buses_coeffs_l = buses_coeffs_p
+        if ( !isnothing(buses_coeffs_l) &&
+            ( sort(collect(keys(buses_coeffs_l))) != sort(buses_l)) )
+            error("wrong input buses coeffs. buses names or number do not correspond:\n $(sort(collect(keys(buses_coeffs_l)))) \n vs $(sort(buses_l))")
+        end
+        if isnothing(buses_coeffs_l)
+            coeffs_l = rand(length(buses_l))
+            coeffs_l = coeffs_l / sum(coeffs_l)
+            buses_coeffs_l = Dict(zip(buses_l,coeffs_l))
+        else
+            #normalize coeffs
+            sum_l = sum([coeff_l for (_,coeff_l) in buses_coeffs_l])
+            for (bus_l,coeff_l) in buses_coeffs_l
+                buses_coeffs_l[bus_l] = coeff_l / sum_l
+            end
+        end
+        println("buses_coeffs_l : $buses_coeffs_l")
 
         # Create random total loads (ts,ech,s)
         random_total_consumption_l = Dict{Tuple{Dates.DateTime, Dates.DateTime, String}, Float64}()
@@ -394,7 +409,7 @@ module DataGenerator
 
     function create_instance!(data_generator_p::RandomDataGenerator,
                             n_scenarios_p::Int64, lst_delta_for_horizons_p::Vector{Dates.Minute};
-                            sigma_load_p::Number=0.05, mu_load_p::Number=0., different_load_per_scenario_p::Bool=true,
+                            sigma_load_p::Number=0.05, mu_load_p::Number=0., different_load_per_scenario_p::Bool=true, buses_coeffs_p::Union{Nothing,Dict{String,Float64}}=nothing,
                             instance_name_p::String="")
         @printf("Generate instance from base folder %s .\n", data_generator_p.basedata_path_)
         reset!(data_generator_p)
@@ -404,7 +419,7 @@ module DataGenerator
         create_horizons!(data_generator_p, lst_delta_for_horizons_p)
         println("Considered horizon dates : ", data_generator_p.lst_horizons_)
         @printf("generate random loads with base parameters σ=%f and μ=%f .\n", sigma_load_p, mu_load_p)
-        create_load!(data_generator_p, sigma_load_p, mu_load_p, different_load_per_scenario_p)
+        create_load!(data_generator_p, sigma_load_p, mu_load_p, different_load_per_scenario_p, buses_coeffs_p)
         println("generate random uncertainties.")
         create_prod_uncertainties!(data_generator_p)
         if do_create_limits(data_generator_p)
