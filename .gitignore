@@ -1,14 +1,25 @@
 /RC_PPE2035_S0_deboucle
 
+#deps and config
+Manifest.toml
+
 #temp and cache
 .ipynb_checkpoints/
 
+#test results
+test/tests_data/**/out_*
 
 #ignored data directories
 data/*
 !data/dmo
 !data/2ech
 !data/data_slack/*/base
+!data/random_generation/
+
+#log and dbg files
+*.lp
+*.sol
+*.log
 
 #build directories
 /docs/build
