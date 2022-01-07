@@ -314,7 +314,7 @@ module DataGenerator
         random_total_consumption_l = Dict{Tuple{Dates.DateTime, Dates.DateTime, String}, Float64}()
         for ts_l in data_generator_p.lst_timesteps_
             for ech_l in data_generator_p.lst_horizons_
-                factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
+                factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60 + 15/60, 0) #+15/60 to add noise even for ech=ts
                 adjusted_sigma_load_l = factor_l * sigma_load_p
                 if different_per_scenario_p
                     rand_deviations_l = rand(Distributions.Normal(mu_load_p, adjusted_sigma_load_l), n_scenarios_l);
@@ -349,7 +349,7 @@ module DataGenerator
 
                     sigma_l = data_generator_p.uncertain_properties_[gen_l][2]
                     mu_l = data_generator_p.uncertain_properties_[gen_l][3]
-                    factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60, 0)
+                    factor_l = max(Dates.value(floor(ts_l - ech_l, Dates.Minute)) / 60  + 15/60, 0) #+15/60 to add noise even for ech=ts
                     adjusted_sigma_l = factor_l * sigma_l
                     adjusted_mu_l = factor_l * mu_l
 
