@@ -28,20 +28,29 @@ module Workflow
     SCHEDULE_CSV = "previsions.csv"
     COSTS_CSV = "costs.csv"
     SEVERED_POWERS_CSV = "severed_power.csv"
-    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV]
+    CUT_CONSO_CSV = "cut_consumption.csv"
+    CLEARED_OUTPUT = [IMPOSITION_CSV, LIMITATION_CSV, FLOWS_CSV, RESERVE_CSV, SCHEDULE_CSV, COSTS_CSV, SEVERED_POWERS_CSV, CUT_CONSO_CSV]
 
     @with_kw    mutable struct Launcher
+        #TODO : create a LauncherConfig
         NO_IMPOSABLE::Bool;
         NO_LIMITABLE::Bool
         NO_LIMITATION::Bool;
         NO_DMO::Bool;
+        NO_CUT_PRODUCTION::Bool;
+        NO_CUT_CONSUMPTION::Bool;
+        NO_BRANCH_SLACK::Bool;
+        SCENARIOS_FLEXIBILITY::Union{Float64,Nothing}; #allowed difference between the production levels of the different scenarios for an imposable, given a unit,ts,ech
+        COEFF_CUT_PROD::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables cutting production (if NO_CUT_PRODUCTION is false)
+        COEFF_CUT_CONSO::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables cutting consumption (if NO_CUT_CONSUMPTION is false)
+        COEFF_BRANCH_SLACK::Union{Float64,Nothing}; #coefficient to use in objective fct for slack variables increasing branch capacity (if NO_BRANCH_SLACK is false)
 
         dirpath::String;
         # uncertainties, name-scenario-h-ech->value
         uncertainties::Dict{Tuple{String,String,DateTime,DateTime},Float64};
         # previsionnal planning
         previsions::Dict{Tuple{String,DateTime,DateTime},Float64};
-        # name->minP-maxP-startCost-propCost
+        # name->minP-maxP-startCost-propCost-dmo
         units::Dict{String, Vector{Float64}};
         # gen->type-bus
         gen_type_bus::Dict{String, Vector{String}};
@@ -76,12 +85,60 @@ module Workflow
         p_res_neg = Dict{Tuple{DateTime,String},VariableRef}();
     end
 
+    @with_kw mutable struct SlackModeler
+        #bus, ts, s
+        p_cut_conso = Dict{Tuple{String,DateTime,String},VariableRef}();
+        #gen,ts, s
+        p_cut_prod = Dict{Tuple{String,DateTime,String},VariableRef}();
+        #branch, ts, s
+        v_branch_slack_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
+        v_branch_slack_neg = Dict{Tuple{String,DateTime,String},VariableRef}();
+    end
+
     @with_kw mutable struct ObjectiveModeler
         penalties = AffExpr(0)
         lim_cost_obj = AffExpr(0)
         imp_prop_cost_obj = AffExpr(0)
         imp_starting_cost_obj = AffExpr(0)
+
+        cut_production_obj = AffExpr(0)
+        cut_consumption_obj = AffExpr(0)
+        branch_slack_obj = AffExpr(0)
+
         full_obj = AffExpr(0)
+    end
+
+
+    """
+    Possible status values for a pscopf model container
+
+        - pscopf_OPTIMAL : a solution that does not use slacks was retrieved
+        - pscopf_CUT_PROD : retrieved solution uses a cut production slack variable
+        - pscopf_CUT_CONSO : retrieved solution uses a cut consumption slack variable
+        - pscopf_BRANCH_SLACK : retrieved solution uses a branch capacity slack variable
+        - pscopf_SLACK_FEASIBLE : retrieved solution uses more than one type of slack variables
+        - pscopf_INFEASIBLE : no solution was retrieved
+        - pscopf_UNSOLVED : model is not solved yet
+    """
+    @enum PSCOPFStatus begin
+        pscopf_OPTIMAL
+        pscopf_CUT_PROD
+        pscopf_CUT_CONSO
+        pscopf_BRANCH_SLACK
+        pscopf_SLACK_FEASIBLE
+        pscopf_INFEASIBLE
+        pscopf_UNSOLVED
+    end
+
+    @with_kw mutable struct ModelContainer
+        model = Model()
+        imposable_modeler::ImposableModeler = ImposableModeler()
+        limitable_modeler::LimitableModeler = LimitableModeler()
+        reserve_modeler::ReserveModeler = ReserveModeler()
+        slack_modeler::SlackModeler = SlackModeler()
+        objective_modeler::ObjectiveModeler = ObjectiveModeler()
+        v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
+        status::PSCOPFStatus = pscopf_UNSOLVED
     end
 
     function read_ptdf(dir_path::String)
@@ -145,7 +202,6 @@ module Workflow
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
-                    # println(ln)
                     buffer = AmplTxt.split_with_space(ln);
                     name = buffer[1];
                     h = DateTime(buffer[2]);
@@ -158,13 +214,12 @@ module Workflow
         end
         return result;
     end    
-    function read_previsions(dir_path::String)
+    function read_previsions(dir_path::String, filename_p="pscopf_previsions.txt")
         result = Dict{Tuple{String,DateTime,DateTime},Float64}();
-        open(joinpath(dir_path, "pscopf_previsions.txt"), "r") do file
+        open(joinpath(dir_path, filename_p), "r") do file
             for ln in eachline(file)
                 # don't read commentted line 
                 if ln[1] != '#'
-                    # println(ln)
                     buffer = AmplTxt.split_with_space(ln);
                     name = buffer[1];
                     h = DateTime(buffer[2]);
@@ -184,7 +239,14 @@ module Workflow
         if !isdir(dir_path)
             mkpath(dir_path)
         end
-        return Launcher(false, false, false, false, dir_path, read_uncertainties(input_path), read_previsions(input_path), read_units(input_path), read_gen_type_bus(input_path), read_ptdf(input_path), read_limits(input_path))
+
+        return Launcher(false, false, false, false, false, false, false,
+                        nothing,
+                        nothing, nothing, nothing,
+                        dir_path,
+                        read_uncertainties(input_path), read_previsions(input_path),
+                        read_units(input_path), read_gen_type_bus(input_path),
+                        read_ptdf(input_path), read_limits(input_path))
     end
 
     function Launcher(dir_path::String)        
@@ -255,13 +317,27 @@ module Workflow
         return result;
     end
 
+    function get_highest_pmax(units_p::Dict{String, Vector{Float64}})
+        return maximum([gen_data_l[2] for (_,gen_data_l) in units_p])
+    end
+
     include("WorkflowModeler.jl");
     include("WorkflowWorstCase.jl");
 
-    """
-        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
 
-    Launch the optimization for multiple launch dates
+    function balance_scenarios_eod!(launcher_p::Launcher, ech_p)
+        @info "-"^10 * "   balance scenarios   " * "-"^20
+        #I/O still to specify :
+        #probably this will read probabilistic uncertainties
+        #write the uncertainties to consider by pscopf
+        #FIXME : read market ECH to only launch market at specific dates ?
+        @warn "balance action by scenario at ech $(ech_p) not implemented!"
+    end
+
+    """
+        run_mode1(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+
+    Launch the optimization for multiple launch dates in coordinated mode (fr. mode de gestion coordonnee)
 
     # Arguments
     - `launcher::Launcher` : the optimization launcher containing the necessary data
@@ -269,17 +345,27 @@ module Workflow
     - `p_res_min` : The minimum allowed reserve level
     - `p_res_max` : The maximum allowed reserve level
     """
-    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
-        dict_results_l = Dict{DateTime, Any}()
-
+    function run_mode1(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number)
+        @info "Launch PSCOPF mode 1 for horizons : $(lst_ech_p)"
+        dict_results_l = Dict{DateTime, ModelContainer}()
         clear_output_files(launcher_p);
+
         for (index_l, ech_l)  in enumerate(lst_ech_p)
-            println("-"^45)
+            @info "-"^30 * "   ECH : $ech_l   " * "-"^60
+
+            #Balance the uncertainties for each scenario separately
+            balance_scenarios_eod!(launcher_p, ech_l)
+
+            #Decide on the production levels of the units based on the DMO and ech
+            #Decisions can be fixed for all scenarios (limitables and DMO>=ECH) or by scenario (DMO<ECH)
             result_l = sc_opf(launcher_p, ech_l, p_res_min, p_res_max)
             dict_results_l[ech_l] = result_l
+
+            #Propagate PSCOPF decisions
+            #If needed, Update the production schedule to be considered in the following ech
             if index_l < length(lst_ech_p)
-                @printf("Update schedule for %s :", lst_ech_p[index_l+1])
-                println(update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l[2], result_l[3]))
+                @info "Update schedule for upcoming iteration : $(lst_ech_p[index_l+1])"
+                update_schedule!(launcher_p, lst_ech_p[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
             end
         end
         write_previsions(launcher_p)
@@ -287,7 +373,28 @@ module Workflow
     end
 
     """
-        run(launcher::Launcher, p_res_min::Number, p_res_max::Number)
+        run(launcher::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number, mode_p::Int64)
+
+    Launch the optimization for the specified launch dates
+
+    # Arguments
+    - `launcher::Launcher` : the optimization launcher containing the necessary data
+    - `lst_ech_p` : List of launch dates to consider
+    - `p_res_min` : The minimum allowed reserve level
+    - `p_res_max` : The maximum allowed reserve level
+    - `mode_p::Int64` : Launch mode (fr. mode de gestion : 1:coordonnee, 2:alternee, 3:separee)
+    """
+    function run(launcher_p::Launcher, lst_ech_p, p_res_min::Number, p_res_max::Number, mode_p::Int64)
+        if mode_p == 1
+            return run_mode1(launcher_p, lst_ech_p, p_res_min, p_res_max)
+        else
+            msg_l = @sprintf("mode %d is not implemented!", mode_p)
+            error(msg_l)
+        end
+    end
+
+    """
+        run(launcher::Launcher, p_res_min::Number, p_res_max::Number, mode_p::Int64)
 
     Launch the optimization for all launch dates listed in pscopf_uncertainties.txt
 
@@ -295,9 +402,16 @@ module Workflow
     - `launcher::Launcher` : the optimization launcher containing the necessary data
     - `p_res_min` : The minimum allowed reserve level
     - `p_res_max` : The maximum allowed reserve level
+    - `mode_p::Int64` : Launch mode (fr. mode de gestion : 1:coordonnee, 2:alternee, 3:separee)
     """
-    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number)
+    function run(launcher_p::Launcher, p_res_min::Number, p_res_max::Number; mode_p::Int64=1)
+        print_config(launcher_p)
+
         ECH = Workflow.get_sorted_ech(launcher_p);
-        run(launcher_p, ECH, p_res_min, p_res_max)
+        return run(launcher_p, ECH, p_res_min, p_res_max, mode_p)
+    end
+
+    function assessment_step(launcher::Launcher, results::Dict{Dates.DateTime, ModelContainer}, p_res_min::Number, p_res_max::Number)
+        @warn "assessment_step not implemented!"
     end
 end
