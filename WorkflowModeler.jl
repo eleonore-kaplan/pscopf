@@ -208,7 +208,7 @@ function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind,
             end
         end
     end
-    return Workflow.LimitableModeler(p_lim, is_limited, p_enr, is_limited_x_p_lim, c_lim);
+    return Workflow.LimitableModeler(p_enr, p_lim, is_limited, is_limited_x_p_lim, c_lim);
     # return p_lim, is_limited, is_limited_x_p_lim, c_lim;
 end
 
@@ -351,7 +351,7 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
             end
         end
     end
-    return Workflow.ImposableModeler(p_imposable, p_is_imp, p_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
+    return Workflow.ImposableModeler(p_imposable, p_imp, p_is_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
 end
 
 #FIXME : add_slack!(::ModelContainer, ::Launcher)

@@ -63,9 +63,9 @@ module Workflow
 
     @with_kw    mutable struct ImposableModeler
         p_imposable = Dict{Tuple{String,DateTime,String},VariableRef}();
+        p_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_is_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_is_imp_and_on = Dict{Tuple{String,DateTime,String},VariableRef}();
-        p_imp = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_start = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_on = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_imp_pos = Dict{Tuple{String,DateTime,String},VariableRef}();
@@ -73,9 +73,9 @@ module Workflow
     end
 
     @with_kw mutable struct LimitableModeler
+        p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
         p_lim = Dict{Tuple{String,DateTime},VariableRef}();
         is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
-        p_enr = Dict{Tuple{String,DateTime,String},VariableRef}();
         is_limited_x_p_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
         c_lim = Dict{Tuple{String,DateTime,String},VariableRef}();
     end
