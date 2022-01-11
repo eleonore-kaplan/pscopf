@@ -67,28 +67,28 @@ Workflow.print_config(launcher)
 #####
 
 @info "Launch PSCOPF mode 1 for horizons : $(ECH)"
-dict_results_l = Dict{DateTime, ModelContainer}()
-clear_output_files(launcher);
+dict_results_l = Dict{Dates.DateTime, Workflow.ModelContainer}()
+Workflow.clear_output_files(launcher);
 
 for (index_l, ech_l)  in enumerate(ECH)
     @info "-"^30 * "   ECH : $ech_l   " * "-"^60
 
     #Balance the uncertainties for each scenario separately
-    balance_scenarios_eod!(launcher, ech_l)
+    Workflow.balance_scenarios_eod!(launcher, ech_l)
 
     #Decide on the production levels of the units based on the DMO and ech
     #Decisions can be fixed for all scenarios (limitables and DMO>=ECH) or by scenario (DMO<ECH)
-    result_l = sc_opf(launcher, ech_l, p_res_min, p_res_max)
+    result_l = Workflow.sc_opf(launcher, ech_l, p_res_min, p_res_max)
     dict_results_l[ech_l] = result_l
 
     #Propagate PSCOPF decisions
     #If needed, Update the production schedule to be considered in the following ech
     if index_l < length(ECH)
         @info "Update schedule for upcoming iteration : $(ECH[index_l+1])"
-        update_schedule!(launcher, ECH[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
+        Workflow.update_schedule!(launcher, ECH[index_l+1], ech_l, result_l.limitable_modeler, result_l.imposable_modeler)
     end
 end
-write_previsions(launcher)
+Workflow.write_previsions(launcher)
 
 #####
 
