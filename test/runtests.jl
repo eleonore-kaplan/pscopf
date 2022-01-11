@@ -13,5 +13,6 @@ Logging.with_logger(Logging.NullLogger()) do
     @testset verbose=true "PSCOPF_TESTS" begin
         include("test_dmo_levers.jl")
         include("test_feasibility_slacks.jl")
+        include("test_multiple_ts.jl")
     end
 end
