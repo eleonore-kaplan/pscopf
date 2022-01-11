@@ -95,7 +95,7 @@ using JuMP
                                         launcher.SCENARIOS_FLEXIBILITY)
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S1"]) ≈ 20.
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S2"]) ≈ 20.
-            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) ≈ 0.
+            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) <= 1e-6
             @test value(result.reserve_modeler.p_res_pos[ts, "S2"]) ≈ 10.
 
             Workflow.clear_output_files(launcher);
@@ -124,7 +124,7 @@ using JuMP
                                         launcher.SCENARIOS_FLEXIBILITY)
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S1"]) ≈ 20.
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S2"]) ≈ 25.
-            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) ≈ 0.
+            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) <= 1e-6
             @test value(result.reserve_modeler.p_res_pos[ts, "S2"]) ≈ 5.
 
             Workflow.clear_output_files(launcher);
@@ -153,8 +153,8 @@ using JuMP
                                         launcher.SCENARIOS_FLEXIBILITY)
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S1"]) ≈ 20.
             @test value(result.imposable_modeler.p_imposable["prod_1", ts, "S2"]) ≈ 30.
-            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) ≈ 0.
-            @test value(result.reserve_modeler.p_res_pos[ts, "S2"]) ≈ 0.
+            @test value(result.reserve_modeler.p_res_pos[ts, "S1"]) <= 1e-6
+            @test value(result.reserve_modeler.p_res_pos[ts, "S2"]) <= 1e-6
 
             Workflow.clear_output_files(launcher);
         end
