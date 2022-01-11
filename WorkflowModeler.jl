@@ -208,7 +208,7 @@ function add_limitable!(launcher::Launcher, ech::DateTime, model, units_by_kind,
             end
         end
     end
-    return Workflow.LimitableModeler(p_lim, is_limited, p_enr, is_limited_x_p_lim, c_lim);
+    return Workflow.LimitableModeler(p_enr, p_lim, is_limited, is_limited_x_p_lim, c_lim);
     # return p_lim, is_limited, is_limited_x_p_lim, c_lim;
 end
 
@@ -260,14 +260,6 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
             for ts in TS
                 prev0 = launcher.previsions[gen, ts, ech];
 
-                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
-                    @debug "production level of unit $(gen) is already fixed to $(prev0) for timestep $(ts)."
-                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
-                    @debug "unit $(gen) must be fixed for timestep $(ts)."
-                else
-                    @debug "still early to fix unit $(gen) for timestep $(ts)."
-                end
-
                 for (s_index_l, s) in enumerate(S)
                     name =  @sprintf("p_imp[%s,%s,%s]", gen, ts, s);
                     p_imp[gen, ts, s] = @variable(model, base_name = name);
@@ -304,35 +296,42 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                     @constraint(model, p_is_imp_and_on[gen, ts, s] <= p_on[gen, ts, s]);
                     @constraint(model, 1 + p_is_imp_and_on[gen, ts, s] >= p_on[gen, ts, s] + p_is_imp[gen, ts, s]);
                 end #S
+            end #TS
 
-                #DMO related constraints
-                if (!launcher.NO_DMO) && (is_already_fixed(ech, ts, dmo_l))
-                    # it is too late to change the production level
-                    for s_l in S
-                        @constraint(model, p_imposable[gen, ts, s_l] == prev0);
-                    end
-                elseif (launcher.NO_DMO) || (is_to_decide(ech, ts, dmo_l))
-                    # must decide now on production level : i.e. p_imposable[gen, ts(, s)] no longer depends on scenario s
+            #DMO related constraints
+            if (!launcher.NO_DMO) && (is_already_fixed(ech, TS[1], dmo_l))
+                # it is too late to change the production level
+                @debug "production level of unit $(gen) is already fixed."
+                for ts_l in TS, s_l in S
+                    @constraint(model, p_imposable[gen, ts_l, s_l] == launcher.previsions[gen, ts_l, ech]);
+                end
+            elseif (launcher.NO_DMO) || (is_to_decide(ech, TS[1], dmo_l))
+                # must decide now on production level : i.e. p_imposable[gen, ts(, s)] no longer depends on scenario s
+                @debug "unit $(gen) must be fixed."
+                for ts_l in TS
                     for (s_index_l, s_l) in enumerate(S)
                         if s_index_l > 1
-                            s_other_l = S[s_index_l-1]
-                            @constraint(model, p_imposable[gen, ts, s_l] == p_imposable[gen, ts, s_other_l]);
+                            @constraint(model, p_imposable[gen, ts_l, s_l] == p_imposable[gen, ts_l, S[1]]);
                         end
                     end
-                else
-                    #limit the decision window (power levels variation between the scenarios)
-                    name =  @sprintf("max_p_imposable[%s,%s]", gen, ts);
+                end
+            else
+                #limit the decision window (power levels variation between the scenarios)
+                @debug "still early to fix unit $(gen)."
+                for ts_l in TS
+                    name =  @sprintf("max_p_imposable[%s,%s]", gen, ts_l);
                     temp_max_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
-                    name =  @sprintf("min_p_imposable[%s,%s]", gen, ts);
+                    name =  @sprintf("min_p_imposable[%s,%s]", gen, ts_l);
                     temp_min_p_imposable_l = @variable(model, base_name = name, lower_bound = 0);
                     for s_l in S
-                        @constraint(model, temp_max_p_imposable_l >= p_imposable[gen, ts, s_l]);
-                        @constraint(model, temp_min_p_imposable_l <= p_imposable[gen, ts, s_l]);
+                        @constraint(model, temp_max_p_imposable_l >= p_imposable[gen, ts_l, s_l]);
+                        @constraint(model, temp_min_p_imposable_l <= p_imposable[gen, ts_l, s_l]);
                     end
                     @constraint(model, temp_max_p_imposable_l - temp_min_p_imposable_l <= launcher.SCENARIOS_FLEXIBILITY);
                 end
-            end #TS
+            end
 
+            #constraints linking p_start (binary variable indicating the starting of a unit)
             for s in S
                 for (i,ts) in enumerate(TS)
                     if i > 1
@@ -347,11 +346,11 @@ function add_imposable!(launcher::Launcher, ech, model,  units_by_kind, TS, S)
                             @constraint(model, p_start[gen, ts, s] == p_on[gen, ts, s]);
                         end
                     end
-                end
-            end
+                end #TS
+            end #S
         end
     end
-    return Workflow.ImposableModeler(p_imposable, p_is_imp, p_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
+    return Workflow.ImposableModeler(p_imposable, p_imp, p_is_imp, p_is_imp_and_on, p_start, p_on, c_imp_pos, c_imp_neg);
 end
 
 #FIXME : add_slack!(::ModelContainer, ::Launcher)
