@@ -8,6 +8,8 @@ Given a power network, multiple scenarios of loads and production planning,
 
 ## Input Parameters
 
+Each PSCOPF launch is done at a given date, denoted by $ech$ and concerns one or many interest timesteps denoted $TS=\{ts_1,...ts_n\}$.
+
 ### Uncertainties :
 
 Describes the possible production scenarios.
@@ -15,11 +17,11 @@ Describes the possible production scenarios.
 A production scenario is a set of production values and load values
 of each power station or bus
 at multiple time steps
-for a given fixed term-date.
+seen from multiple horizons at datepoints $ech$.
 
-These will be denoted as : $prod(unit, date, ts, s)$ or $load(bus, date, ts, s)$ where
+These will be denoted as : $prod(unit, ech, ts, s)$ or $load(bus, ech, ts, s)$ where
  unit is a power station,
- date is the term date,
+ ech is the horizon datepoint,
  ts is a time step,
  s is a scenario,
  and bus is one of the network's buses.
@@ -32,7 +34,8 @@ and by $S$ the set of plausible scenarios we consider.
 Describes the scheduled/forecast production value
  of each power station
  at multiple time steps
- for a given fixed term-date.
+ for a given fixed horizon.
+These values will be denoted $prev(unit, ech, ts)$.
 
 ### Units
 
@@ -52,6 +55,10 @@ Each power station (aka, unit), is characterised by :
 - a variable cost :
     This will imply the cost of running the power station and will be proportional to the stations production,
     denoted $c_{prop}(unit)$
+- a DMO (fr. Delai de Mise en Oeuvre):
+    Represents the time required between the decision to start (or even change the production level of) a unit
+    and the moment the power becomes really available in the network.
+    denoted $dmo(unit)$
 
 ### Unit Type and Location
 
@@ -81,7 +88,7 @@ The power limits of each of the network branches, denoted by $limit(branch)$.
 Reserves are an optimization lever.
 Their level can be controled by the optimizer (i.e. decision variable, c.f. TODO:LINK_TO_DVAR_RESERVE).
 They are delocalized. They can be positive or negative.
-Their minimum and maximum level are [MISSING] input parameters.
+Their minimum and maximum levels are [MISSING] input parameters.
 
 
 ## Output
@@ -92,7 +99,10 @@ need to check : impositions.txt and limitations.txt
 
 transcription of the decision variables :
 - production levels of the units
-- which unit was imposed
-- which unit was started
-- If applicable, at which times the EOD constraint is not satisfied
+- which units were imposed
+- which units were started
+- used reserves
+- branch flow status
+- severed power
+- cut production, cut consumption, increased branch limits,...
 

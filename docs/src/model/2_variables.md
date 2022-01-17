@@ -44,16 +44,16 @@ The expression is ensured by the constraints :
 
 
 ```math
-P_{enr}(gen,ts,s) =  min( P_{lim}(gen,ts), prod(gen, date, ts, s) ) \\
+P_{enr}(gen,ts,s) =  min( P_{lim}(gen,ts), prod(gen, ech, ts, s) ) \\
 \forall gen \in LIMITABLES, \forall ts \in TS, \forall s \in S, \\
 ```
 is the actual injected power by the limitable unit $gen$ at time step $ts$ for scenario $s$.
 The constraints relative to this expression are:
 ```math
 \begin{aligned}
-&P_{enr}(gen,ts,s) \in [0, prod(gen, date, ts, s)] \\
+&P_{enr}(gen,ts,s) \in [0, prod(gen, ech, ts, s)] \\
 &P_{enr}(gen,ts,s) \le P_{lim}(gen,ts) \\
-&P_{enr}(gen,ts,s) = (1-B_{is\_limited}(gen,ts,s)) * prod(gen, date, ts, s) + P_{is\_limited\_x\_Plim}(gen,ts,s)
+&P_{enr}(gen,ts,s) = (1-B_{is\_limited}(gen,ts,s)) * prod(gen, ech, ts, s) + P_{is\_limited\_x\_Plim}(gen,ts,s)
 \end{aligned}
 ```
 
@@ -61,13 +61,13 @@ The constraints relative to this expression are:
 
 
 ```math
-(*) C_{lim}(gen,ts,s) = max(0, prod(gen, date, ts, s) - P_{lim}(gen,ts)) \\
+(*) C_{lim}(gen,ts,s) = max(0, prod(gen, ech, ts, s) - P_{lim}(gen,ts)) \\
 \forall gen \in LIMITABLES, \forall ts \in TS, \forall s \in S, \\
 ```
 is the severed power lost due to limiting the production of a limitable unit $gen$ at time step $ts$ and in the scenario $s$.
 The expression is assured by:
 ```math
-C_{lim}(gen,ts,s) \ge prod(gen, date, ts, s) - P_{lim}(gen,ts)
+C_{lim}(gen,ts,s) \ge prod(gen, ech, ts, s) - P_{lim}(gen,ts)
 ```
 
 ---
@@ -77,68 +77,69 @@ C_{lim}(gen,ts,s) \ge prod(gen, date, ts, s) - P_{lim}(gen,ts)
 
 
 ```math
-P_{imp}(gen,ts) \in [p_{min}(gen),p_{max}(gen)] \\
-\forall gen \in IMPOSABLES, \forall ts \in TS,\\
+P_{imp}(gen,ts,s) \in [p_{min}(gen),p_{max}(gen)] \\
+\forall gen \in IMPOSABLES, \forall ts \in TS, \forall s \in S,\\
 ```
-is the the decided production level of the imposable unit $gen$ at time step $ts$.
- Note that this value is common to all scenarios.
- CHECK : The value is null, if the production level was not imposed.
+is the the decided production level of the imposable unit $gen$ at time step $ts$ in scenario $s$.
 
 ---
 
 
 ```math
-B_{is\_imposed}(gen,ts) \in \{0,1\} \\
-\forall gen \in IMPOSABLES, \forall ts \in TS,\\
+B_{is\_imposed}(gen,ts,s) \in \{0,1\} \\
+\forall gen \in IMPOSABLES, \forall ts \in TS, \forall s \in S,\\
 ```
-is a binary variable equal to $1$ if the imposable unit $gen$ has an imposed level at time step $ts$.
-
-
----
-
-
-```math
-B_{start}(gen,ts) \in \{0,1\} \\
-\forall gen \in IMPOSABLES, \forall ts \in TS,\\
-```
-is a binary variable equal to $1$ if the imposable unit $gen$ was started at time step $ts$.
+is a binary variable equal to $1$ if the imposable unit $gen$ has an imposed level at time step $ts$ in scenario $s$.
 
 
 ---
 
 
 ```math
-B_{on}(gen,ts) \in \{0,1\} \\
-\forall gen \in IMPOSABLES, \forall ts \in TS,\\
+B_{start}(gen,ts,s) \in \{0,1\} \\
+\forall gen \in IMPOSABLES, \forall ts \in TS, \forall s \in S,\\
 ```
-is a binary variable equal to $1$ if the imposable unit $gen$ is working at time step $ts$.
+is a binary variable equal to $1$ if the imposable unit $gen$ was started at time step $ts$ in scenario $s$.
+
+
+---
+
+
+```math
+B_{on}(gen,ts,s) \in \{0,1\} \\
+\forall gen \in IMPOSABLES, \forall ts \in TS, \forall s \in S,\\
+```
+is a binary variable equal to $1$ if the imposable unit $gen$ is working at time step $ts$ in scenario $s$.
 
 ```math
 \begin{aligned}
-&B_{start}(gen, ts) \le B_{on}(gen, ts) \\
-&B_{start}(gen, ts) \le 1 - B_{on}(gen, ts-1) \\
-&B_{start}(gen, ts) \ge B_{on}(gen, ts) - B_{on}(gen, ts-1) \\
+&B_{start}(gen, ts, s) \le B_{on}(gen, ts, s) \\
+&B_{start}(gen, ts, s) \le 1 - B_{on}(gen, ts-1, s) \\
+&B_{start}(gen, ts, s) \ge B_{on}(gen, ts, s) - B_{on}(gen, ts-1, s) \\
 \end{aligned}
 ```
 
 Note that these do not apply on the first time step.
+Instead, for $ts_1$ the following constraint applies :
+
+If $prev(gen, ech, ts_1) < 1, \qquad B_{start}(gen, ts_1, s) = B_{on}(gen, ts_1, s)$
 
 
 ---
 
 
 ```math
-B_{is\_imposed\_and\_on}(gen,ts) =  B_{is\_imposed}(gen,ts) \quad {AND} \quad B_{on}(gen,ts) \\
-\forall gen \in IMPOSABLES, \forall ts \in TS,\\
+B_{is\_imposed\_and\_on}(gen,ts,s) =  B_{is\_imposed}(gen,ts,s) \quad {AND} \quad B_{on}(gen,ts,s) \\
+\forall gen \in IMPOSABLES, \forall ts \in TS, \forall s \in S,\\
 ```
-is a binary variable equal to $1$ if the imposable unit $gen$ is working with an imposed level at time step $ts$.
+is a binary variable equal to $1$ if the imposable unit $gen$ is working with an imposed level at time step $ts$ in scenario $s$.
 
 The AND expressions is assured by the following constraints:
 ```math
 \begin{aligned}
-&P_{is\_imposed\_and\_on}(gen, ts) \le B_{is\_imposed}(gen, ts) \\
-&P_{is\_imposed\_and\_on}(gen, ts) \le B_{on}(gen, ts) \\
-&1 + B_{is\_imposed\_and\_on}(gen, ts) \ge B_{on}(gen, ts) + B_{is\_imposed}(gen, ts) \\
+&P_{is\_imposed\_and\_on}(gen, ts, s) \le B_{is\_imposed}(gen, ts, s) \\
+&P_{is\_imposed\_and\_on}(gen, ts, s) \le B_{on}(gen, ts, s) \\
+&1 + B_{is\_imposed\_and\_on}(gen, ts, s) \ge B_{on}(gen, ts, s) + B_{is\_imposed}(gen, ts, s) \\
 \end{aligned}
 ```
 
@@ -146,8 +147,8 @@ The latter introduced binary variable, helps express the bounding constraints on
 
 ```math
 \begin{aligned}
-&P_{imp}(gen, ts) \le p_{max} * B_{is\_imposed\_and\_on}[gen, ts] \\
-&P_{imp}(gen, ts) \ge p_{min} * B_{is\_imposed\_and\_on}[gen, ts] \\
+&P_{imp}(gen, ts, s) \le p_{max} * B_{is\_imposed\_and\_on}(gen, ts, s) \\
+&P_{imp}(gen, ts, s) \ge p_{min} * B_{is\_imposed\_and\_on}(gen, ts, s) \\
 \end{aligned}
 ```
 
@@ -161,7 +162,7 @@ P_{imposable}(gen,ts,s) \in R_+ \\
 is the power effectively generated by the unit $gen$ at time step $ts$ and for scenario $s$.
 If the production level was imposed this value will be equal for all scenarios at a given same time step $ts$. If not, it will be equal to the planned production level of the scenario.
 
-$P_{imposable}(gen,ts,s) = (1-B_{is\_imposed}(gen,ts)) prod(gen,ts,s) + P_{imp}(gen,ts)$
+$P_{imposable}(gen,ts,s) = (1-B_{is\_imposed}(gen,ts,s)) prod(gen,ech,ts,s) + P_{imp}(gen,ts,s)$
 
 
 ---
@@ -182,20 +183,94 @@ is the over production we imposed.
 
 This can be formulated as following :
 
-$P_{imposable}(gen,ts,s) =  prod(gen,ts,s) + C_{imp\_pos}(gen,ts,s) - C_{imp\_neg}(gen,ts,s)$
+$P_{imposable}(gen,ts,s) =  prod(gen,ech,ts,s) + C_{imp\_pos}(gen,ts,s) - C_{imp\_neg}(gen,ts,s)$
 
+### DMO behaviour constraints
+
+
+####
+If the unit's DMO is very long such that $ts_1 - dmo(gen) < ech$,
+ the unit's production level can no longer be changed/started.
+ Thus, the scheduled production level is used in all scenarios:
+
+```math
+P_{imposable}(gen,ts,s) = prev(gen,ts,ech)
+\quad \forall ts \in TS, \forall s \in S, \\
+```
+
+####
+If the unit's DMO coincides with the decision point i.e. $ts_1 - dmo(gen) = ech$,
+ this is the last opportunity to start the unit or to change its production level.
+ Thus, the fixed value will be commun to all scenarios:
+
+```math
+P_{imposable}(gen,ts,s) = P_{imposable}(gen,ts,s_1)
+\forall ts \in TS, \forall s \in S\setminus\{s_1\}, \\
+```
+
+####
+If the unit's DMO is very short such that $ech < ts_1 - dmo(gen)$,
+ We still have time to decide on the actual production level of the unit.
+ The flexibility of the decision is guided by the parameter scenario\_flexibiliy(gen).
+ Thus, the production level of the unit can be fixed by scenario and changed later:
+
+```math
+\forall ts \in TS, \\
+max\_p\_imposable(gen,ts) \ge P_{imposable}(gen,ts,s) \quad \forall s \in S, \\
+min\_p\_imposable(gen,ts) \le P_{imposable}(gen,ts,s) \quad \forall s \in S, \\
+max\_p\_imposable(gen,ts) - min\_p\_imposable(gen,ts) \le scenario\_flexibiliy(gen), \\
+```
 
 ---
 
 ## Reserves
-
-CHECK : should not depend on scenario (unless it is just here to allow violating the EOD)
-
-CHECK : not taken into account in flow limit constraint (delocalized reserve)
-
 ```math
-(*) P_{reserve}(ts,s) \in [-p_{reserve}, p_{reserve}] \\
+(*) P_{reserve\_neg}(ts,s) \in [0, p_{reserve\_min}] \\
+(*) P_{reserve\_pos}(ts,s) \in [0, p_{reserve\_max}] \\
 \forall ts \in TS, \forall s \in S, \\
 ```
-is the decided level of reserve power at time step $ts$ for scenario $s$
+is the decided level of reserve power at time step $ts$ for scenario $s$.
+
+## Feasibility : slack variables
+
+To ensure the feasibility of the optimization problem, even if no real solution exists,
+ we introduce three types of slack variables relaxing the constraints:
+
+ - Production reduction slack variables
+ - Consumption reduction slack variables
+ - Branch Capacities slack variables
+
+### Reduce Production :
+
+These variables indicate that a given unit might need to reduce its production in order to have a feasible solution.
+This might be useful with units that have a positive minimum production level,
+ that need to keep a given production level once started,...
+
+The variable $P_{cut\_production}(gen,ts,s)$ indicates the power reduction needed for unit $gen$ at timestep $ts$ in scenario $s$.
+
+The following constraints apply:
+```math
+\forall ts \in TS, \forall s \in S, \\
+\forall gen \in LIMITABLES, \qquad 0 \le P_{cut\_production}(gen,ts,s) \le P_{enr}(gen,ts,s)
+\forall gen \in IMPOSABLES, \qquad 0 \le P_{cut\_production}(gen,ts,s) \le P_{imposable}(gen,ts,s)
+```
+
+### Reduce Consumption :
+
+These variables indicate that a given bus might need to reduce its consumtion in order to have a feasible solution.
+This implies not being able to supply enough power to cover the demand of some bus.
+
+The variable $P_{cut\_consumption}(gen,ts,s)$ indicates the missing power supply at bus $bus$ at timestep $ts$ in scenario $s$.
+
+The following constraints apply:
+```math
+\forall ts \in TS, \forall s \in S, \forall bus \in BUSES, \\
+\forall gen \in LIMITABLES, \qquad 0 \le P_{cut\_consumption}(bus,ts,s) \le load(bus,ech,ts,s)
+```
+
+### Branch Capacity:
+
+These variables indicate that a given power limit on a branch needs to be increased (i.e. network constraints must be relaxed).
+
+The variables: $P_{branch\_slack\_pos}(branch,ts,s) \ge 0$ and $P_{branch\_slack\_neg}(branch,ts,s) \ge 0$ indicate the required capacity increase of branch $branch$ at timestep $ts$ in scenario $s$. We need two variables, since the power flow on a branch is directed.
 
