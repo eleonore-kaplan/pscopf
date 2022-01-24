@@ -48,6 +48,14 @@ La responsabilité du générateur d'incertitudes se résume à la génération 
 Les scénarios générés itérativement à des échéances différentes seront donc indépendants.
 De plus, c'est un autre composant qui doit s'assurer de la cohérence du nombre de scénarios tout au long du lancement.
 
+### Bloc de Génération des séquences (Séquenceur)
+
+![Bloc de génération des séquences](../figs/bloc_sequenceur.png)
+
+Ce bloc reçoit en entrée une description du réseau, la période d'intérêt et les échéances d'études.
+Pour chacune de ces échéances, il propose une suite d'opérations à mener.
+Une opération consiste en l'exécution d'un des blocs décrits dans cette section en respectant ses entrées/sorties.
+
 ### Bloc marché
 
 ![Bloc du marché](../figs/bloc_marche.png)
@@ -72,9 +80,10 @@ Ce bloc simulerait le responsable du réseau :
 
 ![Bloc du TSO](../figs/bloc_dmo.png)
 
-Ce bloc est responsable du respect des DMO et des DPs dans le planning reflété par la situation du réseau.
-Il considère une ou plusieurs situations du réseau en entrée,
- les agrège pour n'en fournir qu'une situation mise à jour qui respecte les contraintes de démarrage des unités de production.
+Ce bloc a pour objectif de consolider la situation du réseau
+ en s'assurant que les DMO et les DP des unités sont bien respectées dans le planning reflété par la situation du réseau.
+
+N.B. : Ce bloc a besoin de deux planning : un planning de référence et un planning à consolider, pour s'assurer que le nouveau planning ne change pas les valeurs des unités une fois la DP/DMO dépassée par exemple.
 
 ### Bloc d'évaluation
 
@@ -106,28 +115,33 @@ Dans le cadre de ce travail, nous considérons que nous disposons d'un certain n
 Cette réserve est délocalisée.
 Une clé de répartition guidée par les coefficients de la PTDF décidera indirectement de cette localisation.
 
+### Les incertitudes
+
+A chaque échéances, nous disposons d'une observation évoluée des incertitudes.
+Les incertitudes du réseau étant les injections nodales (les niveaux de consommation et les capacités de production des unités limitables).
+
 ### Description de la situation du réseau
 
 Le réseau peut etre décrit grace à :
 
 - état des unités à l'échéance : unités démarrées, en démarrage, éteintes
-- planning prévisionnel du TSO pour tous les scénarios et toutes les dates d'intérêt :
+- planning prévisionnel pour tous les scénarios et toutes les dates d'intérêt :
  donnant le niveau de production des unités imposables, les limitations des unités limitables, les niveaux de réserve.
-- planning prévisionnel du marché pour tous les scénarios et toutes les dates d'intérêt :
- donnant le niveau de production des unités imposables, les limitations des unités limitables, les niveaux de réserve
- (potentiellement toujours nulle du point de vue du marché ? mais pas forcément pour généraliser le processus).
+ Ces décisions (planning) peuvent être provisoires (valeurs différentes par scénario) ou définitives.
 - Les incertitudes du réseau vues à l'échéance :
  niveaux de consommation et capacité de production des limitables pour tous les scénarios et toutes les dates d'intérêt
 
 A voir :
-- Il serait potentiellement possible de ne pas avoir besoin des deux plannings TSO et Marché
- mais d'en avoir qu'un à mettre à jour selon l'évolution du processus
- (potentiellement avec le bloc de démarrage des unités ou un autre qui prend cette responsabilité)
 - Le planning ne semble pas suffire pour traiter les DMO/DP,
- il est probablement nécessaire d'avoir l'information sur les démarrages des unités à l'échéance pour pouvoir faire le traitement.
+ il est probablement nécessaire d'avoir l'information sur les arrêts/démarrages des unités à l'échéance pour pouvoir faire le traitement.
+ Le modèle lui-même pourrait devoir traiter les délais dmo/dp:
 
+![remarque dmo](../figs/dmo_dp.png)
 
-<!-- ![Bloc du TSO](../figs/network.png) -->
+Dans la figure ci-dessus, à l'échéance ECH', la nature de la décision pour le pas de temps ts_2 diffère.
+Dans l'exemple 1, L'unité avait été démarrée à ECH pour le pas de temps ts_1, la DP s'applique donc.
+Par contre, dans l'exemple 2, l'unité est restée éteinte, c'est la DMO qui doit être respectée.
+
 
 ## Schéma Général
 
@@ -136,4 +150,4 @@ L'idée derrière cette notion de bloc de responsabilité est de pouvoir enchaî
 
 Ci-dessous un exemple d'enchaînement des blocs :
 
-<!-- ![Bloc du TSO](../figs/bloc_enchainement.png) -->
+![enchainement](../figs/bloc_enchainement.png)
