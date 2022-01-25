@@ -1,0 +1,38 @@
+@startuml sd_design_sequence_launcher
+
+SequenceLauncher  -> ContextManager : init_step(session, initialSituation, uncertainties, assessmentUncertainties)
+activate ContextManager
+SequenceLauncher <-- ContextManager : context
+note right
+    Context :
+        Session (i.e. : Réseau, TS, ECH)
+        uncertainties
+        assessmentUncertainties
+        scheduleHistory
+end note
+
+loop for each ech in context.ECH
+    loop for each Operation in sequence[ech]
+        SequenceLauncher  -> Operation : launch(Operation, context)
+	    SequenceLauncher <-- Operation : newNetworkSituation
+
+        SequenceLauncher  -> ContextManager : update!(context, newNetworkSituation)
+        note right
+            L'opération retourne une newNetworkSituation,
+            C'est le contextManager qui va décider de modifier (ou pas) le contexte
+            Par exemple, pour une exécution de marché,
+            on pourrait, se contenter de sauvegarder un planning (pour que le TSO le regarde)
+            sans mettre à jour la situation efective du réseau
+            (i.e. passer une unité en mode démarrage)
+        end note
+	    SequenceLauncher <-- ContextManager
+    end
+
+    SequenceLauncher  -> ContextManager : step_ech!(context, ech)
+    SequenceLauncher <-- ContextManager
+end
+
+SequenceLauncher  -> ContextManager : final_step!(context)
+SequenceLauncher <-- ContextManager
+
+@enduml
