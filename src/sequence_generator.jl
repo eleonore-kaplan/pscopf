@@ -1,0 +1,88 @@
+using Dates 
+using DataStructures
+using Parameters
+
+@with_kw struct Sequence
+    operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
+end
+
+function get_operations(sequence::Sequence)
+    return sequence.operations
+end
+
+function add_step!(sequence::Sequence, step_type::Type{T}, ech::Dates.DateTime) where T<:AbstractRunnable
+    step_instance = step_type()
+    steps_at_ech = get!(sequence.operations, ech, Vector{AbstractRunnable}())
+    push!(steps_at_ech, step_instance)
+end
+
+function run!(context_p::AbstractContext, sequence_p::Sequence)
+    println("Lancement du mode : ", context_p.management_mode.name)
+    println("Dates d'interet : ", context_p.target_timepoints)
+    for (ech, steps_at_ech) in get_operations(sequence_p)
+        println("-"^50)
+        delta = Dates.value(Dates.Minute(context_p.target_timepoints[1]-ech))
+        println("ECH : ", ech, " : M-", delta)
+        println("-"^50)
+        set_current_ech!(context_p, ech)
+        for step in steps_at_ech
+            result = run(step, context_p)
+            update!(context_p, result)
+        end
+    end
+end
+
+struct SequenceGenerator <: AbstractLaunchable
+    grid::Grid #Not used for now (but potentially we can have specific operations at DMO horizons)
+    target_timepoints::Vector{Dates.DateTime}
+    horizon_timepoints::Vector{Dates.DateTime}
+    management_mode::ManagementMode
+end
+
+function launch(seq_generator::SequenceGenerator)
+    if seq_generator.management_mode == PSCOPF_MODE_1
+        return gen_seq_mode1(seq_generator)
+        
+    elseif seq_generator.management_mode == PSCOPF_MODE_2
+        error("unimplemented")
+    elseif seq_generator.management_mode == PSCOPF_MODE_3
+        error("unimplemented")
+    end 
+    error("unsuppported mode : ", seq_generator.management_mode)
+end
+
+"""
+    generate_sequence
+"""
+function generate_sequence(grid::Grid, target_timepoints::Vector{Dates.DateTime},
+                            horizon_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
+    generator = SequenceGenerator(grid, target_timepoints, horizon_timepoints, management_mode)
+    return launch(generator)
+end
+
+function gen_seq_mode1(seq_generator::SequenceGenerator)
+    sequence = Sequence()
+    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+
+    for ech in seq_generator.horizon_timepoints
+        if ech <  seq_generator.horizon_timepoints[end]
+            if ech < fo_startpoint
+                add_step!(sequence, MarketMode1OutFO, ech)
+                add_step!(sequence, TSOMode1, ech)
+            
+            elseif ech == fo_startpoint
+                add_step!(sequence, MarketMode1OutFO, ech)
+                add_step!(sequence, EnterFO, ech)
+                add_step!(sequence, TSOMode1, ech)
+
+            else
+                add_step!(sequence, MarketMode1InFO, ech)
+                add_step!(sequence, TSOMode1, ech)
+            end
+        end
+    end
+
+    add_step!(sequence, Assessment, seq_generator.horizon_timepoints[end])
+
+    return sequence
+end
