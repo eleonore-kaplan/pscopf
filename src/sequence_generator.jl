@@ -1,4 +1,4 @@
-using Dates 
+using Dates
 using DataStructures
 using Parameters
 
@@ -42,12 +42,14 @@ end
 function launch(seq_generator::SequenceGenerator)
     if seq_generator.management_mode == PSCOPF_MODE_1
         return gen_seq_mode1(seq_generator)
-        
+
     elseif seq_generator.management_mode == PSCOPF_MODE_2
-        error("unimplemented")
+        return gen_seq_mode2(seq_generator)
+
     elseif seq_generator.management_mode == PSCOPF_MODE_3
-        error("unimplemented")
-    end 
+        return gen_seq_mode3(seq_generator)
+    end
+
     error("unsuppported mode : ", seq_generator.management_mode)
 end
 
@@ -60,6 +62,7 @@ function generate_sequence(grid::Grid, target_timepoints::Vector{Dates.DateTime}
     return launch(generator)
 end
 
+
 function gen_seq_mode1(seq_generator::SequenceGenerator)
     sequence = Sequence()
     fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
@@ -67,17 +70,71 @@ function gen_seq_mode1(seq_generator::SequenceGenerator)
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
             if ech < fo_startpoint
-                add_step!(sequence, MarketMode1OutFO, ech)
-                add_step!(sequence, TSOMode1, ech)
-            
+                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, TSOOutFO, ech)
+
             elseif ech == fo_startpoint
-                add_step!(sequence, MarketMode1OutFO, ech)
+                add_step!(sequence, MarketAtFO, ech)
                 add_step!(sequence, EnterFO, ech)
-                add_step!(sequence, TSOMode1, ech)
+                add_step!(sequence, TSOInFO, ech)
 
             else
-                add_step!(sequence, MarketMode1InFO, ech)
-                add_step!(sequence, TSOMode1, ech)
+                add_step!(sequence, TSOInFO, ech)
+            end
+        end
+    end
+
+    add_step!(sequence, Assessment, seq_generator.horizon_timepoints[end])
+
+    return sequence
+end
+
+
+function gen_seq_mode2(seq_generator::SequenceGenerator)
+    sequence = Sequence()
+    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+
+    for ech in seq_generator.horizon_timepoints
+        if ech <  seq_generator.horizon_timepoints[end]
+            if ech < fo_startpoint
+                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, TSOOutFO, ech)
+
+            elseif ech == fo_startpoint
+                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnterFO, ech)
+                add_step!(sequence, TSOBiLevel, ech)
+
+            else
+                add_step!(sequence, MarketInFO, ech)
+                add_step!(sequence, TSOBiLevel, ech)
+            end
+        end
+    end
+
+    add_step!(sequence, Assessment, seq_generator.horizon_timepoints[end])
+
+    return sequence
+end
+
+
+function gen_seq_mode3(seq_generator::SequenceGenerator)
+    sequence = Sequence()
+    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+
+    for ech in seq_generator.horizon_timepoints
+        if ech <  seq_generator.horizon_timepoints[end]
+            if ech < fo_startpoint
+                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, TSOOutFO, ech)
+
+            elseif ech == fo_startpoint
+                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnterFO, ech)
+                add_step!(sequence, TSOAtFO, ech)
+
+            else
+                add_step!(sequence, MarketInFO, ech)
             end
         end
     end

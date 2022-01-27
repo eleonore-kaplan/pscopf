@@ -11,6 +11,8 @@ mutable struct PSCOPFContext <: AbstractContext
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
+    #uncertainties
+    #AssessmentUncertainties
 
     tso_planning::Planning
     market_planning::Planning
