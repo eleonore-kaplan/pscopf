@@ -1,14 +1,12 @@
-name = "Dummy"
+name = "PSCOPF"
 uuid = "49cb37cc-ff20-496c-bf34-5f417ec805e5"
-authors = ["Manuel RUIZ",
-           "Charles PAYEMENT",
-           "Adrien MARECHAL",
-            "Aziz JEGHAM <aziz.jegham@eurodecision.com>"]
+authors = ["Manuel RUIZ", "Charles PAYEMENT", "Adrien MARECHAL", "Aziz JEGHAM <aziz.jegham@eurodecision.com>"]
 version = "0.1.0"
 
 [deps]
 Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
