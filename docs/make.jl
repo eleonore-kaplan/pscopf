@@ -1,6 +1,6 @@
-using Documenter, Dummy
+using Documenter, PSCOPF
 
-module DummyDocs
+module PSCOPFDocs
 
 using Documenter
 
@@ -11,7 +11,7 @@ format = Documenter.HTML(
 pages = Any[
             "Home" => "index.md",
             "Library" => Any[
-                "Dummy" => "lib/dummy.md",
+                "PSCOPF" => "lib/pscopf.md",
                 ],
             "Model" => Any[
                 "Problem Description" => "model/1_problem.md",
@@ -21,10 +21,10 @@ pages = Any[
                 ],
 ]
 
-end # DummyDocs
+end # PSCOPFDocs
 
-makedocs(modules = [Dummy],
+makedocs(modules = [PSCOPF],
         sitename="PSCOPF",
-        format = DummyDocs.format,
-        pages = DummyDocs.pages,
+        format = PSCOPFDocs.format,
+        pages = PSCOPFDocs.pages,
         )
