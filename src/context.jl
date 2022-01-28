@@ -17,8 +17,8 @@ mutable struct PSCOPFContext <: AbstractContext
     tso_planning::Planning
     market_planning::Planning
     current_ech::Dates.DateTime
-    #still need to save the decision history, e.g. dict{ech->(planningTSO,PlanningMarket)} 
-    #besoin d'info sur les états des groupes 
+    #still need to save the decision history, e.g. dict{ech->(planningTSO,PlanningMarket)}
+    #besoin d'info sur les états des groupes
 end
 function PSCOPFContext(grid::Grid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode, tso_planning::Planning, market_planning::Planning)

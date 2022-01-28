@@ -1,9 +1,10 @@
 using PSCOPF
 
+using Test
 using Dates
 
 @testset verbose=true "test_ech_generation" begin
-    
+
     @testset "mode_1" begin
         grid = PSCOPF.Grid()
         ts1 = DateTime("2015-01-01T11:00:00")
@@ -12,9 +13,9 @@ using Dates
 
         list_ech = PSCOPF.generate_ech(grid, TS, mode)
 
-        EXPECTED_ECH = [ts1 - Dates.Hour(4), 
-                        ts1 - Dates.Hour(1), 
-                        ts1 - Dates.Minute(30), 
+        EXPECTED_ECH = [ts1 - Dates.Hour(4),
+                        ts1 - Dates.Hour(1),
+                        ts1 - Dates.Minute(30),
                         ts1 - Dates.Minute(15),
                         ts1]
         @test length(list_ech) == length(EXPECTED_ECH)
@@ -33,9 +34,9 @@ using Dates
         list_ech = PSCOPF.generate_ech(grid, TS, mode)
 
         ts1 = DateTime("2015-01-01T11:00:00")
-        EXPECTED_ECH = [ts1 - Dates.Hour(4), 
-                        ts1 - Dates.Hour(1), 
-                        ts1 - Dates.Minute(30), 
+        EXPECTED_ECH = [ts1 - Dates.Hour(4),
+                        ts1 - Dates.Hour(1),
+                        ts1 - Dates.Minute(30),
                         ts1 - Dates.Minute(15),
                         ts1]
         @test length(list_ech) == length(EXPECTED_ECH)
@@ -50,9 +51,9 @@ using Dates
 
         list_ech = PSCOPF.generate_ech(grid, TS, mode)
 
-        EXPECTED_ECH = [ts1 - Dates.Hour(4), 
-                        ts1 - Dates.Hour(1), 
-                        ts1 - Dates.Minute(30), 
+        EXPECTED_ECH = [ts1 - Dates.Hour(4),
+                        ts1 - Dates.Hour(1),
+                        ts1 - Dates.Minute(30),
                         ts1 - Dates.Minute(15),
                         ts1]
         @test length(list_ech) == length(EXPECTED_ECH)
@@ -67,9 +68,9 @@ using Dates
 
         list_ech = PSCOPF.generate_ech(grid, TS, mode)
 
-        EXPECTED_ECH = [ts1 - Dates.Hour(4), 
-                        ts1 - Dates.Hour(1), 
-                        ts1 - Dates.Minute(30), 
+        EXPECTED_ECH = [ts1 - Dates.Hour(4),
+                        ts1 - Dates.Hour(1),
+                        ts1 - Dates.Minute(30),
                         ts1 - Dates.Minute(15),
                         ts1]
         @test length(list_ech) == length(EXPECTED_ECH)
@@ -84,12 +85,12 @@ end
 @testset "mode_1" begin
     #generateur de réseau
     grid = create_grid(#=FIXME initial input or mocks=#)
-    
+
     #lecture TS
     ts1 #=FIXME initial input or mocks=#
     TS = create_TS(Dates.DateTime(ts1)) #ts1 .+ [Dates.Minute(0), Dates.Minute(15), Dates.Minute(30), Dates.Minute(45)]
     mode = PSCOPF_MODE_1
-    
+
     #generateur d"ech
     ECH = generate_ech(grid, TS, mode)
 
@@ -141,7 +142,7 @@ end
 
 
 
-#TEst 
+#TEst
     planningTSO = planningRefTSO
     planningMarket = planningRefMarket
 

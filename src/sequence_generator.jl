@@ -32,7 +32,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
     end
 end
 
-struct SequenceGenerator <: AbstractLaunchable
+struct SequenceGenerator <: AbstractDataGenerator
     grid::Grid #Not used for now (but potentially we can have specific operations at DMO horizons)
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
@@ -70,11 +70,11 @@ function gen_seq_mode1(seq_generator::SequenceGenerator)
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
             if ech < fo_startpoint
-                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
 
             elseif ech == fo_startpoint
-                add_step!(sequence, MarketAtFO, ech)
+                add_step!(sequence, EnergyMarketAtFO, ech)
                 add_step!(sequence, EnterFO, ech)
                 add_step!(sequence, TSOInFO, ech)
 
@@ -97,16 +97,16 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
             if ech < fo_startpoint
-                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
 
             elseif ech == fo_startpoint
-                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnergyMarketAtFO, ech)
                 add_step!(sequence, EnterFO, ech)
                 add_step!(sequence, TSOBiLevel, ech)
 
             else
-                add_step!(sequence, MarketInFO, ech)
+                add_step!(sequence, BalanceMarket, ech)
                 add_step!(sequence, TSOBiLevel, ech)
             end
         end
@@ -125,16 +125,16 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
             if ech < fo_startpoint
-                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
 
             elseif ech == fo_startpoint
-                add_step!(sequence, MarketOutFO, ech)
+                add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, EnterFO, ech)
-                add_step!(sequence, TSOAtFO, ech)
+                add_step!(sequence, TSOAtFOBiLevel, ech)
 
             else
-                add_step!(sequence, MarketInFO, ech)
+                add_step!(sequence, EnergyMarket, ech)
             end
         end
     end
