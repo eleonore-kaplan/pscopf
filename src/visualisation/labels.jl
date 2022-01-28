@@ -15,11 +15,6 @@ end
 
 function get_loads_infos(network::Network, load_vertex::Bijection{String, Int})
     load_labels = Vector{String}();
-    for load_index in sort(collect(values(load_vertex)))
-        load::Load = safeget_load(network, load_vertex(load_index))
-        load_info::String = get_info(load)
-        push!(load_labels, load_info)
-    end
     return load_labels
 end
 

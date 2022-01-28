@@ -1,6 +1,7 @@
 module Networks
 
-include("./load.jl")
+# using ..AmplTxt
+
 include("./generator.jl")
 include("./bus.jl")
 include("./branch.jl")
@@ -8,7 +9,7 @@ include("./network.jl")
 
 export
     # struct
-    Load, Generator, Bus, Branch, Network,
+    Generator, Bus, Branch, Network,
     # functions
     ## bus
     add_new_bus!, add_new_buses!, add_bus!, add_buses!,
@@ -24,4 +25,4 @@ export
     ## infos
     get_info
 
-end
+end #module Networks
