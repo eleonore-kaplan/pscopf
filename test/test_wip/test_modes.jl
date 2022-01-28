@@ -1,5 +1,6 @@
 using PSCOPF
 
+using Test
 using Dates
 
 @testset "test_modes" begin

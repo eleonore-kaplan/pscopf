@@ -38,10 +38,10 @@ utilisé pour le mode 3:
 Prend des décisions fermes vu que c'est la dernière execution du TSO
 Décide de la reserve
 """
-struct TSOAtFO <: AbstractTSO
+struct TSOAtFOBiLevel <: AbstractTSO
 end
-function run(step::TSOAtFO, context::PSCOPFContext)
-    println("TSOAtFO à l'échéance ", get_current_ech(context))
+function run(step::TSOAtFOBiLevel, context::PSCOPFContext)
+    println("TSOAtFOBiLevel à l'échéance ", get_current_ech(context))
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", get_last_market_planning(context))
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", get_last_tso_planning(context))
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
@@ -102,10 +102,10 @@ abstract type  AbstractMarket <: AbstractRunnable  end
 utilisé pour les trois modes :
 Ne regarde pas le planning du TSO
 """
-struct MarketOutFO <: AbstractMarket
+struct EnergyMarket <: AbstractMarket
 end
-function run(step::MarketOutFO, context::PSCOPFContext)
-    println("MarketOutFO à l'échéance ", get_current_ech(context))
+function run(step::EnergyMarket, context::PSCOPFContext)
+    println("EnergyMarket à l'échéance ", get_current_ech(context))
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", get_last_market_planning(context))
     println("\tJe ne regarde pas le planning du TSO.")
     return #result
@@ -120,10 +120,10 @@ end
 utilisé pour le mode 1:
 Dans le mode 1, le marché ne s'écecutera plus dans la FO => besoin de décisions fermes
 """
-struct MarketAtFO <: AbstractMarket
+struct EnergyMarketAtFO <: AbstractMarket
 end
-function run(step::MarketAtFO, context::PSCOPFContext)
-    println("MarketAtFO à l'échéance ", get_current_ech(context))
+function run(step::EnergyMarketAtFO, context::PSCOPFContext)
+    println("EnergyMarketAtFO à l'échéance ", get_current_ech(context))
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", get_last_market_planning(context))
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
@@ -140,10 +140,10 @@ utilisé pour les modes 2 et 3
 Dans le mode 2 : je considère le planning du TSO
 Dans le mode 3 : je considère le planning du marché
 """
-struct MarketInFO <: AbstractMarket
+struct BalanceMarket <: AbstractMarket
 end
-function run(step::MarketInFO, context::PSCOPFContext)
-    println("MarketInFO à l'échéance ", get_current_ech(context))
+function run(step::BalanceMarket, context::PSCOPFContext)
+    println("BalanceMarket à l'échéance ", get_current_ech(context))
     println("\tJe me base sur le dernier planning disponible (marché ou TSO) pour les arrets/démarrage des unités") #besoin de récupérer le dernier planning
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
