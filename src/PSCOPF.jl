@@ -4,6 +4,7 @@ module PSCOPF
     include("bo/target_ts.jl")
     include("bo/networks/grid.jl")
     include("ech_generator.jl")
+    include("uncertainties_generator.jl")
     include("context.jl")
     include("steps/steps.jl")
     include("sequence_generator.jl")

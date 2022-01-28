@@ -1,5 +1,5 @@
-abstract type AbstractLaunchable end
-function launch() end
+abstract type AbstractDataGenerator end
+function launch end
 
 abstract type AbstractGrid end
 
