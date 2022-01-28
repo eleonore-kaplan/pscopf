@@ -2,20 +2,23 @@ using DataStructures
 
 mutable struct Network
     name::String
-    buses::OrderedDict{Int, Bus}
-    branches::OrderedDict{Int, OrderedDict{Int, Tuple{Branch, Bool}}}
-
     # Direct access containers
-    loads::OrderedDict{String, Load}
+    buses::OrderedDict{String, Bus}
+    branches::OrderedDict{String, Branch}
+
     generators::OrderedDict{String, Generator}
+
+    #Branch_id, Bus_id
+    ptdf::OrderedDict{String,OrderedDict{String, Float64}}
 
     # Constructor
     function Network(name::String)
         return new( name
-                  , OrderedDict{Int, Bus}()
-                  , OrderedDict{Int, OrderedDict{Int, Tuple{Branch, Bool}}}()
-                  , OrderedDict{String, Load}()
-                  , OrderedDict{String, Generator}())
+                  , OrderedDict{String, Bus}()
+                  , OrderedDict{String, Branch}()
+                  , OrderedDict{String, Generator}()
+                  , OrderedDict{String,OrderedDict{String, Float64}}()
+                  )
     end
 end
 
@@ -23,7 +26,7 @@ end
 ## Bus ##
 #########
 
-function add_new_bus!(network::Network, bus_id::Int)
+function add_new_bus!(network::Network, bus_id::String)
     if haskey(network.buses,bus_id)
         throw( error("Bus with id ", bus_id, " already exists in Network ", network.name) )
     end
@@ -31,7 +34,7 @@ function add_new_bus!(network::Network, bus_id::Int)
     network.buses[bus_id] = bus
 end
 
-function add_new_buses!(network::Network, buses_id::Vector{Int})
+function add_new_buses!(network::Network, buses_id::Vector{String})
     for bus_id in buses_id
         add_new_bus!(network, bus_id)
     end
@@ -51,7 +54,7 @@ function add_buses!(network::Network, buses::Vector{Bus})
     end
 end
 
-function get_bus(network::Network, bus_id::Int)::Union{Missing, Bus}
+function get_bus(network::Network, bus_id::String)::Union{Missing, Bus}
     if haskey(network.buses,bus_id)
         return network.buses[bus_id]
     else
@@ -59,7 +62,7 @@ function get_bus(network::Network, bus_id::Int)::Union{Missing, Bus}
     end
 end
 
-function safeget_bus(network::Network, bus_id::Int)::Bus
+function safeget_bus(network::Network, bus_id::String)::Bus
     bus::Union{Bus, Missing} = get_bus(network, bus_id)
     if !isequal(bus, missing)
         return bus
@@ -76,75 +79,18 @@ end
 ## Branch ##
 ############
 
-function check_branch(network::Network, bus_src_id::Int, bus_dst_id::Int)
-    # Buses must exist
-    if !haskey(network.buses,bus_src_id)
-        throw( error("Cannot add Branch from Bus ", bus_src_id, ": Bus does not exist in Network ", network.name) )
-    end
-    if !haskey(network.buses,bus_dst_id)
-        throw( error("Cannot add Branch to Bus ", bus_dst_id, ": Bus does not exist in Network ", network.name) )
-    end
-    # Branch should not have already been defined
-    if haskey(network.branches,bus_src_id) # genial julia qui peut pas faire la deuxieme condition en un if
-        if haskey(network.branches[bus_src_id],bus_dst_id)
-            throw( error("Branch from Bus ", bus_src_id, " to Bus ", bus_dst_id, " already exists in Network ", network.name) )
-        end
-    end
-    if haskey(network.branches,bus_dst_id) # idem
-        if haskey(network.branches[bus_dst_id],bus_src_id)
-            throw( error("Branch from Bus ", bus_dst_id, " to Bus ", bus_src_id, " already exists in Network ", network.name) )
-        end
-    end
-    # No branch to oneself
-    if bus_src_id == bus_dst_id
-        throw( error("Cannot add Branch from Bus ", bus_src_id, " to itself") )
-    end
-end
-
-function add_new_branch!(network::Network, bus_src::Union{Int,Bus}, bus_dst::Union{Int,Bus})
-    # Retrieve buses ids
-    bus_src_id::Int = typeof(bus_src) == Int ? bus_src : bus_src.id
-    bus_dst_id::Int = typeof(bus_dst) == Int ? bus_dst : bus_dst.id
+function add_new_branch!(network::Network, id_branch::String, limit::Float64)
     try
-        check_branch(network, bus_src_id, bus_dst_id)
-        # Create branch
-        branch = Branch(bus_src_id, bus_dst_id)
-        # Store it
-        if !haskey(network.branches, bus_src_id)
-            network.branches[bus_src_id] = OrderedDict{Int, Tuple{Branch, Bool}}()
-        end
-        network.branches[bus_src_id][bus_dst_id] = (branch, true)
-        if !haskey(network.branches, bus_dst_id)
-            network.branches[bus_dst_id] = OrderedDict{Int, Tuple{Branch, Bool}}()
-        end
-        network.branches[bus_dst_id][bus_src_id] = (branch, false)
+        branch = Branch(id_branch, limit)
+        network.branches[id_branch] = branch
     catch
         rethrow()
     end
 end
 
-# NB : on ne peut pas faire un type Tuple{Union{Int, Bus}, Union{Int, Bus}}
-# c'est mal interprete derrire.
-# ou alors lors de l'appel il faut re-preciser le type. Ce qui est lourd alors que la fonction doit simplifier la vie
-function add_new_branches!(network::Network, buses_src_dst::Vector{Tuple{Int, Int}})
-    for branch_src_dst in buses_src_dst
-        add_new_branch!(network, branch_src_dst[1], branch_src_dst[2])
-    end
-end
-
-function add_banch!(network::Network, branch::Branch)
-    bus_src_id::Int = branch.src
-    bus_dst_id::Int = branch.dst
+function add_branch!(network::Network, branch::Branch)
     try
-        check_branch(network, bus_src_id, bus_dst_id)
-        if !haskey(network.branches, bus_src_id)
-            network.branches[bus_src_id] = OrderedDict{Int, Tuple{Branch, Bool}}()
-        end
-        network.branches[bus_src_id][bus_dst_id] = (branch, true)
-        if !haskey(network.branches, bus_dst_id)
-            network.branches[bus_dst_id] = OrderedDict{Int, Tuple{Branch, Bool}}()
-        end
-        network.branches[bus_dst_id][bus_src_id] = (branch, false)
+        network.branches[branch.id] = branch
     catch
         rethrow()
     end
@@ -156,28 +102,21 @@ function add_branches!(network::Network, branches::Vector{Branch})
     end
 end
 
-function get_branch(network::Network, bus_src::Union{Int, Bus}, bus_dst::Union{Int, Bus})::Union{Missing, Tuple{Branch, Bool}}
-    # Retrieve buses ids
-    bus_src_id::Int = typeof(bus_src) == Int ? bus_src : bus_src.id
-    bus_dst_id::Int = typeof(bus_dst) == Int ? bus_dst : bus_dst.id
+function get_branch(network::Network, bus_id::String)::Union{Missing, Branch}
     # Get branch
-    if haskey(network.branches, bus_src_id)
-        if haskey(network.branches[bus_src_id], bus_dst_id)
-            return network.branches[bus_src_id][bus_dst_id]
-        else
-            return missing
-        end
+    if haskey(network.branches, bus_id)
+        return network.branches[bus_id]
     else
         return missing
     end
 end
 
-function safeget_branch(network::Network, bus_src::Union{Int, Bus}, bus_dst::Union{Int, Bus})::Tuple{Branch, Bool}
-    branch::Union{Missing, Tuple{Branch, Bool}} = get_branch(network, bus_src, bus_dst)
+function safeget_branch(network::Network, branch_id::String)::Branch
+    branch::Union{Missing, Branch} = get_branch(network, branch_id)
     if !isequal(branch, missing)
         return branch
     else
-        throw( error("Branch from Bus ", bus_src, " to Bus ", bus_dst, " does not exist in Network ", network.name) )
+        throw( error("Branch ", branch_id, " does not exist in Network ", network.name) )
     end
 end
 
@@ -204,42 +143,17 @@ end
 
 
 ########################
-## Load and Generator ##
+##      Generator     ##
 ########################
 
-function add_new_load_to_bus!(network::Network, bus::Union{Bus, Int}, load_id::String)
-    bus::Bus = typeof(bus) == Int ? get_bus(network, bus) : bus
-    load::Load = add_new_load!(bus, load_id)
-    # Store it in direct access containers
-    network.loads[load_id] = load
-end
-
-function add_new_generator_to_bus!(network::Network, bus::Union{Bus, Int}, generator_id::String)
-    bus::Bus = typeof(bus) == Int ? get_bus(network, bus) : bus
-    generator::Generator = add_new_generator!(bus, generator_id)
+function add_new_generator_to_bus!(network::Network, bus::Union{Bus, String}, generator_id::String,
+                                type::GeneratorType, p_min::Float64, p_max::Float64,
+                                start_cost::Float64, prop_cost::Float64, dmo::Dates.Minute, dp::Dates.Minute)
+    bus::Bus = typeof(bus) == String ? get_bus(network, bus) : bus
+    generator::Generator = add_new_generator!(bus, generator_id,
+                                            type, p_min, p_max, start_cost, prop_cost, dmo, dp)
     # Store it in direct access containers
     network.generators[generator_id] = generator
-end
-
-function get_load(network::Network, load_id::String)
-    if haskey(network.loads,load_id)
-        return network.loads[load_id]
-    else
-        return missing
-    end
-end
-
-function safeget_load(network::Network, load_id::String)
-    load::Union{Load, Missing} = get_load(network, load_id)
-    if !isequal(load, missing)
-        return load
-    else
-        throw( error("Load with id ", load_id, " does not exist in Network ", network.name) )
-    end
-end
-
-function get_loads(network::Network)
-    return values(network.loads)
 end
 
 function get_generator(network::Network, generator_id::String)
@@ -261,4 +175,51 @@ end
 
 function get_generators(network::Network)
     return values(network.generators)
+end
+
+########################
+##        PTDF        ##
+########################
+
+function get_ptdf_component(network::Network, branch_id::String)
+    if haskey(network.ptdf,branch_id)
+        return network.ptdf[branch_id]
+    else
+        return missing
+    end
+end
+
+function safeget_ptdf_component(network::Network, branch_id::String)
+    ptdf_component::Union{OrderedDict{String, Float64}, Missing} = get_ptdf_component(network, branch_id)
+    if !isequal(ptdf_component, missing)
+        return ptdf_component
+    else
+        throw( error("PTDF value for branch ", branch_id, " does not exist in Network ", network.name) )
+    end
+end
+
+function get_ptdf(network::Network, branch_id::String, bus_id::String)
+    if haskey(network.ptdf,branch_id)
+        if haskey(network.ptdf[branch_id], bus_id)
+            return network.ptdf[branch_id][bus_id]
+        else
+            return missing
+        end
+    else
+        return missing
+    end
+end
+
+function safeget_ptdf(network::Network, branch_id::String, bus_id::String)
+    ptdf::Union{Float64, Missing} = get_ptdf(network, branch_id, bus_id)
+    if !isequal(ptdf, missing)
+        return ptdf
+    else
+        throw( error("PTDF value for branch ", branch_id, " and bus ", bus_id, " does not exist in Network ", network.name) )
+    end
+end
+
+function add_ptdf_elt(network, branch_id::String, bus_id::String, ptdf_value::Float64)
+    ptdf_component = get!(network.ptdf, branch_id, OrderedDict{String, Float64}())
+    ptdf_component[bus_id] = ptdf_value
 end

@@ -1,9 +1,140 @@
 module Data
 
-using ..Networks
 using ..AmplTxt
+using ..PSCOPFio
+using ..Networks
 
-export data2network
+using Dates
+
+export
+    #data2network
+    pscopfdata2network
+
+
+
+#################
+# from pscopf_
+#################
+
+
+function pscopfdata2network(data::String)::Network
+    # Init network
+    network = Networks.Network(data)
+
+    #from pscopf_ptdf
+    read_buses!(network, data)
+    #from pscopf_ptdf and pscopf_limits
+    read_branches!(network, data)
+    #from pscopf_ptdf
+    read_ptdf!(network, data)
+
+    #from pscopf_units and pscopf_gen_type_bus
+    read_generators!(network, data)
+
+    # Return built network
+    return network
+end
+
+function read_buses!(network::Network, data::String)
+    buses_ids = Set{String}();
+    open(joinpath(data, "pscopf_ptdf.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+                push!(buses_ids, buffer[2])
+            end
+        end
+    end
+
+    Networks.add_new_buses!(network, collect(buses_ids));
+end
+
+function read_branches!(network::Network, data::String)
+    branches = Dict{String,Float64}();
+    default_limit = 0.
+    open(joinpath(data, "pscopf_ptdf.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+                branch_id = buffer[1]
+                push!(branches, branch_id => default_limit)
+            end
+        end
+    end
+
+    open(joinpath(data, "pscopf_limits.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+                branch_id = buffer[1]
+                limit = parse(Float64, buffer[2]);
+                push!(branches, branch_id=>limit)
+            end
+        end
+    end
+
+    for (id,limit) in branches
+        Networks.add_new_branch!(network, id, limit);
+    end
+end
+
+function read_ptdf!(network::Network, data::String)
+    open(joinpath(data, "pscopf_ptdf.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+                branch_id = buffer[1]
+                bus_id = buffer[2]
+                ptdf_value = parse(Float64, buffer[3])
+                Networks.add_ptdf_elt(network, branch_id, bus_id, ptdf_value)
+            end
+        end
+    end
+end
+
+function read_generators!(network, data)
+    gen_type_bus = Dict{String, Tuple{String, String}}()
+    open(joinpath(data, "pscopf_gen_type_bus.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+                gen_type_bus[buffer[1]] = (buffer[2], buffer[3])
+            end
+        end
+    end
+
+    open(joinpath(data, "pscopf_units.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+
+                generator_id = buffer[1]
+                gen_type = parse(Networks.GeneratorType, gen_type_bus[generator_id][1])
+                pmin = parse(Float64, buffer[3])
+                pmax = parse(Float64, buffer[4])
+                start_cost = parse(Float64, buffer[5])
+                prop_cost = parse(Float64, buffer[6])
+                dmo = dp = Dates.Minute(parse(Float64, buffer[7]))
+
+                Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
+                                        generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
+            end
+        end
+    end
+end
+
+
+
+#################
+# from AMPLTXT
+#################
+#=
 
 
 function readAmplData(data::String)
@@ -89,5 +220,7 @@ function data2network(data::String)::Network
     # Return built network
     return network
 end
+
+=#
 
 end

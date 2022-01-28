@@ -1,4 +1,9 @@
 module PSCOPF
+    include("./data/AmplTxt.jl")
+    include("./data/PSCOPFio.jl")
+    include("./bo/networks/Networks.jl")
+    include("./data/DataToNetwork.jl")
+
     include("abstracts.jl")
     include("bo/modes.jl")
     include("bo/target_ts.jl")
