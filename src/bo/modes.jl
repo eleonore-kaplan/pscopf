@@ -5,7 +5,7 @@ struct ManagementMode
     fo_length::Dates.Minute
 end
 
-function fo_length(mode::ManagementMode)
+function get_fo_length(mode::ManagementMode)
     return mode.fo_length
 end
 

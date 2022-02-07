@@ -7,6 +7,10 @@ include("./bus.jl")
 include("./branch.jl")
 include("./network.jl")
 
+function get_id(obj)
+    return obj.id
+end
+
 export
     # struct
     Generator, Bus, Branch, Network,

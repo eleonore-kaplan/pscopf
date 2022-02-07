@@ -11,7 +11,7 @@ end
 # Never use it directly, only use add function in Network!!!
 function add_new_generator!(bus::Bus, generator_id::String,
                             type::GeneratorType, p_min::Float64, p_max::Float64,
-                            start_cost::Float64, prop_cost::Float64, dmo::Dates.Minute, dp::Dates.Minute
+                            start_cost::Float64, prop_cost::Float64, dmo::Dates.Second, dp::Dates.Second
                             )::Generator
     generator::Generator = Generator(generator_id, bus.id,
                                     type, p_min, p_max, start_cost, prop_cost, dmo, dp)
