@@ -65,7 +65,7 @@ end
 
 function gen_seq_mode1(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
@@ -92,7 +92,7 @@ end
 
 function gen_seq_mode2(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]
@@ -120,7 +120,7 @@ end
 
 function gen_seq_mode3(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - fo_length(seq_generator.management_mode)
+    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
         if ech <  seq_generator.horizon_timepoints[end]

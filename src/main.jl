@@ -1,10 +1,8 @@
 include("./bo/networks/Networks.jl")
-include("./visualisation/Visualisation.jl")
 include("../AmplTxt.jl")
 include("./data/DataToNetwork.jl")
 
 using .Networks
-using .Visualisation
 using .Data
 
 ### TESTS
@@ -17,5 +15,3 @@ using .Data
 # load network
 network = data2network("5buses_wind")
 
-# Affichage du reseau
-plot_network(network)

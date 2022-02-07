@@ -148,7 +148,7 @@ end
 
 function add_new_generator_to_bus!(network::Network, bus::Union{Bus, String}, generator_id::String,
                                 type::GeneratorType, p_min::Float64, p_max::Float64,
-                                start_cost::Float64, prop_cost::Float64, dmo::Dates.Minute, dp::Dates.Minute)
+                                start_cost::Float64, prop_cost::Float64, dmo::Dates.Second, dp::Dates.Second)
     bus::Bus = typeof(bus) == String ? get_bus(network, bus) : bus
     generator::Generator = add_new_generator!(bus, generator_id,
                                             type, p_min, p_max, start_cost, prop_cost, dmo, dp)
