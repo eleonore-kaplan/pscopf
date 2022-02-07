@@ -6,7 +6,7 @@ using Dates
 @testset verbose=true "test_network" begin
 
     @testset "test_empty_network" begin
-        network = PSCOPF.Networks.Network("test_network")
+        network = PSCOPF.Networks.Network()
         println("network: ", network)
         @test length(network.buses) == 0
         @test length(network.branches) == 0

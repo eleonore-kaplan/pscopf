@@ -8,7 +8,7 @@ using Dates
         uncertainties_distribution = nothing #= FIXME =#
         nb_scenarios = nothing#= FIXME =#
 
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_1
@@ -41,7 +41,7 @@ using Dates
         uncertainties_distribution = nothing #= FIXME =#
         nb_scenarios = nothing #= FIXME =#
 
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_1

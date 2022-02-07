@@ -1,6 +1,8 @@
 using DataStructures
 
-mutable struct Network
+using ..PSCOPF
+
+mutable struct Network <: PSCOPF.AbstractGrid
     name::String
     # Direct access containers
     buses::OrderedDict{String, Bus}
@@ -20,6 +22,10 @@ mutable struct Network
                   , OrderedDict{String,OrderedDict{String, Float64}}()
                   )
     end
+end
+
+function Network()
+    return Network("empty_network")
 end
 
 #########

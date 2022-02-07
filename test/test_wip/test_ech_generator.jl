@@ -6,7 +6,7 @@ using Dates
 @testset verbose=true "test_ech_generation" begin
 
     @testset "mode_1" begin
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         ts1 = DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_1
@@ -26,7 +26,7 @@ using Dates
         generate_ech sorts the received TS, and looks at the first target timepoint
     =#
     @testset "mode_1_unsorted_TS" begin
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         #unsorted TS
         TS = [DateTime("2015-01-01T11:30:00"), DateTime("2015-01-01T11:45:00"), DateTime("2015-01-01T11:00:00"), DateTime("2015-01-01T11:15:00")]
         mode = PSCOPF.PSCOPF_MODE_1
@@ -44,7 +44,7 @@ using Dates
     end
 
     @testset "mode_2" begin
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         ts1 = DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_2
@@ -61,7 +61,7 @@ using Dates
     end
 
     @testset "mode_3" begin
-        grid = PSCOPF.Grid()
+        grid = PSCOPF.Networks.Network()
         ts1 = DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_3

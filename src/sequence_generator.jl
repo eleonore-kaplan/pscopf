@@ -33,7 +33,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
 end
 
 struct SequenceGenerator <: AbstractDataGenerator
-    grid::Grid #Not used for now (but potentially we can have specific operations at DMO horizons)
+    grid::AbstractGrid #Not used for now (but potentially we can have specific operations at DMO horizons)
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
@@ -56,7 +56,7 @@ end
 """
     generate_sequence
 """
-function generate_sequence(grid::Grid, target_timepoints::Vector{Dates.DateTime},
+function generate_sequence(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime},
                             horizon_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
     generator = SequenceGenerator(grid, target_timepoints, horizon_timepoints, management_mode)
     return launch(generator)
