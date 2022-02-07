@@ -7,7 +7,7 @@ struct Planning
 end
 
 mutable struct PSCOPFContext <: AbstractContext
-    grid::Grid
+    grid::AbstractGrid
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
@@ -20,7 +20,7 @@ mutable struct PSCOPFContext <: AbstractContext
     #still need to save the decision history, e.g. dict{ech->(planningTSO,PlanningMarket)}
     #besoin d'info sur les états des groupes
 end
-function PSCOPFContext(grid::Grid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
+function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode, tso_planning::Planning, market_planning::Planning)
     return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode, tso_planning, market_planning, horizon_timepoints[1])
 end

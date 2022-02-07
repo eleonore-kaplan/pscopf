@@ -1,2 +1,0 @@
-struct Grid <: AbstractGrid
-end
