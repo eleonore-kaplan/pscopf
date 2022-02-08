@@ -27,7 +27,7 @@ function run(step::TSOOutFO, context::PSCOPFContext)
     #D'ou la nécessité du bloc orange qui va fournir un état réel du réseau sur lequel se basera le TSO (mais pas le marché hors fenêtre opérationnelle)
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::TSOOutFO)
     println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
@@ -47,7 +47,7 @@ function run(step::TSOAtFOBiLevel, context::PSCOPFContext)
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::TSOAtFOBiLevel)
     println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché (ou si?)")
@@ -66,7 +66,7 @@ function run(step::TSOInFO, context::PSCOPFContext)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", get_last_tso_planning(context))
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::TSOInFO)
     println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché : C'est le même planning qui me servira de référence")
@@ -87,7 +87,7 @@ function run(step::TSOBiLevel, context::PSCOPFContext)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage ?")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::TSOBiLevel)
     println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché?")
@@ -110,7 +110,7 @@ function run(step::EnergyMarket, context::PSCOPFContext)
     println("\tJe ne regarde pas le planning du TSO.")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::EnergyMarket)
     println("\tJe mets à jour ce même planning marché: ", get_last_market_planning(context),
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning TSO.")
@@ -129,7 +129,7 @@ function run(step::EnergyMarketAtFO, context::PSCOPFContext)
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::EnergyMarketAtFO)
     println("\tJe mets à jour le planning du marché: ", get_last_market_planning(context),
             " en me basant sur les résultats d'optimisation.", #step.result
             " et je ne touche pas au planning du TSO")
@@ -149,7 +149,7 @@ function run(step::BalanceMarket, context::PSCOPFContext)
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::BalanceMarket)
     println("\tJe mets à jour le planning du marché: ", get_last_market_planning(context),
             " en me basant sur les résultats d'optimisation.", #step.result
             " et je ne touche pas au planning du TSO")
@@ -165,7 +165,7 @@ function run(step::Assessment, context::PSCOPFContext)
     println("Assessment à l'échéance ", get_current_ech(context))
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::Assessment)
     #rien à mettre à jour
 end
 
@@ -175,6 +175,6 @@ function run(step::EnterFO, context::PSCOPFContext)
     println("-----Entrée dans la fenêtre opérationnelle-----")
     return #result
 end
-function update!(context::PSCOPFContext, result)
+function update!(context::PSCOPFContext, result, step::EnterFO)
     #rien à mettre à jour
 end
