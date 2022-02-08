@@ -1,17 +1,42 @@
-include("./bo/networks/Networks.jl")
-include("../AmplTxt.jl")
-include("./data/DataToNetwork.jl")
+include("PSCOPF.jl")
 
-using .Networks
-using .Data
-
-### TESTS
-
-# Initialisatin d'un reseau
-# network = Networks.Network("test") # pas moyen d'appeler le constructeur sans rappeler le module, malgre le using...
-# add_new_buses!(network, [1,2,3,4,5])
-# add_new_branches!(network, [(1,2), (1,4), (1,5), (2,3), (3,4), (4,5)])
+using .PSCOPF
 
 # load network
-network = data2network("5buses_wind")
+data_path = joinpath(@__DIR__, "..", "2buses")
+network = PSCOPF.Data.pscopfdata2network(data_path)
 
+created_instance_path = joinpath(data_path, "copied")
+
+PSCOPF.PSCOPFio.write(created_instance_path, network)
+
+# Generate uncertainties
+uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
+nb_scenarios = 5
+
+ts1 = Dates.DateTime("2015-01-01T11:00:00")
+TS = PSCOPF.create_target_timepoints(ts1)
+ECHs = []
+for mode in [PSCOPF.PSCOPF_MODE_1, PSCOPF.PSCOPF_MODE_2, PSCOPF.PSCOPF_MODE_3]
+    push!(ECHs, PSCOPF.generate_ech(network, TS, mode) )
+end
+horizon_timepoints = sort(unique(Iterators.flatten(ECHs)))
+
+uncertainties = PSCOPF.generate_uncertainties(network, TS, horizon_timepoints,
+                                            uncertainties_distribution, nb_scenarios)
+
+PSCOPF.PSCOPFio.write(created_instance_path, uncertainties)
+
+
+# Launch mode 1
+mode = PSCOPF.PSCOPF_MODE_1
+
+network = PSCOPF.Data.pscopfdata2network(created_instance_path)
+un = PSCOPF.PSCOPFio.read_uncertainties(created_instance_path)
+ts1 = Dates.DateTime("2015-01-01T11:00:00")
+TS = PSCOPF.create_target_timepoints(ts1)
+ECH = PSCOPF.generate_ech(network, TS, mode)
+
+sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
+exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode, PSCOPF.Planning("TSO"), PSCOPF.Planning("Market"))
+PSCOPF.run!(exec_context, sequence)
