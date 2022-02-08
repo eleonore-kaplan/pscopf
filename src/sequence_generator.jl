@@ -27,7 +27,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
         set_current_ech!(context_p, ech)
         for step in steps_at_ech
             result = run(step, context_p)
-            update!(context_p, result)
+            update!(context_p, result, step)
         end
     end
 end
