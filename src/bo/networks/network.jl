@@ -1,25 +1,26 @@
-using DataStructures
-
 using ..PSCOPF
+
+using DataStructures
 
 mutable struct Network <: PSCOPF.AbstractGrid
     name::String
     # Direct access containers
-    buses::OrderedDict{String, Bus}
-    branches::OrderedDict{String, Branch}
+    buses::SortedDict{String, Bus}
+    branches::SortedDict{String, Branch}
 
-    generators::OrderedDict{String, Generator}
+    generators::SortedDict{String, Generator}
 
     #Branch_id, Bus_id
-    ptdf::OrderedDict{String,OrderedDict{String, Float64}}
+    ptdf::SortedDict{String,SortedDict{String, Float64}}
+    #FIXME : create ptdf structure to indicate reference bus
 
     # Constructor
     function Network(name::String)
         return new( name
-                  , OrderedDict{String, Bus}()
-                  , OrderedDict{String, Branch}()
-                  , OrderedDict{String, Generator}()
-                  , OrderedDict{String,OrderedDict{String, Float64}}()
+                  , SortedDict{String, Bus}()
+                  , SortedDict{String, Branch}()
+                  , SortedDict{String, Generator}()
+                  , SortedDict{String,SortedDict{String, Float64}}()
                   )
     end
 end
@@ -196,7 +197,7 @@ function get_ptdf_component(network::Network, branch_id::String)
 end
 
 function safeget_ptdf_component(network::Network, branch_id::String)
-    ptdf_component::Union{OrderedDict{String, Float64}, Missing} = get_ptdf_component(network, branch_id)
+    ptdf_component::Union{SortedDict{String, Float64}, Missing} = get_ptdf_component(network, branch_id)
     if !isequal(ptdf_component, missing)
         return ptdf_component
     else
@@ -226,6 +227,6 @@ function safeget_ptdf(network::Network, branch_id::String, bus_id::String)
 end
 
 function add_ptdf_elt(network, branch_id::String, bus_id::String, ptdf_value::Float64)
-    ptdf_component = get!(network.ptdf, branch_id, OrderedDict{String, Float64}())
+    ptdf_component = get!(network.ptdf, branch_id, SortedDict{String, Float64}())
     ptdf_component[bus_id] = ptdf_value
 end
