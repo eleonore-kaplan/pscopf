@@ -6,6 +6,7 @@ using ..AmplTxt
 using ..Networks
 
 using Dates
+using Printf
 using DataStructures
 
 ##########################
@@ -131,8 +132,136 @@ function read_uncertainties_distributions(network, data)
     result = Dict(sort(collect(result), by=x->Networks.get_id(x[1]) ))
     return result
 end
+
+function read_uncertainties(data)
+    result = PSCOPF.Uncertainties()
+    open(joinpath(data, "pscopf_uncertainties.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln)
+                # "name", "ts", "ech", "scenario", "value"))
+                name = buffer[1]
+                ts = Dates.DateTime(buffer[2])
+                ech = Dates.DateTime(buffer[3])
+                scenario = buffer[4]
+                value = parse(Float64, buffer[5])
+                PSCOPF.add_uncertainty!(result, ech, name, ts, scenario, value)
+            end
+        end
+    end
+    return result
+end
+
 ##########################
 #   Writers
 ##########################
+
+function write(dir_path::String, network::Networks.Network)
+    mkpath(dir_path)
+    # if !isdir(dir_path)
+    #     mkpath(dir_path)
+    # else
+    #     msg = @sprintf("data folder `%s` already exists!", dir_path)
+    #     error(msg)
+    # end
+    #units and gen_type_bus
+    write(dir_path, network.generators)
+    #limits
+    write(dir_path, network.branches)
+    #ptdf
+    write(dir_path, network.ptdf)
+end
+
+function write(dir_path::String, generators::SortedDict{String, Networks.Generator})
+    output_file_l = joinpath(dir_path, "pscopf_units.txt")
+    open(output_file_l, "w") do file_l
+        Base.write(file_l, @sprintf("#%24s%16s%16s%16s%16s%16s%16s%16s\n", "name", "p", "minP","maxP", "start", "prop", "dmo", "dp"))
+        for (id_l, generator_l) in generators
+            Base.write(file_l, @sprintf("%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
+                                    Networks.get_id(generator_l),
+                                    0., #FIXME : delete input
+                                    Networks.get_p_min(generator_l),
+                                    Networks.get_p_max(generator_l),
+                                    Networks.get_start_cost(generator_l),
+                                    Networks.get_prop_cost(generator_l),
+                                    Dates.value(Networks.get_dmo(generator_l)),
+                                    Dates.value(Networks.get_dp(generator_l))
+                                    )
+                    )
+        end
+    end
+
+    output_file_l = joinpath(dir_path, "pscopf_gen_type_bus.txt")
+    open(output_file_l, "w") do file_l
+        Base.write(file_l, @sprintf("#%24s%16s%25s\n", "name", "type", "bus"))
+        for (id_l, generator_l) in generators
+            Base.write(file_l, @sprintf("%25s%16s%25s\n",
+                                    Networks.get_id(generator_l),
+                                    Networks.get_type(generator_l),
+                                    Networks.get_bus_id(generator_l),
+                                    )
+                    )
+        end
+    end
+end
+
+function write(dir_path::String, branches::SortedDict{String, Networks.Branch})
+    output_file_l = joinpath(dir_path, "pscopf_limits.txt")
+    open(output_file_l, "w") do file_l
+        Base.write(file_l, @sprintf("#%24s%16s\n", "branch", "limit"))
+        for (id_l, branch_l) in branches
+            Base.write(file_l, @sprintf("%25s%16.8E\n",
+                                    Networks.get_id(branch_l),
+                                    Networks.get_limit(branch_l)
+                                    )
+                    )
+        end
+    end
+end
+
+
+function write(dir_path::String, ptdf::SortedDict{String,SortedDict{String, Float64}})
+    output_file_l = joinpath(dir_path, "pscopf_ptdf.txt")
+    open(output_file_l, "w") do file_l
+        Base.write(file_l, @sprintf("#%24s%16s\n", "REF_BUS", "unknown"))
+        Base.write(file_l, @sprintf("#%24s%25s%16s\n", "branch", "bus", "value"))
+        for (branch_id_l, _) in ptdf
+            for (bus_id_l, val_l) in ptdf[branch_id_l]
+                Base.write(file_l, @sprintf("%25s%25s%16.8E\n",
+                                        branch_id_l,
+                                        bus_id_l,
+                                        val_l
+                                        )
+                            )
+            end
+        end
+    end
+end
+
+function write(dir_path::String, uncertainties::PSCOPF.Uncertainties)
+    output_file_l = joinpath(dir_path, "pscopf_uncertainties.txt")
+    open(output_file_l, "w") do file_l
+
+        Base.write(file_l, @sprintf("#%24s%20s%20s%10s%16s\n", "name", "ts", "ech", "scenario", "value"))
+        for (ech, _) in uncertainties
+            for (nodal_injection_name, _) in uncertainties[ech]
+                for (ts, _) in uncertainties[ech][nodal_injection_name]
+                    for (scenario, value_l) in uncertainties[ech][nodal_injection_name][ts]
+                        Base.write(file_l, @sprintf("%25s%20s%20s%10s%16.8E\n",
+                                        nodal_injection_name,
+                                        ts,
+                                        ech,
+                                        scenario,
+                                        value_l
+                                        )
+                            )
+                    end
+                end
+            end
+        end
+
+    end
+end
 
 end #module PSCOPFio
