@@ -1,10 +1,12 @@
 
 module PSCOPFio
 
+using ..PSCOPF
 using ..AmplTxt
 using ..Networks
 
 using Dates
+using DataStructures
 
 ##########################
 #   Readers
@@ -104,6 +106,31 @@ function read_generators!(network, data)
     end
 end
 
+function read_uncertainties_distributions(network, data)
+    result = Dict{Union{Networks.Bus,Networks.Generator}, PSCOPF.UncertaintyDistribution}()
+    open(joinpath(data, "uncertainties_distribution.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln);
+
+                id = buffer[1]
+                min_value = parse(Float64, buffer[2])
+                max_value = parse(Float64, buffer[3])
+                mu = parse(Float64, buffer[4])
+                sigma = parse(Float64, buffer[5])
+                time_factor = parse(Float64, buffer[6])
+                cone_effect = parse(Float64, buffer[7])
+
+                key = Networks.safeget_generator_or_bus(network, id)
+                result[key] = PSCOPF.UncertaintyDistribution(id, min_value, max_value, mu, sigma, time_factor, cone_effect)
+            end
+        end
+    end
+
+    result = Dict(sort(collect(result), by=x->Networks.get_id(x[1]) ))
+    return result
+end
 ##########################
 #   Writers
 ##########################

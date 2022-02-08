@@ -6,6 +6,16 @@ using Printf
     IMPOSABLE
 end
 
+function Base.string(g::GeneratorType)
+    if g==IMPOSABLE
+        return "Imposable"
+    elseif g==LIMITABLE
+        return "Limitable"
+    else
+        throw( error("Undefined conversion of GeneratorType `", g, "` to a string") )
+    end
+end
+
 function Base.parse(type::Type{GeneratorType}, str::String)
     if lowercase(str) == "limitable"
         return LIMITABLE
@@ -82,6 +92,14 @@ end
 
 function get_p_max(gen::Generator)
     if gen.type == LIMITABLE
+        return 0.
+    else
+        return gen.p_max
+    end
+end
+
+function safeget_p_max(gen::Generator)
+    if gen.type == LIMITABLE
         error("Limitable units have no maximum production capacity!")
     else
         return gen.p_max
@@ -102,7 +120,7 @@ end
 
 function get_dmo(gen::Generator)
     if gen.type == LIMITABLE
-        return 0.
+        return Dates.Second(0)
     else
         return gen.dmo
     end
@@ -110,7 +128,7 @@ end
 
 function get_dp(gen::Generator)
     if gen.type == LIMITABLE
-        return 0.
+        return Dates.Second(0)
     else
         return gen.dp
     end
