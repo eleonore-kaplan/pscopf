@@ -1,4 +1,6 @@
 #TODO
+using Distributions
+using Dates
 
 struct UncertaintiesGenerator <: AbstractDataGenerator
     grid::AbstractGrid
@@ -26,12 +28,12 @@ function launch(uncertainties_generator::UncertaintiesGenerator)
     scenarios = scenario_name.(1:uncertainties_generator.nb_scenarios)
 
     for ech in uncertainties_generator.horizon_timepoints
-        for nodal_injection_name in keys(uncertainties_distribution)
+        for bus_or_gen in keys(uncertainties_generator.uncertainties_distribution)
+            uncertain_distro = uncertainties_generator.uncertainties_distribution[bus_or_gen]
+            nodal_injection_name = Networks.get_id(bus_or_gen)
             for ts in uncertainties_generator.target_timepoints
-                values = generate_values()
+                values = generate_values(uncertain_distro, ech, ts, uncertainties_generator.nb_scenarios)
                 for (scenario_name,val) in zip(scenarios,values)
-                    # error("unimplemented")
-                    #TODO: generate and add uncertainties[ech][nodal_injection_name][ts][scenario_name]
                     add_uncertainty!(uncertainties, ech, nodal_injection_name, ts, scenario_name, val)
                 end
             end
@@ -41,6 +43,18 @@ function launch(uncertainties_generator::UncertaintiesGenerator)
     return uncertainties
 end
 
-function generate_values()
+function generate_values(uncertain_distro::UncertaintyDistribution,
+                        ech::Dates.DateTime, ts::Dates.DateTime,
+                        nb_scenarios::Int64)
 
+    delta_time_l = max(0,
+                    Dates.value(floor(ts - ech, Dates.Second)) / 3600)
+    factor_l = (delta_time_l * uncertain_distro.time_factor) ^ uncertain_distro.cone_effect
+    adjusted_sigma_l = factor_l * uncertain_distro.sigma
+    rand_deviations_l = rand(Distributions.Normal(0., adjusted_sigma_l), nb_scenarios)
+    random_values_l = uncertain_distro.mu * (1 .+ rand_deviations_l)
+    values_l = max.(uncertain_distro.min_value, random_values_l)
+    values_l = min.(uncertain_distro.max_value, values_l)
+
+    return values_l
 end

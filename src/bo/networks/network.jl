@@ -230,3 +230,21 @@ function add_ptdf_elt(network, branch_id::String, bus_id::String, ptdf_value::Fl
     ptdf_component = get!(network.ptdf, branch_id, SortedDict{String, Float64}())
     ptdf_component[bus_id] = ptdf_value
 end
+
+########################
+##        utils       ##
+########################
+
+function safeget_generator_or_bus(network::Network, id::String)
+    generator::Union{Generator, Missing} = get_generator(network, id)
+    if !isequal(generator, missing)
+        return generator
+    else
+        bus::Union{Bus, Missing} = get_bus(network, id)
+        if !isequal(bus, missing)
+            return bus
+        else
+            throw( error("Generator or Bus with id ", generator_id, " does not exist in Network ", network.name) )
+        end
+    end
+end

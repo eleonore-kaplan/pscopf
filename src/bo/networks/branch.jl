@@ -8,6 +8,9 @@ struct Branch
     limit::Float64
 end
 
+function get_limit(branch::Branch)
+    return branch.limit
+end
 
 ################
 ## INFO / LOG ##

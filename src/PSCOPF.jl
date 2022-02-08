@@ -4,6 +4,7 @@ module PSCOPF
     include("bo/networks/Networks.jl")
     include("bo/modes.jl")
     include("bo/target_ts.jl")
+    include("bo/uncertainties.jl")
 
     include("data/AmplTxt.jl")
     include("data/PSCOPFio.jl")
