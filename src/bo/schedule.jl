@@ -85,7 +85,7 @@ end
 ## Schedule
 ##########################################
 
-struct Schedule <: AbstractSchedule
+struct Schedule
     decider::DeciderType
     decision_time::Dates.DateTime
     #TS => sub-keys : id of a : generator, reserve, relaxation,... => uncertainValue

@@ -1,7 +1,9 @@
 using Dates
 
+using ..Networks
+
 mutable struct PSCOPFContext <: AbstractContext
-    grid::AbstractGrid
+    network::Networks.Network
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
@@ -15,28 +17,21 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
-    schedule_history::Vector{AbstractSchedule}
+    schedule_history::Vector{Schedule}
     #flows ?
     current_ech::Dates.DateTime
 end
 
-# function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
-#                     management_mode::ManagementMode)
-#     return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
-#                         Uncertainties(), nothing,
-#                         horizon_timepoints[1], Vector{AbstractSchedule}(),
-#                         SortedDict{String,GeneratorState}())
-# end
-function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
+function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
                     generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
                     uncertainties::Uncertainties=Uncertainties(),
                     assessment_uncertainties=nothing,
                     )
-    return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
+    return PSCOPFContext(network, target_timepoints, horizon_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{AbstractSchedule}(),
+                        Vector{Schedule}(),
                         horizon_timepoints[1])
 end
 

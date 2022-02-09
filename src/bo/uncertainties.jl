@@ -21,7 +21,7 @@ random_injection = mu * (1 + rand(Normal(0, adjusted_sigma)) )
     - `time_factor::Float64` : per hour increase ratio of the uncertainty's standard deviation
     - `cone_effect::Float64` : variability of the uncertainty's standard deviation wrt time axis (timefactor > 0 => the cone uncertainty hypothesis)
 """
-struct UncertaintyDistribution <: AbstractUncertaintyDist
+struct UncertaintyDistribution
     id::String
     min_value::Float64
     max_value::Float64

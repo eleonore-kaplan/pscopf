@@ -2,6 +2,8 @@ using Dates
 using DataStructures
 using Parameters
 
+using ..Networks
+
 @with_kw struct Sequence
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end
@@ -33,7 +35,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
 end
 
 struct SequenceGenerator <: AbstractDataGenerator
-    grid::AbstractGrid #Not used for now (but potentially we can have specific operations at DMO horizons)
+    network::Networks.Network #Not used for now (but potentially we can have specific operations at DMO horizons)
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
@@ -56,9 +58,9 @@ end
 """
     generate_sequence
 """
-function generate_sequence(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime},
+function generate_sequence(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                             horizon_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
-    generator = SequenceGenerator(grid, target_timepoints, horizon_timepoints, management_mode)
+    generator = SequenceGenerator(network, target_timepoints, horizon_timepoints, management_mode)
     return launch(generator)
 end
 

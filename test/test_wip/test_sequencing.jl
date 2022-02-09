@@ -8,7 +8,7 @@ using DataStructures
 
     @testset "test_sequencing" begin
         println("\n\n\n")
-        grid = PSCOPF.Networks.Network()
+        network = PSCOPF.Networks.Network()
         TS = PSCOPF.create_target_timepoints(DateTime("2015-01-01T11:00:00"))
         ECH = [DateTime("2015-01-01T07:00:00"),
                 DateTime("2015-01-01T10:00:00"),
@@ -41,7 +41,7 @@ using DataStructures
         ))
 
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
-        exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
+        exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode)
 
         @test PSCOPF.get_current_ech(exec_context) == ECH[1]
 
