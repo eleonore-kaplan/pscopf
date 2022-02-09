@@ -1,8 +1,6 @@
-using ..PSCOPF
-
 using DataStructures
 
-mutable struct Network <: PSCOPF.AbstractGrid
+mutable struct Network
     name::String
     # Direct access containers
     buses::SortedDict{String, Bus}

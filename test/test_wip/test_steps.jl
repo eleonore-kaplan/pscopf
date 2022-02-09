@@ -18,14 +18,14 @@ using DataStructures
             Estimation of the overflow (non-satisfiable RSO constraints)
         =#
         @testset "assessment_launch" begin
-            grid = PSCOPF.Networks.Network()
+            network = PSCOPF.Networks.Network()
             ts1 = Dates.DateTime("2015-01-01T11:00:00")
             TS = PSCOPF.create_target_timepoints(ts1)
             ech = ts1
             mode = PSCOPF.PSCOPF_MODE_1
 
             #FIXME add AssessmentUncertainties to context
-            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
+            exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode)
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
 
@@ -42,13 +42,13 @@ using DataStructures
     @testset verbose=true "test_market_steps" begin
 
         @testset "EnergyMarket" begin
-            grid = PSCOPF.Networks.Network()
+            network = PSCOPF.Networks.Network()
             TS = PSCOPF.create_target_timepoints(DateTime("2015-01-01T11:00:00"))
             mode = PSCOPF.PSCOPF_MODE_1
             ech = DateTime("2015-01-01T10:00:00")
             ECH = [ech]
 
-            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
+            exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode)
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
 
