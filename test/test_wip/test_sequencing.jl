@@ -41,7 +41,7 @@ using DataStructures
         ))
 
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
-        exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode, PSCOPF.Uncertainties(), nothing)
+        exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
 
         @test PSCOPF.get_current_ech(exec_context) == ECH[1]
 

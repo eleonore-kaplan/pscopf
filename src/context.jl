@@ -5,30 +5,39 @@ mutable struct PSCOPFContext <: AbstractContext
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
+
+    #FIXME : which gen is on ? Question : need info by TS ?
+    generators_initial_state::SortedDict{String,GeneratorState}
+
     #uncertainties
     uncertainties::Uncertainties
+
     #AssessmentUncertainties
     assessment_uncertainties
 
-    #FIXME : besoin d'info sur les états des groupes
-
-    current_ech::Dates.DateTime
     schedule_history::Vector{AbstractSchedule}
     #flows ?
+    current_ech::Dates.DateTime
 end
 
-function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
-                    management_mode::ManagementMode)
-    return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
-                        Uncertainties(), nothing,
-                        horizon_timepoints[1], Vector{AbstractSchedule}())
-end
+# function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
+#                     management_mode::ManagementMode)
+#     return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
+#                         Uncertainties(), nothing,
+#                         horizon_timepoints[1], Vector{AbstractSchedule}(),
+#                         SortedDict{String,GeneratorState}())
+# end
 function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
-                    uncertainties::Uncertainties, assessment_uncertainties)
+                    generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
+                    uncertainties::Uncertainties=Uncertainties(),
+                    assessment_uncertainties=nothing,
+                    )
     return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
+                        generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        horizon_timepoints[1], Vector{AbstractSchedule}())
+                        Vector{AbstractSchedule}(),
+                        horizon_timepoints[1])
 end
 
 function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
