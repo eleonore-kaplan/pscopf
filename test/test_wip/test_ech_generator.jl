@@ -3,7 +3,7 @@ using PSCOPF
 using Test
 using Dates
 
-@testset verbose=true "test_ech_generation" begin
+@testset verbose=true "test_ech_generator" begin
 
     @testset "mode_1" begin
         grid = PSCOPF.Networks.Network()
