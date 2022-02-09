@@ -5,7 +5,7 @@ using Dates
 using DataStructures
 
 
-@testset verbose=true  "test_sequence_generation" begin
+@testset verbose=true  "test_seq_generator" begin
 
     #=
     INPUT :

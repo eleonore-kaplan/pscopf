@@ -4,7 +4,7 @@ using Test
 using Dates
 using DataStructures
 
-@testset verbose=true "test_sequence_launch" begin
+@testset verbose=true "test_seq_launch" begin
 
     @testset "execution_mode_1" begin
         println("\n\n\n")

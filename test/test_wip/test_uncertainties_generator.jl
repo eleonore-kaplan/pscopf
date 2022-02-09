@@ -3,7 +3,7 @@ using PSCOPF
 using Test
 using Dates
 
-@testset "test_uncertainties_generation" begin
+@testset "test_uncertainties_generator" begin
     @testset "empty_test" begin
         uncertainties_distribution = Dict()
         nb_scenarios = 2

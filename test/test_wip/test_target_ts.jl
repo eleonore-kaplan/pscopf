@@ -3,7 +3,7 @@ using PSCOPF
 using Test
 using Dates
 
-@testset "create_ts" begin
+@testset "test_target_ts" begin
     ts1 = DateTime("2015-01-01T11:00:00")
     TS = PSCOPF.create_target_timepoints(ts1)
 
