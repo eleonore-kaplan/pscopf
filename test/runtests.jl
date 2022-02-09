@@ -29,5 +29,6 @@ using PSCOPF
     include("test_wip/test_uncertainties_generator.jl")
     include("test_wip/test_schedule.jl")
     include("test_wip/test_sequencing.jl")
+    include("test_wip/test_usecase.jl")
     # include("test_wip/test_steps.jl")
 end
