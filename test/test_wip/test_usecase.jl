@@ -28,6 +28,15 @@ using DataStructures
         #                         )
 
         # Generators
+        #Limitables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_0", PSCOPF.Networks.LIMITABLE,
+                                                0., 0., #pmin, pmax : Not concerned ? min is always 0, max is the limitation
+                                                0., 10., #start_cost, prop_cost : start cost is always 0 ?
+                                                Dates.Second(0), Dates.Second(0)) #dmo, dp : always 0. ?
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "wind_2_0", PSCOPF.Networks.LIMITABLE,
+                                                0., 0.,
+                                                0., 11.,
+                                                Dates.Second(0), Dates.Second(0))
         #Imposables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1_0", PSCOPF.Networks.IMPOSABLE,
                                                 10., 200., #pmin, pmax
@@ -37,15 +46,12 @@ using DataStructures
                                                 10., 200.,
                                                 12000., 120.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
-        #Limitables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_0", PSCOPF.Networks.LIMITABLE,
-                                                0., 0.,
-                                                0., 10.,
-                                                Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "wind_2_0", PSCOPF.Networks.LIMITABLE,
-                                                0., 0.,
-                                                0., 11.,
-                                                Dates.Second(0), Dates.Second(0))
+
+        #initial generators state
+        generators_init_state = SortedDict(
+                        "ccg_1_0" => PSCOPF.ON,
+                        "tac_2_0" => PSCOPF.OFF,
+                    )
 
         # Uncertainties
         uncertainties = PSCOPF.Uncertainties(
@@ -433,7 +439,7 @@ using DataStructures
 
         sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
-        exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode, uncertainties, nothing)
+        exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode, generators_init_state, uncertainties, nothing)
         PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
         PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
         PSCOPF.run!(exec_context, sequence)
