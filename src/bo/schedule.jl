@@ -3,6 +3,29 @@ using .Networks
 using Printf
 using Dates
 
+@enum GeneratorState begin
+    ON
+    OFF
+end
+
+function Base.parse(type::Type{GeneratorState}, str::String)
+    if lowercase(str) == "on"
+        return ON
+    elseif  lowercase(str) == "off"
+        return OFF
+    else
+        throw( error("Unable to convert `", str, "` to a GeneratorType") )
+    end
+end
+
+function Base.parse(type::Type{GeneratorState}, val::Float64)
+    if val > 1e-9
+        return ON
+    else
+        return OFF
+    end
+end
+
 ##########################################
 ## UncertainValue
 ##########################################

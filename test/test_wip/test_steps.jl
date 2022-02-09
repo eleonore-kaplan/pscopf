@@ -25,7 +25,7 @@ using DataStructures
             mode = PSCOPF.PSCOPF_MODE_1
 
             #FIXME add AssessmentUncertainties to context
-            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode, PSCOPF.Uncertainties(), nothing)
+            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
 
@@ -48,7 +48,7 @@ using DataStructures
             ech = DateTime("2015-01-01T10:00:00")
             ECH = [ech]
 
-            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode, PSCOPF.Uncertainties(), nothing)
+            exec_context = PSCOPF.PSCOPFContext(grid, TS, ECH, mode)
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
             PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
 
