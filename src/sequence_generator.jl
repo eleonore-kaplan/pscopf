@@ -12,15 +12,24 @@ function get_operations(sequence::Sequence)
     return sequence.operations
 end
 
+function get_horizon_timepoints(sequence::Sequence)::Vector{Dates.DateTime}
+    return collect(keys(get_operations(sequence)))
+end
+
 function add_step!(sequence::Sequence, step_type::Type{T}, ech::Dates.DateTime) where T<:AbstractRunnable
     step_instance = step_type()
     steps_at_ech = get!(sequence.operations, ech, Vector{AbstractRunnable}())
     push!(steps_at_ech, step_instance)
 end
 
+function init_horizon_timepoints!(context_p::PSCOPFContext, sequence_p::Sequence)
+    set_horizon_timepoints!(context_p, get_horizon_timepoints(sequence_p))
+end
+
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", context_p.target_timepoints)
+    init_horizon_timepoints!(context_p, sequence_p)
     for (ech, steps_at_ech) in get_operations(sequence_p)
         println("-"^50)
         delta = Dates.value(Dates.Minute(context_p.target_timepoints[1]-ech))

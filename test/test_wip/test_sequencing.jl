@@ -41,9 +41,9 @@ using DataStructures
         ))
 
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
-        exec_context = PSCOPF.PSCOPFContext(network, TS, ECH, mode)
+        exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
 
-        @test PSCOPF.get_current_ech(exec_context) == ECH[1]
+        @test isnothing(PSCOPF.get_current_ech(exec_context))
 
         PSCOPF.run!(exec_context, sequence)
 
