@@ -157,6 +157,10 @@ function add_new_generator_to_bus!(network::Network, bus::Union{Bus, String}, ge
                                 type::GeneratorType, p_min::Float64, p_max::Float64,
                                 start_cost::Float64, prop_cost::Float64, dmo::Dates.Second, dp::Dates.Second)
     bus::Bus = typeof(bus) == String ? get_bus(network, bus) : bus
+    if generator_id in map(bus->get_id(bus), get_buses(network))
+        throw( error("Generators and buses must have distinct names :
+                    a bus having the name ", generator_id, " already exists.") )
+    end
     generator::Generator = add_new_generator!(bus, generator_id,
                                             type, p_min, p_max, start_cost, prop_cost, dmo, dp)
     # Store it in direct access containers

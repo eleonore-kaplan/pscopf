@@ -7,11 +7,24 @@
 
 struct OptimResult end
 
+struct TSO <: DeciderType end
+struct Market <: DeciderType end
+struct Utilitary <: DeciderType end
+DeciderType(::Type{<:AbstractRunnable}) = Utilitary()
+DeciderType(::Type{<:AbstractTSO}) = TSO()
+DeciderType(::Type{<:AbstractMarket}) = Market()
+
+is_tso(x::T) where {T} = is_tso(DeciderType(T))
+is_tso(::DeciderType) = false
+is_tso(::TSO) = true
+
+is_market(x::T) where {T} = is_market(DeciderType(T))
+is_market(::DeciderType) = false
+is_market(::Market) = true
 
 ################################################################################
 ####       TSO
 ################################################################################
-abstract type  AbstractTSO <: AbstractRunnable  end
 
 """
 utilisé dans les trois modes
@@ -22,13 +35,14 @@ struct TSOOutFO <: AbstractTSO
 end
 function run(step::TSOOutFO, context::PSCOPFContext)
     println("TSOOutFO à l'échéance ", get_current_ech(context))
-    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", get_last_market_planning(context))
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", get_last_tso_planning(context))
+    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
+    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
     #D'ou la nécessité du bloc orange qui va fournir un état réel du réseau sur lequel se basera le TSO (mais pas le marché hors fenêtre opérationnelle)
     return #result
 end
 function update!(context::PSCOPFContext, result, step::TSOOutFO)
-    println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
+    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
+    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
 end
@@ -42,13 +56,14 @@ struct TSOAtFOBiLevel <: AbstractTSO
 end
 function run(step::TSOAtFOBiLevel, context::PSCOPFContext)
     println("TSOAtFOBiLevel à l'échéance ", get_current_ech(context))
-    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", get_last_market_planning(context))
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", get_last_tso_planning(context))
+    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
+    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
     return #result
 end
 function update!(context::PSCOPFContext, result, step::TSOAtFOBiLevel)
-    println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
+    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
+    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché (ou si?)")
 end
@@ -62,12 +77,13 @@ struct TSOInFO <: AbstractTSO
 end
 function run(step::TSOInFO, context::PSCOPFContext)
     println("TSOInFO à l'échéance ", get_current_ech(context))
-    println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ", get_last_market_planning(context))
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", get_last_tso_planning(context))
+    println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
+    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
     return #result
 end
 function update!(context::PSCOPFContext, result, step::TSOInFO)
-    println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
+    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
+    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché : C'est le même planning qui me servira de référence")
 end
@@ -88,7 +104,8 @@ function run(step::TSOBiLevel, context::PSCOPFContext)
     return #result
 end
 function update!(context::PSCOPFContext, result, step::TSOBiLevel)
-    println("\tJe mets à jour le planning tso: ", get_last_tso_planning(context),
+    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
+    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
             " en me basant sur les résultats d'optimisation.\n")
     println("\tJe ne touche pas au planning du marché?")
 end
@@ -96,7 +113,6 @@ end
 ################################################################################
 ####       MARKET
 ################################################################################
-abstract type  AbstractMarket <: AbstractRunnable  end
 
 """
 utilisé pour les trois modes :
@@ -106,12 +122,13 @@ struct EnergyMarket <: AbstractMarket
 end
 function run(step::EnergyMarket, context::PSCOPFContext)
     println("EnergyMarket à l'échéance ", get_current_ech(context))
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", get_last_market_planning(context))
+    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", safeget_last_market_schedule(context))
     println("\tJe ne regarde pas le planning du TSO.")
     return #result
 end
 function update!(context::PSCOPFContext, result, step::EnergyMarket)
-    println("\tJe mets à jour ce même planning marché: ", get_last_market_planning(context),
+    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
+    println("\tJe mets à jour le planning marché: ", safeget_last_market_schedule(context),
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning TSO.")
 end
@@ -124,13 +141,14 @@ struct EnergyMarketAtFO <: AbstractMarket
 end
 function run(step::EnergyMarketAtFO, context::PSCOPFContext)
     println("EnergyMarketAtFO à l'échéance ", get_current_ech(context))
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", get_last_market_planning(context))
+    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", safeget_last_market_schedule(context))
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
 function update!(context::PSCOPFContext, result, step::EnergyMarketAtFO)
-    println("\tJe mets à jour le planning du marché: ", get_last_market_planning(context),
+    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
+    println("\tJe mets à jour le planning du marché: ", safeget_last_market_schedule(context),
             " en me basant sur les résultats d'optimisation.", #step.result
             " et je ne touche pas au planning du TSO")
 end
@@ -150,7 +168,8 @@ function run(step::BalanceMarket, context::PSCOPFContext)
     return #result
 end
 function update!(context::PSCOPFContext, result, step::BalanceMarket)
-    println("\tJe mets à jour le planning du marché: ", get_last_market_planning(context),
+    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
+    println("\tJe mets à jour le planning du marché: ", safeget_last_market_schedule(context),
             " en me basant sur les résultats d'optimisation.", #step.result
             " et je ne touche pas au planning du TSO")
 end
@@ -178,3 +197,4 @@ end
 function update!(context::PSCOPFContext, result, step::EnterFO)
     #rien à mettre à jour
 end
+

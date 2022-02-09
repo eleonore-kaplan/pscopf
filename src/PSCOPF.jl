@@ -5,6 +5,7 @@ module PSCOPF
     include("bo/modes.jl")
     include("bo/target_ts.jl")
     include("bo/uncertainties.jl")
+    include("bo/schedule.jl")
 
     include("data/AmplTxt.jl")
     include("data/PSCOPFio.jl")
