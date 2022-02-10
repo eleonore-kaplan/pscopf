@@ -47,16 +47,16 @@ function init_firmness(runnable::AbstractRunnable,
 
             #power level
             if ts - dp < ech
-                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
+                set_power_level_firmness!(firmness, gen_id, ts, DECIDED)
             elseif ( isnothing(next_ech) || (ts - dp < next_ech) )
-                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
+                set_power_level_firmness!(firmness, gen_id, ts, TO_DECIDE)
             else
-                set_commitment_firmness!(firmness, gen_id, ts, FREE)
+                set_power_level_firmness!(firmness, gen_id, ts, FREE)
             end
         end
     end
 
-    println("fermeté des décision : ", firmness)
+    println("fermeté des décisions : ", firmness)
     return firmness
 end
 
@@ -186,6 +186,44 @@ function update_market_schedule!(market_schedule::Schedule, ech, result, firmnes
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning du TSO")
 end
+
+################################################################################
+
+"""
+    All decisions are Firm (to_decide or decided)
+"""
+function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
+                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                    TS::Vector{Dates.DateTime}, context::AbstractContext)
+    firmness = Firmness()
+    network = get_network(context)
+    for generator in Networks.get_generators(network)
+        #FIXME : check if generator is limitable and do something else!
+
+        dmo = Networks.get_dmo(generator)
+        dp = Networks.get_dp(generator)
+        gen_id = Networks.get_id(generator)
+        for ts in TS
+            #commitment
+            if ts - dmo < ech
+                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
+            else
+                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
+            end
+
+            #power level
+            if ts - dp < ech
+                set_power_level_firmness!(firmness, gen_id, ts, DECIDED)
+            else
+                set_power_level_firmness!(firmness, gen_id, ts, TO_DECIDE)
+            end
+        end
+    end
+
+    println("fermeté des décision : ", firmness)
+    return firmness
+end
+
 
 ################################################################################
 ####       Utils
