@@ -14,28 +14,34 @@ using DataStructures
                 DateTime("2015-01-01T10:00:00"),
                 DateTime("2015-01-01T10:30:00")]
 
-        struct MockInitializer <: PSCOPF.AbstractRunnable
+        struct MockMarket <: PSCOPF.AbstractMarket
         end
-        function PSCOPF.run(step::MockInitializer, context::PSCOPF.PSCOPFContext)
-            schedule = PSCOPF.Schedule(PSCOPF.Market(), PSCOPF.get_current_ech(context))
-            return schedule
+        function PSCOPF.run(runnable::MockMarket, ech, firmness, TS, context::PSCOPF.AbstractContext)
+            return nothing
         end
-        function PSCOPF.update!(context::PSCOPF.PSCOPFContext, result, step::MockInitializer)
-            PSCOPF.add_schedule!(context, result)
+        function PSCOPF.update_market_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockMarket)
+            schedule = PSCOPF.Schedule(PSCOPF.Market(), ech)
+            PSCOPF.add_schedule!(context, schedule)
         end
 
-        struct MockTSO <: PSCOPF.AbstractRunnable
+        struct MockTSO <: PSCOPF.AbstractTSO
         end
-        function PSCOPF.run(step::MockTSO, context::PSCOPF.PSCOPFContext)
-            schedule = PSCOPF.Schedule(PSCOPF.TSO(), PSCOPF.get_current_ech(context))
-            return schedule
+        function PSCOPF.run(runnable::MockTSO, ech, firmness, TS, context::PSCOPF.AbstractContext)
+            return nothing
         end
-        function PSCOPF.update!(context::PSCOPF.PSCOPFContext, result, step::MockTSO)
-            PSCOPF.add_schedule!(context, result)
+        function PSCOPF.update_tso_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
+            schedule = PSCOPF.Schedule(PSCOPF.TSO(), ech)
+            PSCOPF.add_schedule!(context, schedule)
+        end
+        function PSCOPF.update_limitations!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
+            nothing
+        end
+        function PSCOPF.update_impositions!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
+            nothing
         end
 
         sequence = PSCOPF.Sequence(SortedDict(
-            ECH[1]     => [MockInitializer(), MockTSO()],
+            ECH[1]     => [MockMarket(), MockTSO()],
             ECH[2]     => [MockTSO()],
             ECH[3]     => [MockTSO()]
         ))
@@ -43,16 +49,17 @@ using DataStructures
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
 
-        @test isnothing(PSCOPF.get_current_ech(exec_context))
-
         PSCOPF.run!(exec_context, sequence)
 
-        @test PSCOPF.get_current_ech(exec_context) == ECH[end]
         @test length(exec_context.schedule_history) == 4 #one for each executed step
         @test PSCOPF.is_market(exec_context.schedule_history[1].decider)
+        @test exec_context.schedule_history[1].decision_time == ECH[1]
         @test PSCOPF.is_tso(exec_context.schedule_history[2].decider)
+        @test exec_context.schedule_history[2].decision_time == ECH[1]
         @test PSCOPF.is_tso(exec_context.schedule_history[3].decider)
+        @test exec_context.schedule_history[3].decision_time == ECH[2]
         @test PSCOPF.is_tso(exec_context.schedule_history[4].decider)
+        @test exec_context.schedule_history[4].decision_time == ECH[3]
     end
 
 end

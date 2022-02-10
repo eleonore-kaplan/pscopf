@@ -2,6 +2,7 @@ using .Networks
 
 using Printf
 using Dates
+using Parameters
 
 @enum GeneratorState begin
     ON
@@ -24,6 +25,34 @@ function Base.parse(type::Type{GeneratorState}, val::Float64)
     else
         return OFF
     end
+end
+
+##########################################
+## Firmness
+##########################################
+
+@enum DecisionFirmness begin
+    DECIDED # a firm decision was already taken
+    TO_DECIDE # a firm decision needs to be taken
+    FREE # by scenario decisions
+end
+
+@with_kw struct Firmness
+    #gen,ts
+    commitment::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
+        SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
+    power_level::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
+        SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
+end
+
+function set_commitment_firmness!(firmness::Firmness, gen_id::String, ts, decision_firmness::DecisionFirmness)
+    get!(firmness.commitment, gen_id, SortedDict{Dates.DateTime, DecisionFirmness}())
+    firmness.commitment[gen_id][ts] = decision_firmness
+end
+
+function set_power_level_firmness!(firmness::Firmness, gen_id::String, ts, decision_firmness::DecisionFirmness)
+    get!(firmness.power_level, gen_id, SortedDict{Dates.DateTime, DecisionFirmness}())
+    firmness.power_level[gen_id][ts] = decision_firmness
 end
 
 ##########################################
