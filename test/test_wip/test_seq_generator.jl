@@ -23,13 +23,13 @@ using DataStructures
     =#
 
     @testset "mode_1" begin
-        grid = PSCOPF.Networks.Network()
+        network = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_1
-        ECH = PSCOPF.generate_ech(grid, TS, mode)
+        ECH = PSCOPF.generate_ech(network, TS, mode)
 
-        sequence = PSCOPF.generate_sequence(grid, TS, ECH, mode)
+        sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         EXPECTED_OPERATIONS = SortedDict(
             ts1 - Dates.Hour(4)      => [PSCOPF.EnergyMarket, PSCOPF.TSOOutFO],
@@ -39,7 +39,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])
@@ -48,13 +48,13 @@ using DataStructures
     end
 
     @testset "mode_2" begin
-        grid = PSCOPF.Networks.Network()
+        network = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_2
-        ECH = PSCOPF.generate_ech(grid, TS, mode)
+        ECH = PSCOPF.generate_ech(network, TS, mode)
 
-        sequence = PSCOPF.generate_sequence(grid, TS, ECH, mode)
+        sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         EXPECTED_OPERATIONS = SortedDict(
             ts1 - Dates.Hour(4)      => [PSCOPF.EnergyMarket, PSCOPF.TSOOutFO],
@@ -64,7 +64,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])
@@ -73,13 +73,13 @@ using DataStructures
     end
 
     @testset "mode_3" begin
-        grid = PSCOPF.Networks.Network()
+        network = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_3
-        ECH = PSCOPF.generate_ech(grid, TS, mode)
+        ECH = PSCOPF.generate_ech(network, TS, mode)
 
-        sequence = PSCOPF.generate_sequence(grid, TS, ECH, mode)
+        sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         EXPECTED_OPERATIONS = SortedDict(
             ts1 - Dates.Hour(4)      => [PSCOPF.EnergyMarket, PSCOPF.TSOOutFO],
@@ -89,7 +89,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])

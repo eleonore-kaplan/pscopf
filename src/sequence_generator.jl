@@ -2,12 +2,34 @@ using Dates
 using DataStructures
 using Parameters
 
+using ..Networks
+
 @with_kw struct Sequence
+    #FIXME : maybe just a vector of pairs that we sort (or not) before launch
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end
 
 function get_operations(sequence::Sequence)
     return sequence.operations
+end
+
+"""
+    length of the sequence in terms of time not in terms of number of runnables to execute
+"""
+function Base.length(sequence::Sequence)
+    return length(get_operations(sequence))
+end
+
+function get_horizon_timepoints(sequence::Sequence)::Vector{Dates.DateTime}
+    return collect(keys(get_operations(sequence)))
+end
+
+function get_ech(sequence::Sequence, index)
+    if length(sequence) < index
+        throw( error("attempt to acess ", length(sequence), "-element Sequence at index ", index, ".") )
+    else
+        return get_horizon_timepoints(sequence)[index]
+    end
 end
 
 function add_step!(sequence::Sequence, step_type::Type{T}, ech::Dates.DateTime) where T<:AbstractRunnable
@@ -19,21 +41,39 @@ end
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", context_p.target_timepoints)
-    for (ech, steps_at_ech) in get_operations(sequence_p)
+    for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
+        next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
         println("-"^50)
         delta = Dates.value(Dates.Minute(context_p.target_timepoints[1]-ech))
         println("ECH : ", ech, " : M-", delta)
         println("-"^50)
-        set_current_ech!(context_p, ech)
         for step in steps_at_ech
-            result = run(step, context_p)
-            update!(context_p, result, step)
+            println(typeof(step), " à l'échéance ", ech)
+            firmness = init_firmness(step, ech, next_ech,
+                                    context_p.target_timepoints, context_p)
+            result = run(step, ech, firmness,
+                        context_p.target_timepoints,
+                        context_p)
+            if is_market(step)
+                market_schedule = Schedule(Market(), ech)
+                add_schedule!(context_p, market_schedule)
+                update_market_schedule!(market_schedule, ech, result, firmness, context_p, step)
+            end
+            if is_tso(step)
+                tso_schedule = Schedule(TSO(), ech)
+                add_schedule!(context_p, tso_schedule)
+                update_tso_schedule!(tso_schedule, ech, result, firmness, context_p, step)
+                update_limitations!(context_p.limitations,
+                                    ech, result, firmness, context_p, step)
+                update_impositions!(context_p.impositions,
+                                    ech, result, firmness, context_p, step)
+            end
         end
     end
 end
 
 struct SequenceGenerator <: AbstractDataGenerator
-    grid::AbstractGrid #Not used for now (but potentially we can have specific operations at DMO horizons)
+    network::Networks.Network #Not used for now (but potentially we can have specific operations at DMO horizons)
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
@@ -56,9 +96,9 @@ end
 """
     generate_sequence
 """
-function generate_sequence(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime},
+function generate_sequence(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                             horizon_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
-    generator = SequenceGenerator(grid, target_timepoints, horizon_timepoints, management_mode)
+    generator = SequenceGenerator(network, target_timepoints, horizon_timepoints, management_mode)
     return launch(generator)
 end
 

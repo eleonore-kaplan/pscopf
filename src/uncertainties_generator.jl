@@ -1,9 +1,10 @@
-#TODO
 using Distributions
 using Dates
 
+using ..Networks
+
 struct UncertaintiesGenerator <: AbstractDataGenerator
-    grid::AbstractGrid
+    network::Networks.Network
     target_timepoints::Vector{Dates.DateTime}
     horizon_timepoints::Vector{Dates.DateTime}
     #potentially split into load_uncertainties_distribution and unit_uncertainties_distribution :
@@ -15,9 +16,9 @@ function scenario_name(index_scenario::Int)
     return "S"*string(index_scenario)
 end
 
-function generate_uncertainties(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
+function generate_uncertainties(network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
     uncertainties_distribution, nb_scenarios::Int)
-    generator = UncertaintiesGenerator(grid, target_timepoints, horizon_timepoints, uncertainties_distribution, nb_scenarios)
+    generator = UncertaintiesGenerator(network, target_timepoints, horizon_timepoints, uncertainties_distribution, nb_scenarios)
     #FIXME add write to file
     return launch(generator)
 end
