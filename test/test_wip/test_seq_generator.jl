@@ -39,7 +39,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])
@@ -64,7 +64,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])
@@ -89,7 +89,7 @@ using DataStructures
             ts1                      => [PSCOPF.Assessment]
         )
 
-        @test length(sequence.operations) == length(ECH)
+        @test length(sequence) == length(ECH)
         for (ech, steps) in sequence.operations
             for (index,step) in enumerate(steps)
                 @test isa(step, EXPECTED_OPERATIONS[ech][index])

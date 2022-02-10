@@ -32,13 +32,12 @@ struct UncertaintyDistribution
 end
 
 # uncertainties[ech][nodal_injection_name][ts][scenario_name]
-Uncertainties = SortedDict{Dates.DateTime,
-                        SortedDict{String,
-                                SortedDict{Dates.DateTime,
-                                        SortedDict{String, Float64}
-                                        }
+UncertaintiesAtEch = SortedDict{String,
+                        SortedDict{Dates.DateTime,
+                                SortedDict{String, Float64}
                                 }
                         }
+Uncertainties = SortedDict{Dates.DateTime, UncertaintiesAtEch}
 
 function add_uncertainty!(uncertainties::Uncertainties, ech::Dates.DateTime, nodal_injection_name::String, ts::Dates.DateTime, scenario_name::String, val::Float64)
     get!(uncertainties, ech, SortedDict{String, SortedDict{Dates.DateTime, SortedDict{String, Float64}}}())

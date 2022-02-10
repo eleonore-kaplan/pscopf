@@ -24,28 +24,18 @@ mutable struct PSCOPFContext <: AbstractContext
     # ts,gen
     # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
     #flows ?
-
-    horizon_timepoints::Vector{Dates.DateTime}
-    current_ech::Union{Dates.DateTime,Nothing}
 end
 
 function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
                     generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
                     uncertainties::Uncertainties=Uncertainties(),
-                    assessment_uncertainties=nothing,
-                    horizon_timepoints=Vector{Dates.DateTime}(),
+                    assessment_uncertainties=nothing
                     )
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}(),
-                        horizon_timepoints,
-                        nothing)
-end
-
-function set_horizon_timepoints!(context_p::PSCOPFContext, horizons::Vector{Dates.DateTime})
-    context_p.horizon_timepoints = horizons
+                        Vector{Schedule}())
 end
 
 function get_network(context::PSCOPFContext)
@@ -68,8 +58,12 @@ function get_generators_initial_state(context::PSCOPFContext)
     return context.generators_initial_state
 end
 
-function get_uncertainties(context::PSCOPFContext)
+function get_uncertainties(context::PSCOPFContext)::Uncertainties
     return context.uncertainties
+end
+
+function get_uncertainties(context::PSCOPFContext, ech::Dates.DateTime)::UncertaintiesAtEch
+    return get_uncertainties(context)[ech]
 end
 
 function get_assessment_uncertainties(context::PSCOPFContext)
@@ -78,20 +72,6 @@ end
 
 function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
-end
-
-function get_current_ech(context_p::PSCOPFContext)
-    return context_p.current_ech
-end
-
-function get_next_ech(context_p::PSCOPFContext)
-    ech = get_current_ech(context_p)
-    next_ech_index = findfirst(x->x>ech, get_horizon_timepoints(context_p))
-    if isnothing(next_ech_index)
-        return nothing
-    else
-        return get_horizon_timepoints(context_p)[next_ech_index]
-    end
 end
 
 function safeget_last_schedule(context_p::PSCOPFContext)
