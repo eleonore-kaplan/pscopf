@@ -1,9 +1,10 @@
 using Dates
 
+using ..Networks
+
 mutable struct PSCOPFContext <: AbstractContext
-    grid::AbstractGrid
+    network::Networks.Network
     target_timepoints::Vector{Dates.DateTime}
-    horizon_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
 
     #FIXME : which gen is on ? Question : need info by TS ?
@@ -15,37 +16,64 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
-    schedule_history::Vector{AbstractSchedule}
+    schedule_history::Vector{Schedule}
+    #Imposition
+    # ts,gen,s Q: keep history (ie index by ech too)?
+    # SortedDict{Dates.DateTime, SortedDict{String, SortedDict{String, Float64}} }
+    impositions
+    #Limitation : because the schedule is not enough to know the limit
+    # ts,gen Q: keep history (ie index by ech too)?
+    # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
+    limitations
     #flows ?
-    current_ech::Dates.DateTime
 end
 
-# function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
-#                     management_mode::ManagementMode)
-#     return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
-#                         Uncertainties(), nothing,
-#                         horizon_timepoints[1], Vector{AbstractSchedule}(),
-#                         SortedDict{String,GeneratorState}())
-# end
-function PSCOPFContext(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
+function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
                     generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
                     uncertainties::Uncertainties=Uncertainties(),
-                    assessment_uncertainties=nothing,
+                    assessment_uncertainties=nothing
                     )
-    return PSCOPFContext(grid, target_timepoints, horizon_timepoints, management_mode,
+    return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{AbstractSchedule}(),
-                        horizon_timepoints[1])
+                        Vector{Schedule}(),nothing,nothing)
+end
+
+function get_network(context::PSCOPFContext)
+    return context.network
+end
+
+function get_target_timepoints(context::PSCOPFContext)
+    return context.target_timepoints
+end
+
+function get_horizon_timepoints(context::PSCOPFContext)
+    return context.horizon_timepoints
+end
+
+function get_management_mode(context::PSCOPFContext)
+    return context.management_mode
+end
+
+function get_generators_initial_state(context::PSCOPFContext)
+    return context.generators_initial_state
+end
+
+function get_uncertainties(context::PSCOPFContext)::Uncertainties
+    return context.uncertainties
+end
+
+function get_uncertainties(context::PSCOPFContext, ech::Dates.DateTime)::UncertaintiesAtEch
+    return get_uncertainties(context)[ech]
+end
+
+function get_assessment_uncertainties(context::PSCOPFContext)
+    return context.assessment_uncertainties
 end
 
 function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
-end
-
-function get_current_ech(context_p::PSCOPFContext)
-    return context_p.current_ech
 end
 
 function safeget_last_schedule(context_p::PSCOPFContext)
