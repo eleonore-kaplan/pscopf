@@ -19,9 +19,8 @@ using DataStructures
         function PSCOPF.run(runnable::MockMarket, ech, firmness, TS, context::PSCOPF.AbstractContext)
             return nothing
         end
-        function PSCOPF.update_market_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockMarket)
-            schedule = PSCOPF.Schedule(PSCOPF.Market(), ech)
-            PSCOPF.add_schedule!(context, schedule)
+        function PSCOPF.update_market_schedule!(market_schedule::PSCOPF.Schedule, ech, result, firmness, context::PSCOPF.AbstractContext, runnable::MockMarket)
+            nothing
         end
 
         struct MockTSO <: PSCOPF.AbstractTSO
@@ -29,14 +28,13 @@ using DataStructures
         function PSCOPF.run(runnable::MockTSO, ech, firmness, TS, context::PSCOPF.AbstractContext)
             return nothing
         end
-        function PSCOPF.update_tso_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
-            schedule = PSCOPF.Schedule(PSCOPF.TSO(), ech)
-            PSCOPF.add_schedule!(context, schedule)
-        end
-        function PSCOPF.update_limitations!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
+        function PSCOPF.update_tso_schedule!(tso_schedule::PSCOPF.Schedule, ech, result, firmness,  context::PSCOPF.AbstractContext, runnable::MockTSO)
             nothing
         end
-        function PSCOPF.update_impositions!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
+        function PSCOPF.update_limitations!(limitations, ech, result, firmness, runnable::MockTSO)
+            nothing
+        end
+        function PSCOPF.update_impositions!(impositions, ech, result, firmness, runnable::MockTSO)
             nothing
         end
 

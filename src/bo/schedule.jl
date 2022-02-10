@@ -43,6 +43,10 @@ end
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
     power_level::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
+
+    #FIXME firmness for Plim of Limitables ? (not concerned by commitment normally)
+    # as implemented now, will look at the dmo/dp (which are 0 for limitables)
+    # => FREE decisions for limitables
 end
 
 function set_commitment_firmness!(firmness::Firmness, gen_id::String, ts, decision_firmness::DecisionFirmness)
@@ -114,7 +118,7 @@ end
 ## Schedule
 ##########################################
 
-struct Schedule
+struct Schedule <: AbstractSchedule
     decider::DeciderType
     decision_time::Dates.DateTime
     #TS => sub-keys : id of a : generator, reserve, relaxation,... => uncertainValue
