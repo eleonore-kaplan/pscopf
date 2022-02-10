@@ -54,10 +54,20 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
             result = run(step, ech, firmness,
                         context_p.target_timepoints,
                         context_p)
-            update_market_schedule!(context_p, ech, result, firmness, step)
-            update_tso_schedule!(context_p, ech, result, firmness, step)
-            update_limitations!(context_p, ech, result, firmness, step)
-            update_impositions!(context_p, ech, result, firmness, step)
+            if is_market(step)
+                market_schedule = Schedule(Market(), ech)
+                add_schedule!(context_p, market_schedule)
+                update_market_schedule!(market_schedule, ech, result, firmness, context_p, step)
+            end
+            if is_tso(step)
+                tso_schedule = Schedule(TSO(), ech)
+                add_schedule!(context_p, tso_schedule)
+                update_tso_schedule!(tso_schedule, ech, result, firmness, context_p, step)
+                update_limitations!(context_p.limitations,
+                                    ech, result, firmness, context_p, step)
+                update_impositions!(context_p.impositions,
+                                    ech, result, firmness, context_p, step)
+            end
         end
     end
 end

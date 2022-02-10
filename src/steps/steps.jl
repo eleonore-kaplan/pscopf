@@ -29,6 +29,8 @@ function init_firmness(runnable::AbstractRunnable,
     firmness = Firmness()
     network = get_network(context)
     for generator in Networks.get_generators(network)
+        #FIXME : check if generator is limitable and do something else!
+
         dmo = Networks.get_dmo(generator)
         dp = Networks.get_dp(generator)
         gen_id = Networks.get_id(generator)
@@ -119,19 +121,18 @@ end
 
 
 #### TSO COMMON :
-function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
-                            runnable::AbstractTSO)
-    add_schedule!(context, Schedule(TSO(), ech))
-    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
+function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
+    println("\tJe mets à jour le planning tso: ", tso_schedule,
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
 end
-function update_limitations!(context::AbstractContext, ech, result, firmness,
-                            runnable::AbstractTSO)
+function update_limitations!(limitations, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
     println("\tJe mets à jour les limitations à prendre en compte par le marché")
 end
-function update_impositions!(context::AbstractContext, ech, result, firmness,
-                            runnable::AbstractTSO)
+function update_impositions!(impositions, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
     println("\tJe mets à jour les impositions à prendre en compte par le marché")
 end
 
@@ -179,10 +180,9 @@ function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{
 end
 
 #### Market COMMON :
-function update_market_schedule!(context::AbstractContext, ech, result, firmness,
-                            runnable::AbstractMarket)
-    add_schedule!(context, Schedule(Market(), ech))
-    println("\tJe mets à jour le planning du marché: ", safeget_last_market_schedule(context),
+function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
+                                context::AbstractContext, runnable::AbstractMarket)
+    println("\tJe mets à jour le planning du marché: ", market_schedule,
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning du TSO")
 end

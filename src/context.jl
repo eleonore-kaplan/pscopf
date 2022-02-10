@@ -18,11 +18,13 @@ mutable struct PSCOPFContext <: AbstractContext
 
     schedule_history::Vector{Schedule}
     #Imposition
-    # ts,gen,s
+    # ts,gen,s Q: keep history (ie index by ech too)?
     # SortedDict{Dates.DateTime, SortedDict{String, SortedDict{String, Float64}} }
+    impositions
     #Limitation : because the schedule is not enough to know the limit
-    # ts,gen
+    # ts,gen Q: keep history (ie index by ech too)?
     # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
+    limitations
     #flows ?
 end
 
@@ -35,7 +37,7 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}())
+                        Vector{Schedule}(),nothing,nothing)
 end
 
 function get_network(context::PSCOPFContext)
