@@ -20,47 +20,6 @@ is_market(::DeciderType) = false
 is_market(::Market) = true
 
 ################################################################################
-####       COMMON
-################################################################################
-
-function init_firmness(runnable::AbstractRunnable,
-                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
-                    TS::Vector{Dates.DateTime}, context::AbstractContext)
-    firmness = Firmness()
-    network = get_network(context)
-    for generator in Networks.get_generators(network)
-        #FIXME : check if generator is limitable and do something else!
-
-        dmo = Networks.get_dmo(generator)
-        dp = Networks.get_dp(generator)
-        gen_id = Networks.get_id(generator)
-
-        for ts in TS
-            #commitment
-            if ts - dmo < ech
-                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
-            elseif ( isnothing(next_ech) || (ts - dmo < next_ech) )
-                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
-            else
-                set_commitment_firmness!(firmness, gen_id, ts, FREE)
-            end
-
-            #power level
-            if ts - dp < ech
-                set_power_level_firmness!(firmness, gen_id, ts, DECIDED)
-            elseif ( isnothing(next_ech) || (ts - dp < next_ech) )
-                set_power_level_firmness!(firmness, gen_id, ts, TO_DECIDE)
-            else
-                set_power_level_firmness!(firmness, gen_id, ts, FREE)
-            end
-        end
-    end
-
-    println("fermeté des décisions : ", firmness)
-    return firmness
-end
-
-################################################################################
 ####       TSO
 ################################################################################
 
@@ -187,42 +146,63 @@ function update_market_schedule!(market_schedule::Schedule, ech, result, firmnes
             " et je ne touche pas au planning du TSO")
 end
 
+
+################################################################################
+####       Firmness
 ################################################################################
 
 """
-    All decisions are Firm (to_decide or decided)
+    Determines whether a decision should be :
+    - already decided : DECIDED
+    - to decide firmly (setting a common value for all scenarios) : TO_DECIDE
+    - to decide freely (possibly setting different values for different scenarios): FREE
+    The decision is based on the characteristic time period `delta` (delta can represent the DMO or DP)
 """
-function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
+function compute_firmness(ech, next_ech, ts, delta)
+    if ts - delta < ech
+        return DECIDED
+    elseif ( isnothing(next_ech) || (ts - delta < next_ech) )
+        return TO_DECIDE
+    else
+        return FREE
+    end
+end
+
+function init_firmness(runnable::AbstractRunnable,
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
     firmness = Firmness()
     network = get_network(context)
     for generator in Networks.get_generators(network)
-        #FIXME : check if generator is limitable and do something else!
-
+        gen_id = Networks.get_id(generator)
         dmo = Networks.get_dmo(generator)
         dp = Networks.get_dp(generator)
-        gen_id = Networks.get_id(generator)
+
         for ts in TS
             #commitment
-            if ts - dmo < ech
-                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
-            else
-                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
-            end
+            commitment_firmness = compute_firmness(ech, next_ech, ts, dmo)
+            set_commitment_firmness!(firmness, gen_id, ts, commitment_firmness)
 
             #power level
-            if ts - dp < ech
-                set_power_level_firmness!(firmness, gen_id, ts, DECIDED)
-            else
-                set_power_level_firmness!(firmness, gen_id, ts, TO_DECIDE)
-            end
+            power_level_firmness = compute_firmness(ech, next_ech, ts, dp)
+            set_power_level_firmness!(firmness, gen_id, ts, power_level_firmness)
         end
     end
 
-    println("fermeté des décision : ", firmness)
+    println("fermeté des décisions : ", firmness)
     return firmness
 end
+
+
+#TODO
+# """
+#     All decisions are Firm (to_decide or decided)
+# """
+# function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
+#                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+#                     TS::Vector{Dates.DateTime}, context::AbstractContext)
+#     next_ech = nothing
+# end
 
 
 ################################################################################

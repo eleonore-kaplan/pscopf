@@ -34,6 +34,9 @@ end
 
 function add_step!(sequence::Sequence, step_type::Type{T}, ech::Dates.DateTime) where T<:AbstractRunnable
     step_instance = step_type()
+    add_step!(sequence, step_instance, ech)
+end
+function add_step!(sequence::Sequence, step_instance::AbstractRunnable, ech::Dates.DateTime)
     steps_at_ech = get!(sequence.operations, ech, Vector{AbstractRunnable}())
     push!(steps_at_ech, step_instance)
 end
