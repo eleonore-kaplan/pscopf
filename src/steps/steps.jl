@@ -1,9 +1,6 @@
-#NOTE IMPORTANTE:
-# Il reste une question sur le démarrage/arret des unités : 
-# - besoin de se baser sur un état juste avant la date d'intérêt
-# - et besoin aussi de regarder mes anciennes décisions si j'ai allumé une unité
+using ..Networks
 
-#responsabilité manquante : qui s'occupe de l'écriture des rapports/fichiers : chaque étape au fure et à mesure ou tout à la fin ?
+using Dates
 
 struct OptimResult end
 
@@ -23,6 +20,47 @@ is_market(::DeciderType) = false
 is_market(::Market) = true
 
 ################################################################################
+####       COMMON
+################################################################################
+
+function init_firmness(runnable::AbstractRunnable,
+                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                    TS::Vector{Dates.DateTime}, context::AbstractContext)
+    firmness = Firmness()
+    network = get_network(context)
+    for generator in Networks.get_generators(network)
+        #FIXME : check if generator is limitable and do something else!
+
+        dmo = Networks.get_dmo(generator)
+        dp = Networks.get_dp(generator)
+        gen_id = Networks.get_id(generator)
+
+        for ts in TS
+            #commitment
+            if ts - dmo < ech
+                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
+            elseif ( isnothing(next_ech) || (ts - dmo < next_ech) )
+                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
+            else
+                set_commitment_firmness!(firmness, gen_id, ts, FREE)
+            end
+
+            #power level
+            if ts - dp < ech
+                set_commitment_firmness!(firmness, gen_id, ts, DECIDED)
+            elseif ( isnothing(next_ech) || (ts - dp < next_ech) )
+                set_commitment_firmness!(firmness, gen_id, ts, TO_DECIDE)
+            else
+                set_commitment_firmness!(firmness, gen_id, ts, FREE)
+            end
+        end
+    end
+
+    println("fermeté des décision : ", firmness)
+    return firmness
+end
+
+################################################################################
 ####       TSO
 ################################################################################
 
@@ -33,18 +71,10 @@ N'utilise pas la reserve ?
 """
 struct TSOOutFO <: AbstractTSO
 end
-function run(step::TSOOutFO, context::PSCOPFContext)
-    println("TSOOutFO à l'échéance ", get_current_ech(context))
+function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
-    #D'ou la nécessité du bloc orange qui va fournir un état réel du réseau sur lequel se basera le TSO (mais pas le marché hors fenêtre opérationnelle)
     return #result
-end
-function update!(context::PSCOPFContext, result, step::TSOOutFO)
-    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
-    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
-            " en me basant sur les résultats d'optimisation.")
-    println("\tet je ne touche pas au planning du marché")
 end
 
 """
@@ -54,18 +84,11 @@ Décide de la reserve
 """
 struct TSOAtFOBiLevel <: AbstractTSO
 end
-function run(step::TSOAtFOBiLevel, context::PSCOPFContext)
-    println("TSOAtFOBiLevel à l'échéance ", get_current_ech(context))
+function run(runnable::TSOAtFOBiLevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
     return #result
-end
-function update!(context::PSCOPFContext, result, step::TSOAtFOBiLevel)
-    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
-    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
-            " en me basant sur les résultats d'optimisation.\n")
-    println("\tJe ne touche pas au planning du marché (ou si?)")
 end
 
 """
@@ -75,17 +98,10 @@ Décide de la reserve
 """
 struct TSOInFO <: AbstractTSO
 end
-function run(step::TSOInFO, context::PSCOPFContext)
-    println("TSOInFO à l'échéance ", get_current_ech(context))
+function run(runnable::TSOInFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ", safeget_last_market_schedule(context))
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ", safeget_last_tso_schedule(context))
     return #result
-end
-function update!(context::PSCOPFContext, result, step::TSOInFO)
-    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
-    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
-            " en me basant sur les résultats d'optimisation.\n")
-    println("\tJe ne touche pas au planning du marché : C'est le même planning qui me servira de référence")
 end
 
 """
@@ -96,18 +112,28 @@ Simule un marché d'équilibrage
 """
 struct TSOBiLevel <: AbstractTSO
 end
-function run(step::TSOBiLevel, context::PSCOPFContext)
-    println("TSOBiLevel à l'échéance ", get_current_ech(context))
+function run(runnable::TSOBiLevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe simule un marché d'équilibrage pour le pas suivant")
     println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts ?")
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage ?")
     return #result
 end
-function update!(context::PSCOPFContext, result, step::TSOBiLevel)
-    add_schedule!(context, Schedule(TSO(), get_current_ech(context)))
-    println("\tJe mets à jour le planning tso: ", safeget_last_tso_schedule(context),
-            " en me basant sur les résultats d'optimisation.\n")
-    println("\tJe ne touche pas au planning du marché?")
+
+
+#### TSO COMMON :
+function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
+    println("\tJe mets à jour le planning tso: ", tso_schedule,
+            " en me basant sur les résultats d'optimisation.")
+    println("\tet je ne touche pas au planning du marché")
+end
+function update_limitations!(limitations, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
+    println("\tJe mets à jour les limitations à prendre en compte par le marché")
+end
+function update_impositions!(impositions, ech, result, firmness,
+                            context::AbstractContext, runnable::AbstractTSO)
+    println("\tJe mets à jour les impositions à prendre en compte par le marché")
 end
 
 ################################################################################
@@ -120,17 +146,10 @@ Ne regarde pas le planning du TSO
 """
 struct EnergyMarket <: AbstractMarket
 end
-function run(step::EnergyMarket, context::PSCOPFContext)
-    println("EnergyMarket à l'échéance ", get_current_ech(context))
+function run(runnable::EnergyMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", safeget_last_market_schedule(context))
     println("\tJe ne regarde pas le planning du TSO.")
     return #result
-end
-function update!(context::PSCOPFContext, result, step::EnergyMarket)
-    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
-    println("\tJe mets à jour le planning marché: ", safeget_last_market_schedule(context),
-            " en me basant sur les résultats d'optimisation.",
-            " et je ne touche pas au planning TSO.")
 end
 
 """
@@ -139,18 +158,11 @@ Dans le mode 1, le marché ne s'écecutera plus dans la FO => besoin de décisio
 """
 struct EnergyMarketAtFO <: AbstractMarket
 end
-function run(step::EnergyMarketAtFO, context::PSCOPFContext)
-    println("EnergyMarketAtFO à l'échéance ", get_current_ech(context))
+function run(runnable::EnergyMarketAtFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ", safeget_last_market_schedule(context))
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
-end
-function update!(context::PSCOPFContext, result, step::EnergyMarketAtFO)
-    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
-    println("\tJe mets à jour le planning du marché: ", safeget_last_market_schedule(context),
-            " en me basant sur les résultats d'optimisation.", #step.result
-            " et je ne touche pas au planning du TSO")
 end
 
 """
@@ -160,17 +172,18 @@ Dans le mode 3 : je considère le planning du marché
 """
 struct BalanceMarket <: AbstractMarket
 end
-function run(step::BalanceMarket, context::PSCOPFContext)
-    println("BalanceMarket à l'échéance ", get_current_ech(context))
+function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le dernier planning disponible (marché ou TSO) pour les arrets/démarrage des unités") #besoin de récupérer le dernier planning
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
-function update!(context::PSCOPFContext, result, step::BalanceMarket)
-    add_schedule!(context, Schedule(Market(), get_current_ech(context)))
-    println("\tJe mets à jour le planning du marché: ", safeget_last_market_schedule(context),
-            " en me basant sur les résultats d'optimisation.", #step.result
+
+#### Market COMMON :
+function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
+                                context::AbstractContext, runnable::AbstractMarket)
+    println("\tJe mets à jour le planning du marché: ", market_schedule,
+            " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning du TSO")
 end
 
@@ -180,21 +193,14 @@ end
 
 struct Assessment <: AbstractRunnable
 end
-function run(step::Assessment, context::PSCOPFContext)
-    println("Assessment à l'échéance ", get_current_ech(context))
+function run(runnable::Assessment, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     return #result
-end
-function update!(context::PSCOPFContext, result, step::Assessment)
-    #rien à mettre à jour
 end
 
 struct EnterFO <: AbstractRunnable
 end
-function run(step::EnterFO, context::PSCOPFContext)
+function run(runnable::EnterFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("-----Entrée dans la fenêtre opérationnelle-----")
     return #result
-end
-function update!(context::PSCOPFContext, result, step::EnterFO)
-    #rien à mettre à jour
 end
 
