@@ -8,13 +8,13 @@ using Dates
         uncertainties_distribution = Dict()
         nb_scenarios = 2
 
-        grid = PSCOPF.Networks.Network()
+        network = PSCOPF.Networks.Network()
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
         mode = PSCOPF.PSCOPF_MODE_1
-        horizon_timepoints = PSCOPF.generate_ech(grid, TS, mode)
+        horizon_timepoints = PSCOPF.generate_ech(network, TS, mode)
 
-        uncertainties = PSCOPF.generate_uncertainties(grid, TS, horizon_timepoints,
+        uncertainties = PSCOPF.generate_uncertainties(network, TS, horizon_timepoints,
                                                     uncertainties_distribution, nb_scenarios)
 
         @test length(uncertainties) == 0

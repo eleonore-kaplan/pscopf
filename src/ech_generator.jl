@@ -1,7 +1,9 @@
+using Dates
 
+using ..Networks
 
 struct EchGenerator <: AbstractDataGenerator
-    grid::AbstractGrid
+    network::Networks.Network
     target_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
 end
@@ -12,13 +14,13 @@ end
 generates the horizon timepoints for a given management mode.
 
 # Arguments
-    - `grid::AbstractGrid` : description of the electric grid
+    - `network::Networks.Network` : description of the electric grid
     - `target_timepoints::Vector{Dates.DateTime}` : vector of the target timepoints to consider
     - `management_mode::ManagementMode` : the management mode for which the horizon points will be generated
 """
-function generate_ech(grid::AbstractGrid, target_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
+function generate_ech(network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, management_mode::ManagementMode)
     sorted_target_timepoints = sort(target_timepoints)
-    generator = EchGenerator(grid, sorted_target_timepoints, management_mode)
+    generator = EchGenerator(network, sorted_target_timepoints, management_mode)
     return launch(generator)
 end
 
