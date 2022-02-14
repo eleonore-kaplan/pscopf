@@ -23,7 +23,7 @@ mutable struct PSCOPFContext <: AbstractContext
     #Limitation : because the schedule is not enough to know the limit
     # ts,gen Q: keep history (ie index by ech too)?
     # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
-    tso_actions
+    tso_actions::TSOActions
     #flows ?
 end
 
@@ -36,7 +36,8 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}(),nothing,)
+                        Vector{Schedule}(),
+                        TSOActions())
 end
 
 function get_network(context::PSCOPFContext)
@@ -65,6 +66,15 @@ end
 
 function get_uncertainties(context::PSCOPFContext, ech::Dates.DateTime)::UncertaintiesAtEch
     return get_uncertainties(context)[ech]
+end
+
+function get_scenarios(context::PSCOPFContext, ech::Dates.DateTime)::Vector{String}
+    uncertainties_at_ech = get_uncertainties(context, ech)
+    if isnothing(uncertainties_at_ech)
+        return Vector{String}()
+    else
+        return get_scenarios(uncertainties_at_ech)
+    end
 end
 
 function get_scenarios(context::PSCOPFContext)::Vector{String}

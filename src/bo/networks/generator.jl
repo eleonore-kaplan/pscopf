@@ -60,9 +60,14 @@ mutable struct Generator
                 msg = @sprintf("Invalid input %f : Limitable units must have a minimum production capacity of 0.", p_min)
                 error(msg)
             end
-            #WARN : p_max is not actually used! the max is the limitation if applicable
             if start_cost > 0
                 msg = @sprintf("Invalid input %f : Limitable units must have a start_cost of 0.", start_cost)
+                error(msg)
+            end
+            if dmo != dp
+                #cause no pmin => no DMO
+                # => either have DP=DMO for convenience or handle limitables separately so they don't have a commitment_firmness
+                msg = @sprintf("Invalid input %s : For limitable units, dmo must be equal to dp (i.e. %s).", dmo, dp)
                 error(msg)
             end
         end
