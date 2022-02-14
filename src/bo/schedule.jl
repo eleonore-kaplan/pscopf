@@ -104,6 +104,7 @@ end
 ##########################################
 
 mutable struct UncertainValue{T}
+    #FIXME: add a scenario list if need to check only certain scenarios are handled
     definitive_value::Union{T, Missing}
     anticipated_value::SortedDict{String, Union{T, Missing}}
 end
@@ -125,6 +126,7 @@ function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Un
     for (scenario, _) in uncertain_value.anticipated_value
         uncertain_value.anticipated_value[scenario] = value
     end
+    return uncertain_value.definitive_value
 end
 
 function get_value(uncertain_value::UncertainValue{T})::Union{T, Missing} where T
@@ -140,13 +142,22 @@ function safeget_value(uncertain_value::UncertainValue{T})::Union{T, Missing} wh
     end
 end
 
-function get_value(uncertain_value::UncertainValue{T}, scenario::String)::T where T
-    return uncertain_value.anticipated_value[scenario]
+function get_value(uncertain_value::UncertainValue{T}, scenario::String)::Union{Missing,T} where T
+    definitiveValue = uncertain_value.definitive_value
+    if !ismissing(definitiveValue)
+        return definitiveValue
+    else
+        if haskey(uncertain_value.anticipated_value, scenario)
+            return uncertain_value.anticipated_value[scenario]
+        else
+            return missing
+        end
+    end
 end
 
 function safeget_value(uncertain_value::UncertainValue{T}, scenario::String)::T where T
-    value = uncertain_value.anticipated_value[scenario]
-    if !isequal(value, missing)
+    value = get_value(uncertain_value, scenario)
+    if !ismissing( value )
         return value
     else
         msg = @sprintf("No decision was made for scenario %s yet", scenario)
