@@ -20,11 +20,10 @@ mutable struct PSCOPFContext <: AbstractContext
     #Imposition
     # ts,gen,s Q: keep history (ie index by ech too)?
     # SortedDict{Dates.DateTime, SortedDict{String, SortedDict{String, Float64}} }
-    impositions
     #Limitation : because the schedule is not enough to know the limit
     # ts,gen Q: keep history (ie index by ech too)?
     # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
-    limitations
+    tso_actions
     #flows ?
 end
 
@@ -37,7 +36,7 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}(),nothing,nothing)
+                        Vector{Schedule}(),nothing,)
 end
 
 function get_network(context::PSCOPFContext)
@@ -84,7 +83,7 @@ function safeget_last_schedule(context_p::PSCOPFContext)
 end
 
 function safeget_last_tso_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_tso(schedule.decider), context_p.schedule_history)
+    index_l = findlast(schedule -> is_tso(schedule.type), context_p.schedule_history)
     if isnothing(index_l)
         throw( error("no TSO schedule in schedule history!") )
     end
@@ -92,7 +91,7 @@ function safeget_last_tso_schedule(context_p::PSCOPFContext)
 end
 
 function safeget_last_market_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_market(schedule.decider), context_p.schedule_history)
+    index_l = findlast(schedule -> is_market(schedule.type), context_p.schedule_history)
     if isnothing(index_l)
         throw( error("no market schedule in schedule history!") )
     end
@@ -101,4 +100,10 @@ end
 
 function add_schedule!(context_p::PSCOPFContext, schedule::Schedule)
     push!(context_p.schedule_history, schedule)
+end
+
+function add_schedule!(context_p::PSCOPFContext, type::DeciderType, decision_time::Dates.DateTime)
+    schedule = Schedule(type, decision_time)
+    add_schedule!(context_p, schedule)
+    return schedule
 end

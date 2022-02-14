@@ -86,13 +86,9 @@ function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
 end
-function update_limitations!(limitations, ech, result, firmness,
+function update_tso_actions!(tso_actions, ech, result, firmness,
                             context::AbstractContext, runnable::AbstractTSO)
-    println("\tJe mets à jour les limitations à prendre en compte par le marché")
-end
-function update_impositions!(impositions, ech, result, firmness,
-                            context::AbstractContext, runnable::AbstractTSO)
-    println("\tJe mets à jour les impositions à prendre en compte par le marché")
+    println("\tJe mets à jour les actions TSO (limitations, impositions) à prendre en compte par le marché")
 end
 
 ################################################################################
@@ -132,7 +128,8 @@ Dans le mode 3 : je considère le planning du marché
 struct BalanceMarket <: AbstractMarket
 end
 function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le dernier planning disponible (marché ou TSO) pour les arrets/démarrage des unités") #besoin de récupérer le dernier planning
+    println("\tJe me base sur le dernier planning disponible (marché ou TSO) pour les arrets/démarrage des unités : ",
+            safeget_last_schedule(context)) #besoin de récupérer le dernier planning
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
