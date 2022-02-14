@@ -20,16 +20,16 @@ using PSCOPF
 # end
 
 @testset verbose=true "PSCOPF_TESTS" begin
-    include("test_wip/test_network.jl")
     include("test_wip/test_modes.jl")
     include("test_wip/test_target_ts.jl")
+    include("test_wip/test_network.jl")
     include("test_wip/test_ech_generator.jl")
-    include("test_wip/test_seq_generator.jl")
-    include("test_wip/test_seq_launch.jl")
     include("test_wip/test_uncertainties_generator.jl")
     include("test_wip/test_schedule.jl")
-    include("test_wip/test_sequencing.jl")
     include("test_wip/test_compute_firmness.jl")
     include("test_wip/test_init_firmness.jl")
+    include("test_wip/test_sequencing.jl")
+    include("test_wip/test_seq_generator.jl")
+    include("test_wip/test_seq_launch.jl")
     include("test_wip/test_usecase.jl")
 end

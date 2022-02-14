@@ -47,3 +47,16 @@ function add_uncertainty!(uncertainties::Uncertainties, ech::Dates.DateTime, nod
     uncertainties[ech][nodal_injection_name][ts][scenario_name] = val
     return uncertainties
 end
+
+function get_scenarios(uncertainties::Uncertainties)::Vector{String}
+    #FIXME : make sure all entries handle the same scenarios
+    scenarios = Set{String}()
+    for (ech, _) in uncertainties
+        for (name, _) in uncertainties[ech]
+            for (ts, _) in uncertainties[ech][name]
+                union!(scenarios, keys(uncertainties[ech][name][ts]))
+            end
+        end
+    end
+    return sort(collect(scenarios))
+end
