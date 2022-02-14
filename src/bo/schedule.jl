@@ -59,6 +59,46 @@ function set_power_level_firmness!(firmness::Firmness, gen_id::String, ts, decis
     firmness.power_level[gen_id][ts] = decision_firmness
 end
 
+function get_commitment_firmness(firmness::Firmness, gen_id::String)
+    if haskey(firmness.commitment,gen_id)
+        return firmness.commitment[gen_id]
+    else
+        return missing
+    end
+end
+
+function get_commitment_firmness(firmness::Firmness, gen_id::String, ts::Dates.DateTime)
+    if haskey(firmness.commitment,gen_id)
+        if haskey(firmness.commitment[gen_id], ts)
+            return firmness.commitment[gen_id][ts]
+        else
+            return missing
+        end
+    else
+        return missing
+    end
+end
+
+function get_power_level_firmness(firmness::Firmness, gen_id::String)
+    if haskey(firmness.power_level,gen_id)
+        return firmness.power_level[gen_id]
+    else
+        return missing
+    end
+end
+
+function get_power_level_firmness(firmness::Firmness, gen_id::String, ts::Dates.DateTime)
+    if haskey(firmness.power_level,gen_id)
+        if haskey(firmness.power_level[gen_id], ts)
+            return firmness.power_level[gen_id][ts]
+        else
+            return missing
+        end
+    else
+        return missing
+    end
+end
+
 ##########################################
 ## UncertainValue
 ##########################################

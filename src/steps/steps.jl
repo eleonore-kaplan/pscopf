@@ -155,10 +155,17 @@ end
     - to decide freely (possibly setting different values for different scenarios): FREE
     The decision is based on the characteristic time period `delta` (delta can represent the DMO or DP)
 """
-function compute_firmness(ech, next_ech, ts, delta)
-    if ts - delta < ech
+function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                        ts::Dates.DateTime, delta::Dates.Period)
+    if ( !isnothing(next_ech) && (next_ech < ech) )
+        throw( error("next_ech (", next_ech, ") must be later than ech (", ech,").") )
+    end
+
+    final_decision_time = ts - delta
+
+    if final_decision_time < ech
         return DECIDED
-    elseif ( isnothing(next_ech) || (ts - delta < next_ech) )
+    elseif ( isnothing(next_ech) || (final_decision_time < next_ech) )
         return TO_DECIDE
     else
         return FREE
@@ -186,7 +193,7 @@ function init_firmness(runnable::AbstractRunnable,
         end
     end
 
-    println("fermeté des décisions : ", firmness)
+    println("Initialisation de la fermeté des décisions.")
     return firmness
 end
 
