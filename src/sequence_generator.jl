@@ -43,26 +43,28 @@ end
 
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
-    println("Dates d'interet : ", context_p.target_timepoints)
+    println("Dates d'interet : ", get_target_timepoints(context_p))
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
         println("-"^50)
-        delta = Dates.value(Dates.Minute(context_p.target_timepoints[1]-ech))
+        delta = Dates.value(Dates.Minute(get_target_timepoints(context_p)[1]-ech))
         println("ECH : ", ech, " : M-", delta)
         println("-"^50)
         for step in steps_at_ech
             println(typeof(step), " à l'échéance ", ech)
             firmness = init_firmness(step, ech, next_ech,
-                                    context_p.target_timepoints, context_p)
+                                    get_target_timepoints(context_p), context_p)
             result = run(step, ech, firmness,
-                        context_p.target_timepoints,
+                        get_target_timepoints(context_p),
                         context_p)
             if affects_market_schedule(step)
                 market_schedule = add_schedule!(context_p, Market(), ech)
+                init!(market_schedule, get_network(context_p), get_target_timepoints(context_p), get_scenarios(context_p))
                 update_market_schedule!(market_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_schedule(step)
                 tso_schedule = add_schedule!(context_p, TSO(), ech)
+                init!(tso_schedule, get_network(context_p), get_target_timepoints(context_p), get_scenarios(context_p))
                 update_tso_schedule!(tso_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_actions(step)
@@ -175,6 +177,7 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
                 add_step!(sequence, TSOAtFOBiLevel, ech)
 
             else
+                #TODO : check if this is an EnergyMarket (this will refer to the market's schedule) or BalanceMarket (last schedule) or a new implem
                 add_step!(sequence, EnergyMarket, ech)
             end
         end

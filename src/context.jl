@@ -67,6 +67,15 @@ function get_uncertainties(context::PSCOPFContext, ech::Dates.DateTime)::Uncerta
     return get_uncertainties(context)[ech]
 end
 
+function get_scenarios(context::PSCOPFContext)::Vector{String}
+    uncertainties = get_uncertainties(context)
+    if isnothing(uncertainties)
+        return Vector{String}()
+    else
+        return get_scenarios(uncertainties)
+    end
+end
+
 function get_assessment_uncertainties(context::PSCOPFContext)
     return context.assessment_uncertainties
 end
