@@ -119,14 +119,14 @@ end
 ##########################################
 
 struct Schedule <: AbstractSchedule
-    decider::DeciderType
+    type::DeciderType
     decision_time::Dates.DateTime
     #TS => sub-keys : id of a : generator, reserve, relaxation,... => uncertainValue
     values::SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}} }
 end
 
-function Schedule(decider::DeciderType, ech::Dates.DateTime)
-    return Schedule(decider, ech, SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}}}())
+function Schedule(type::DeciderType, ech::Dates.DateTime)
+    return Schedule(type, ech, SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}}}())
 end
 function Schedule(step::AbstractRunnable, ech::Dates.DateTime)
     return Schedule(DeciderType(step), ech, SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}}}())
