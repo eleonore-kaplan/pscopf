@@ -26,6 +26,7 @@ using PSCOPF
     include("test_wip/test_ech_generator.jl")
     include("test_wip/test_uncertainties_generator.jl")
     include("test_wip/test_schedule.jl")
+    include("test_wip/test_tso_actions.jl")
     include("test_wip/test_compute_firmness.jl")
     include("test_wip/test_init_firmness.jl")
     include("test_wip/test_sequencing.jl")

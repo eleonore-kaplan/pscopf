@@ -9,13 +9,23 @@ using Parameters
     OFF
 end
 
+function float(generator_state::GeneratorState)
+    if generator_state == ON
+        return 1.
+    elseif generator_state == OFF
+        return 0.
+    else
+        throw( error("Unknown GeneratorState value : ", generator_state) )
+    end
+end
+
 function Base.parse(type::Type{GeneratorState}, str::String)
     if lowercase(str) == "on"
         return ON
     elseif  lowercase(str) == "off"
         return OFF
     else
-        throw( error("Unable to convert `", str, "` to a GeneratorType") )
+        throw( error("Unable to convert `", str, "` to a GeneratorState") )
     end
 end
 
@@ -118,13 +128,28 @@ function UncertainValue{T}(scenarios::Vector{String}) where T
 end
 
 function set_value!(uncertain_value::UncertainValue{T}, scenario::String, value::T)::Union{T, Missing} where T
-    uncertain_value.anticipated_value[scenario] = value
+    if is_definitive(uncertain_value)
+        existing_value = get_value(uncertain_value)
+        throw( error("A definitive value was already set to the UncertainValue : ", existing_value) )
+    else
+        uncertain_value.anticipated_value[scenario] = value
+    end
+end
+
+function is_definitive(uncertain_value::UncertainValue{T})::Bool where T
+    existing_value = get_value(uncertain_value)
+    return !ismissing(existing_value)
 end
 
 function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
-    uncertain_value.definitive_value = value
-    for (scenario, _) in uncertain_value.anticipated_value
-        uncertain_value.anticipated_value[scenario] = value
+    if is_definitive(uncertain_value)
+        existing_value = get_value(uncertain_value)
+        throw( error("A definitive value was already set to the UncertainValue : ", existing_value) )
+    else
+        uncertain_value.definitive_value = value
+        for (scenario, _) in uncertain_value.anticipated_value
+            uncertain_value.anticipated_value[scenario] = value
+        end
     end
     return uncertain_value.definitive_value
 end
@@ -134,18 +159,16 @@ function get_value(uncertain_value::UncertainValue{T})::Union{T, Missing} where 
 end
 
 function safeget_value(uncertain_value::UncertainValue{T})::Union{T, Missing} where T
-    definitiveValue = uncertain_value.definitive_value
-    if !isequal(definitiveValue, missing)
-        return definitiveValue
+    if is_definitive(uncertain_value)
+        return get_value(uncertain_value)
     else
         throw( error("UncertainValue is not definitive") )
     end
 end
 
 function get_value(uncertain_value::UncertainValue{T}, scenario::String)::Union{Missing,T} where T
-    definitiveValue = uncertain_value.definitive_value
-    if !ismissing(definitiveValue)
-        return definitiveValue
+    if is_definitive(uncertain_value)
+        return get_value(uncertain_value)
     else
         if haskey(uncertain_value.anticipated_value, scenario)
             return uncertain_value.anticipated_value[scenario]
@@ -169,26 +192,28 @@ end
 ## Schedule
 ##########################################
 
+GeneratorSchedule = SortedDict{Dates.DateTime, UncertainValue{Float64}}
 struct Schedule <: AbstractSchedule
     type::DeciderType
     decision_time::Dates.DateTime
-    #TS => sub-keys : id of a : generator, reserve, relaxation,... => uncertainValue
-    values::SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}} }
+    #gen_id => ts => uncertainValue(s)
+    values::SortedDict{String, GeneratorSchedule }
 end
 
 function Schedule(type::DeciderType, ech::Dates.DateTime)
-    return Schedule(type, ech, SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}}}())
+    return Schedule(type, ech, SortedDict{String, GeneratorSchedule}())
 end
 function Schedule(step::AbstractRunnable, ech::Dates.DateTime)
-    return Schedule(DeciderType(step), ech, SortedDict{Dates.DateTime, SortedDict{String, UncertainValue{Float64}}}())
+    return Schedule(DeciderType(step), ech, SortedDict{String, GeneratorSchedule }())
 end
 
 function init!(schedule::Schedule, network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, scenarios::Vector{String})
     empty!(schedule.values)
-    for ts in target_timepoints
-        schedule.values[ts] = SortedDict{String, UncertainValue{Float64}}()
-        for generator_l in Networks.get_generators(network)
-            schedule.values[ts][Networks.get_id(generator_l)] = UncertainValue{Float64}(scenarios::Vector{String})
+    for generator_l in Networks.get_generators(network)
+        gen_id = Networks.get_id(generator_l)
+        schedule.values[gen_id] = SortedDict{String, GeneratorSchedule}()
+        for ts in target_timepoints
+            schedule.values[gen_id][ts] = UncertainValue{Float64}(scenarios)
         end
     end
 end
@@ -197,28 +222,48 @@ function get_values(schedule::Schedule)
     return schedule.values
 end
 
-function get_values(schedule::Schedule, ts::Dates.DateTime)::SortedDict{String, UncertainValue{Float64}}
-    return get_values(schedule)[ts]
+function get_sub_schedule(schedule::Schedule, gen_id::String)::SortedDict{Dates.DateTime, UncertainValue{Float64}}
+    return get_values(schedule)[gen_id]
 end
 
-function get_uncertain_value(schedule::Schedule, ts::Dates.DateTime, id::String)::UncertainValue{Float64}
-    return get_values(schedule, ts)[id]
+function get_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::UncertainValue{Float64}
+    return sub_schedule[ts]
+end
+function get_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::UncertainValue{Float64}
+    return get_uncertain_value(get_sub_schedule(schedule, gen_id), ts)
 end
 
-function get_value(schedule::Schedule, ts::Dates.DateTime, id::String)::Union{Float64, Missing}
-    return get_value(get_values(schedule, ts)[id])
+function get_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{Float64, Missing}
+    uncertain_value = get_uncertain_value(sub_schedule, ts)
+    return get_value(uncertain_value)
+end
+function get_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
+    return get_value(get_sub_schedule(schedule, gen_id), ts)
 end
 
-function get_value(schedule::Schedule, ts::Dates.DateTime, id::String, scenario::String)::Union{Float64, Missing}
-    return get_value( get_values(schedule, ts)[id], scenario)
+function get_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
+    uncertain_value = get_uncertain_value(sub_schedule, ts)
+    return get_value(uncertain_value, scenario)
+end
+function get_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
+    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
+    return get_value(uncertain_value, scenario)
 end
 
-function set_value!(schedule, ts::Dates.DateTime, id::String, scenario::String, value::Float64)
-    uncertain_value = get_uncertain_value(schedule, ts, id)
+function set_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
+    uncertain_value = get_uncertain_value(sub_schedule, ts)
+    set_value!(uncertain_value, scenario, value)
+end
+function set_value!(schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
+    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
     set_value!(uncertain_value, scenario, value)
 end
 
-function set_definitive_value!(schedule, ts::Dates.DateTime, id::String, value::Float64)
-    uncertain_value = get_uncertain_value(schedule, ts, id)
+function set_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::Float64)
+    uncertain_value = get_uncertain_value(sub_schedule, ts)
+    set_definitive_value!(uncertain_value, value)
+end
+function set_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::Float64)
+    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
     set_definitive_value!(uncertain_value, value)
 end

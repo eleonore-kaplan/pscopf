@@ -25,11 +25,12 @@ using DataStructures
         @test PSCOPF.is_market(schedule.type)
         @test !PSCOPF.is_tso(schedule.type)
         @test schedule.decision_time == ech
-        @test length(schedule.values) == 4
-        for ts in TS
-            @test length(PSCOPF.get_values(schedule, ts)) == 2
-            for generator in PSCOPF.Networks.get_generators(network)
-                @test ismissing(PSCOPF.get_value(schedule, ts, PSCOPF.Networks.get_id(generator)))
+        @test length(schedule.values) == 2
+        for generator in PSCOPF.Networks.get_generators(network)
+            gen_id = PSCOPF.Networks.get_id(generator)
+            @test length(PSCOPF.get_sub_schedule(schedule, gen_id)) == 4
+            for ts in TS
+                @test ismissing(PSCOPF.get_value(schedule, gen_id, ts))
             end
         end
     end
