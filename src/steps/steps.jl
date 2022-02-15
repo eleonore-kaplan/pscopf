@@ -130,15 +130,14 @@ function run(runnable::EnergyMarketAtFO, ech::Dates.DateTime, firmness, TS::Vect
 end
 
 """
-utilisé pour les modes 2 et 3
-Dans le mode 2 : je considère le planning du TSO
-Dans le mode 3 : je considère le planning du marché
+utilisé pour les modes 2
+et 3 ?
 """
 struct BalanceMarket <: AbstractMarket
 end
 function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le dernier planning disponible (marché ou TSO) pour les arrets/démarrage des unités : ",
-            safeget_last_schedule(context).type, ",",safeget_last_schedule(context).decision_time
+    println("\tJe me base sur le planning marché (potentiellemnt maj par le TSO) pour les arrets/démarrage des unités : ",
+            safeget_last_market_schedule(context).type, ",",safeget_last_market_schedule(context).decision_time
             ) #besoin de récupérer le dernier planning
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")

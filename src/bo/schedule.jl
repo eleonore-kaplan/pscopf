@@ -193,7 +193,7 @@ end
 ##########################################
 
 GeneratorSchedule = SortedDict{Dates.DateTime, UncertainValue{Float64}}
-struct Schedule <: AbstractSchedule
+mutable struct Schedule <: AbstractSchedule
     type::DeciderType
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
@@ -202,9 +202,6 @@ end
 
 function Schedule(type::DeciderType, ech::Dates.DateTime)
     return Schedule(type, ech, SortedDict{String, GeneratorSchedule}())
-end
-function Schedule(step::AbstractRunnable, ech::Dates.DateTime)
-    return Schedule(DeciderType(step), ech, SortedDict{String, GeneratorSchedule }())
 end
 
 function init!(schedule::Schedule, network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, scenarios::Vector{String})

@@ -44,6 +44,7 @@ end
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
+
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
         println("-"^50)
@@ -58,14 +59,16 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
                         get_target_timepoints(context_p),
                         context_p)
             if affects_market_schedule(step)
-                market_schedule = add_schedule!(context_p, Market(), ech)
-                init!(market_schedule, get_network(context_p), get_target_timepoints(context_p), get_scenarios(context_p))
-                update_market_schedule!(market_schedule, ech, result, firmness, context_p, step)
+                context_p.market_schedule = deepcopy(context_p.market_schedule)
+                context_p.market_schedule.decision_time = ech
+                add_schedule!(context_p, context_p.market_schedule)
+                update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_schedule(step)
-                tso_schedule = add_schedule!(context_p, TSO(), ech)
-                init!(tso_schedule, get_network(context_p), get_target_timepoints(context_p), get_scenarios(context_p))
-                update_tso_schedule!(tso_schedule, ech, result, firmness, context_p, step)
+                context_p.tso_schedule = deepcopy(context_p.tso_schedule)
+                context_p.tso_schedule.decision_time = ech
+                add_schedule!(context_p, context_p.tso_schedule)
+                update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_actions(step)
                 update_tso_actions!(context_p.tso_actions,
