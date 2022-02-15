@@ -17,12 +17,9 @@ mutable struct PSCOPFContext <: AbstractContext
     assessment_uncertainties
 
     schedule_history::Vector{Schedule}
-    #Imposition
-    # ts,gen,s Q: keep history (ie index by ech too)?
-    # SortedDict{Dates.DateTime, SortedDict{String, SortedDict{String, Float64}} }
-    #Limitation : because the schedule is not enough to know the limit
-    # ts,gen Q: keep history (ie index by ech too)?
-    # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
+    market_schedule::Schedule
+    tso_schedule::Schedule
+
     tso_actions::TSOActions
     #flows ?
 end
@@ -33,10 +30,17 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
                     uncertainties::Uncertainties=Uncertainties(),
                     assessment_uncertainties=nothing
                     )
+    market_schedule = Schedule(Market(), Dates.DateTime(0))
+    init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
+    tso_schedule = Schedule(TSO(), Dates.DateTime(0))
+    init!(tso_schedule, network, target_timepoints, get_scenarios(uncertainties))
+    schedules = Vector{Schedule}([market_schedule, tso_schedule])
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}(),
+                        schedules,
+                        market_schedule,
+                        tso_schedule,
                         TSOActions())
 end
 
@@ -115,6 +119,14 @@ function safeget_last_market_schedule(context_p::PSCOPFContext)
         throw( error("no market schedule in schedule history!") )
     end
     return context_p.schedule_history[index_l]
+end
+
+function get_tso_schedule(context_p::PSCOPFContext)
+    return context_p.tso_schedule
+end
+
+function get_market_schedule(context_p::PSCOPFContext)
+    return context_p.market_schedule
 end
 
 function add_schedule!(context_p::PSCOPFContext, schedule::Schedule)

@@ -49,15 +49,19 @@ using DataStructures
 
         PSCOPF.run!(exec_context, sequence)
 
-        @test length(exec_context.schedule_history) == 4 #one for each executed step
-        @test PSCOPF.is_market(exec_context.schedule_history[1].type)
-        @test exec_context.schedule_history[1].decision_time == ECH[1]
-        @test PSCOPF.is_tso(exec_context.schedule_history[2].type)
-        @test exec_context.schedule_history[2].decision_time == ECH[1]
-        @test PSCOPF.is_tso(exec_context.schedule_history[3].type)
-        @test exec_context.schedule_history[3].decision_time == ECH[2]
+        @test length(exec_context.schedule_history) == 6 # 2+4 : two initial schedules + one for each executed step
+
+        @test exec_context.schedule_history[1].decision_time == Dates.DateTime(0)
+        @test exec_context.schedule_history[2].decision_time == Dates.DateTime(0)
+
+        @test PSCOPF.is_market(exec_context.schedule_history[3].type)
+        @test exec_context.schedule_history[3].decision_time == ECH[1]
         @test PSCOPF.is_tso(exec_context.schedule_history[4].type)
-        @test exec_context.schedule_history[4].decision_time == ECH[3]
+        @test exec_context.schedule_history[4].decision_time == ECH[1]
+        @test PSCOPF.is_tso(exec_context.schedule_history[5].type)
+        @test exec_context.schedule_history[5].decision_time == ECH[2]
+        @test PSCOPF.is_tso(exec_context.schedule_history[6].type)
+        @test exec_context.schedule_history[6].decision_time == ECH[3]
     end
 
 end

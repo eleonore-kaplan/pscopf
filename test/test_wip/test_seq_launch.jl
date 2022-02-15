@@ -16,8 +16,6 @@ using DataStructures
         sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
         PSCOPF.run!(exec_context, sequence)
     end
 
@@ -31,8 +29,6 @@ using DataStructures
         sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
         PSCOPF.run!(exec_context, sequence)
     end
 
@@ -46,8 +42,6 @@ using DataStructures
         sequence = PSCOPF.generate_sequence(network, TS, ECH, mode)
 
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.Market(), ECH[1]))
-        PSCOPF.add_schedule!(exec_context, PSCOPF.Schedule(PSCOPF.TSO(), ECH[1]))
         PSCOPF.run!(exec_context, sequence)
     end
 
