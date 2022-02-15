@@ -442,8 +442,8 @@ using DataStructures
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode, generators_init_state, uncertainties, nothing)
         PSCOPF.run!(exec_context, sequence)
 
-        market_schedule = PSCOPF.safeget_last_market_schedule(exec_context)
-        tso_schedule = PSCOPF.safeget_last_tso_schedule(exec_context)
+        market_schedule = PSCOPF.get_market_schedule(exec_context)
+        tso_schedule = PSCOPF.get_tso_schedule(exec_context)
     end
 
 end
