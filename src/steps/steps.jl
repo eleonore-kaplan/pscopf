@@ -32,9 +32,9 @@ struct TSOOutFO <: AbstractTSO
 end
 function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            safeget_last_market_schedule(context).type, ",", safeget_last_market_schedule(context).decision_time)
+            get_market_schedule(context).type, ",", get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            safeget_last_tso_schedule(context).type, ",", safeget_last_tso_schedule(context).decision_time)
+            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
     return #result
 end
 
@@ -47,9 +47,9 @@ struct TSOAtFOBiLevel <: AbstractTSO
 end
 function run(runnable::TSOAtFOBiLevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            safeget_last_market_schedule(context).type, ",", safeget_last_market_schedule(context).decision_time)
+            get_market_schedule(context).type, ",", get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            safeget_last_tso_schedule(context).type, ",", safeget_last_tso_schedule(context).decision_time)
+            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
     return #result
 end
@@ -63,9 +63,9 @@ struct TSOInFO <: AbstractTSO
 end
 function run(runnable::TSOInFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ",
-            safeget_last_market_schedule(context).type, ",",safeget_last_market_schedule(context).decision_time)
+            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            safeget_last_tso_schedule(context).type, ",", safeget_last_tso_schedule(context).decision_time)
+            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
     return #result
 end
 
@@ -110,7 +110,7 @@ struct EnergyMarket <: AbstractMarket
 end
 function run(runnable::EnergyMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            safeget_last_market_schedule(context).type, ",",safeget_last_market_schedule(context).decision_time)
+            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
     println("\tJe ne regarde pas le planning du TSO.")
     return #result
 end
@@ -123,7 +123,7 @@ struct EnergyMarketAtFO <: AbstractMarket
 end
 function run(runnable::EnergyMarketAtFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            safeget_last_market_schedule(context).type, ",",safeget_last_market_schedule(context).decision_time)
+            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
@@ -137,7 +137,7 @@ struct BalanceMarket <: AbstractMarket
 end
 function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le planning marché (potentiellemnt maj par le TSO) pour les arrets/démarrage des unités : ",
-            safeget_last_market_schedule(context).type, ",",safeget_last_market_schedule(context).decision_time
+            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time
             ) #besoin de récupérer le dernier planning
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")

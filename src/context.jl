@@ -16,7 +16,6 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
-    schedule_history::Vector{Schedule}
     market_schedule::Schedule
     tso_schedule::Schedule
 
@@ -34,11 +33,9 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
     tso_schedule = Schedule(TSO(), Dates.DateTime(0))
     init!(tso_schedule, network, target_timepoints, get_scenarios(uncertainties))
-    schedules = Vector{Schedule}([market_schedule, tso_schedule])
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        schedules,
                         market_schedule,
                         tso_schedule,
                         TSOActions())
@@ -98,43 +95,10 @@ function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
 end
 
-function safeget_last_schedule(context_p::PSCOPFContext)
-    if isempty(context_p.schedule_history)
-        throw( error("empty schedule history!") )
-    end
-    return context_p.schedule_history[end]
-end
-
-function safeget_last_tso_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_tso(schedule.type), context_p.schedule_history)
-    if isnothing(index_l)
-        throw( error("no TSO schedule in schedule history!") )
-    end
-    return context_p.schedule_history[index_l]
-end
-
-function safeget_last_market_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_market(schedule.type), context_p.schedule_history)
-    if isnothing(index_l)
-        throw( error("no market schedule in schedule history!") )
-    end
-    return context_p.schedule_history[index_l]
-end
-
 function get_tso_schedule(context_p::PSCOPFContext)
     return context_p.tso_schedule
 end
 
 function get_market_schedule(context_p::PSCOPFContext)
     return context_p.market_schedule
-end
-
-function add_schedule!(context_p::PSCOPFContext, schedule::Schedule)
-    push!(context_p.schedule_history, schedule)
-end
-
-function add_schedule!(context_p::PSCOPFContext, type::DeciderType, decision_time::Dates.DateTime)
-    schedule = Schedule(type, decision_time)
-    add_schedule!(context_p, schedule)
-    return schedule
 end

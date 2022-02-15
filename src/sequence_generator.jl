@@ -59,15 +59,11 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
                         get_target_timepoints(context_p),
                         context_p)
             if affects_market_schedule(step)
-                context_p.market_schedule = deepcopy(context_p.market_schedule)
                 context_p.market_schedule.decision_time = ech
-                add_schedule!(context_p, context_p.market_schedule)
                 update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_schedule(step)
-                context_p.tso_schedule = deepcopy(context_p.tso_schedule)
                 context_p.tso_schedule.decision_time = ech
-                add_schedule!(context_p, context_p.tso_schedule)
                 update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
             end
             if affects_tso_actions(step)

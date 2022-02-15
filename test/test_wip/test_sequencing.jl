@@ -13,6 +13,7 @@ using DataStructures
         ECH = [DateTime("2015-01-01T07:00:00"),
                 DateTime("2015-01-01T10:00:00"),
                 DateTime("2015-01-01T10:30:00")]
+        schedule_history = Vector{PSCOPF.Schedule}()
 
         struct MockMarket <: PSCOPF.AbstractMarket
         end
@@ -21,7 +22,7 @@ using DataStructures
         end
         #affects_market_schedule default to true cause <:AbstractMarket
         function PSCOPF.update_market_schedule!(market_schedule::PSCOPF.Schedule, ech, result, firmness, context::PSCOPF.AbstractContext, runnable::MockMarket)
-            nothing
+            push!(schedule_history, deepcopy(market_schedule))
         end
 
         struct MockTSO <: PSCOPF.AbstractTSO
@@ -31,7 +32,7 @@ using DataStructures
         end
         #affects_tso_schedule default to true cause <:AbstractTSO
         function PSCOPF.update_tso_schedule!(tso_schedule::PSCOPF.Schedule, ech, result, firmness,  context::PSCOPF.AbstractContext, runnable::MockTSO)
-            nothing
+            push!(schedule_history, deepcopy(tso_schedule))
         end
         #affects_tso_actions_schedule default to true cause <:AbstractTSO
         function PSCOPF.update_tso_actions!(tso_actions, ech, result, firmness, runnable::MockTSO)
@@ -49,19 +50,16 @@ using DataStructures
 
         PSCOPF.run!(exec_context, sequence)
 
-        @test length(exec_context.schedule_history) == 6 # 2+4 : two initial schedules + one for each executed step
+        @test length(schedule_history) == 4 # one for each executed step
 
-        @test exec_context.schedule_history[1].decision_time == Dates.DateTime(0)
-        @test exec_context.schedule_history[2].decision_time == Dates.DateTime(0)
-
-        @test PSCOPF.is_market(exec_context.schedule_history[3].type)
-        @test exec_context.schedule_history[3].decision_time == ECH[1]
-        @test PSCOPF.is_tso(exec_context.schedule_history[4].type)
-        @test exec_context.schedule_history[4].decision_time == ECH[1]
-        @test PSCOPF.is_tso(exec_context.schedule_history[5].type)
-        @test exec_context.schedule_history[5].decision_time == ECH[2]
-        @test PSCOPF.is_tso(exec_context.schedule_history[6].type)
-        @test exec_context.schedule_history[6].decision_time == ECH[3]
+        @test PSCOPF.is_market(schedule_history[1].type)
+        @test schedule_history[1].decision_time == ECH[1]
+        @test PSCOPF.is_tso(schedule_history[2].type)
+        @test schedule_history[2].decision_time == ECH[1]
+        @test PSCOPF.is_tso(schedule_history[3].type)
+        @test schedule_history[3].decision_time == ECH[2]
+        @test PSCOPF.is_tso(schedule_history[4].type)
+        @test schedule_history[4].decision_time == ECH[3]
     end
 
 end
