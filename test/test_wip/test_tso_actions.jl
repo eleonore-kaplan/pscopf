@@ -3,7 +3,7 @@ using PSCOPF
 using Test
 using Dates
 
-@testset "test_tso_actions" begin
+@testset verbose=true "test_tso_actions" begin
 
     ts = Dates.DateTime("2015-01-01T14:00:00")
     ts2 = Dates.DateTime("2015-01-01T14:30:00")

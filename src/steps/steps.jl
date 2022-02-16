@@ -191,9 +191,11 @@ function init_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTi
         dp = Networks.get_dp(generator)
 
         for ts in TS
-            #commitment
-            commitment_firmness = compute_firmness(ech, next_ech, ts, dmo)
-            set_commitment_firmness!(firmness, gen_id, ts, commitment_firmness)
+            if Networks.get_type(generator) != Networks.LIMITABLE
+                #commitment
+                commitment_firmness = compute_firmness(ech, next_ech, ts, dmo)
+                set_commitment_firmness!(firmness, gen_id, ts, commitment_firmness)
+            end
 
             #power level
             power_level_firmness = compute_firmness(ech, next_ech, ts, dp)

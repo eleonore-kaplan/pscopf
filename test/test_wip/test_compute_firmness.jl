@@ -3,7 +3,7 @@ using PSCOPF
 using Test
 using Dates
 
-@testset "test_compute_firmness" begin
+@testset verbose=true "test_compute_firmness" begin
 
     #=
        10h30        12h           14h
