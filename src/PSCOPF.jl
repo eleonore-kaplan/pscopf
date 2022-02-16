@@ -15,6 +15,7 @@ module PSCOPF
     include("ech_generator.jl")
     include("uncertainties_generator.jl")
     include("context.jl")
+    include("firmness_helper.jl")
 
     include("steps/steps.jl")
 
