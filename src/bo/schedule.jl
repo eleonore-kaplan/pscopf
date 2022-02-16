@@ -53,10 +53,14 @@ end
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
     power_level::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
+end
 
-    #FIXME firmness for Plim of Limitables ? (not concerned by commitment normally)
-    # as implemented now, will look at the dmo/dp (which are 0 for limitables)
-    # => FREE decisions for limitables
+function get_commitment_firmness(firmness::Firmness)
+    return firmness.commitment
+end
+
+function get_power_level_firmness(firmness::Firmness)
+    return firmness.power_level
 end
 
 function set_commitment_firmness!(firmness::Firmness, gen_id::String, ts, decision_firmness::DecisionFirmness)
@@ -127,6 +131,15 @@ function UncertainValue{T}(scenarios::Vector{String}) where T
     return UncertainValue{T}(missing, antcipated_values)
 end
 
+function is_missing_values(uncertain_value::UncertainValue{T})::Bool where T
+    for (_,value) in uncertain_value.anticipated_value
+        if ismissing(value)
+            return true
+        end
+    end
+    return false
+end
+
 function set_value!(uncertain_value::UncertainValue{T}, scenario::String, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
         existing_value = get_value(uncertain_value)
@@ -194,13 +207,13 @@ end
 
 struct GeneratorSchedule
     gen_id::String
-    production::SortedDict{Dates.DateTime, UncertainValue{Float64}}
     commitment::SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}
+    production::SortedDict{Dates.DateTime, UncertainValue{Float64}}
 end
 function GeneratorSchedule(gen_id::String)
     return  GeneratorSchedule(gen_id,
-                            SortedDict{Dates.DateTime, UncertainValue{Float64}}(),
-                            SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}())
+                            SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}(),
+                            SortedDict{Dates.DateTime, UncertainValue{Float64}}())
 end
 
 mutable struct Schedule <: AbstractSchedule
