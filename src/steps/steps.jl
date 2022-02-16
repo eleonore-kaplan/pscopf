@@ -138,7 +138,7 @@ end
 function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le planning marché (potentiellemnt maj par le TSO) pour les arrets/démarrage des unités : ",
             get_market_schedule(context).type, ",",get_market_schedule(context).decision_time
-            ) #besoin de récupérer le dernier planning
+            )
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
@@ -157,30 +157,6 @@ end
 ################################################################################
 ####       Firmness
 ################################################################################
-
-"""
-    Determines whether a decision should be :
-    - already decided : DECIDED
-    - to decide firmly (setting a common value for all scenarios) : TO_DECIDE
-    - to decide freely (possibly setting different values for different scenarios): FREE
-    The decision is based on the characteristic time period `delta` (delta can represent the DMO or DP)
-"""
-function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
-                        ts::Dates.DateTime, delta::Dates.Period)
-    if ( !isnothing(next_ech) && (next_ech < ech) )
-        throw( error("next_ech (", next_ech, ") must be later than ech (", ech,").") )
-    end
-
-    final_decision_time = ts - delta
-
-    if final_decision_time < ech
-        return DECIDED
-    elseif ( isnothing(next_ech) || (final_decision_time < next_ech) )
-        return TO_DECIDE
-    else
-        return FREE
-    end
-end
 
 function init_firmness(runnable::AbstractRunnable,
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},

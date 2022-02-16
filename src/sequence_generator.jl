@@ -5,7 +5,6 @@ using Parameters
 using ..Networks
 
 @with_kw struct Sequence
-    #FIXME : maybe just a vector of pairs that we sort (or not) before launch
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end
 
@@ -180,7 +179,7 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
                 add_step!(sequence, TSOAtFOBiLevel, ech)
 
             else
-                #TODO : check if this is an EnergyMarket (this will refer to the market's schedule) or BalanceMarket (last schedule) or a new implem
+                #TODO : check if this is an EnergyMarket or BalanceMarket or another implem
                 add_step!(sequence, EnergyMarket, ech)
             end
         end

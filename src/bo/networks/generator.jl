@@ -64,12 +64,6 @@ mutable struct Generator
                 msg = @sprintf("Invalid input %f : Limitable units must have a start_cost of 0.", start_cost)
                 error(msg)
             end
-            if dmo != dp
-                #cause no pmin => no DMO
-                # => either have DP=DMO for convenience or handle limitables separately so they don't have a commitment_firmness
-                msg = @sprintf("Invalid input %s : For limitable units, dmo must be equal to dp (i.e. %s).", dmo, dp)
-                error(msg)
-            end
         end
         return new(id, bus_id, type, p_min, p_max, start_cost, prop_cost, dmo, dp)
     end
@@ -84,14 +78,10 @@ function get_type(gen::Generator)
 end
 
 function get_p_min(gen::Generator)
-        return gen.p_min
-    end
-
-function get_p_max(gen::Generator)
-    return gen.p_max
+    return gen.p_min
 end
 
-function safeget_p_max(gen::Generator)
+function get_p_max(gen::Generator)
     return gen.p_max
 end
 

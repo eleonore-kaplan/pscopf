@@ -328,7 +328,9 @@ end
 function set_prod_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
-        return missing
+        msg = @sprintf("cannot set uninitialized schedule production value for generator `%s` at timestep %s and scenario %s",
+                        sub_schedule.gen_id, ts, scenario)
+        throw( error(msg) )
     end
     set_value!(uncertain_value, scenario, value)
 end
@@ -339,7 +341,9 @@ end
 function set_commitment_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::GeneratorState)
     uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
-        return missing
+        msg = @sprintf("cannot set uninitialized schedule commitment value for generator `%s` at timestep %s and scenario %s",
+                        sub_schedule.gen_id, ts, scenario)
+        throw( error(msg) )
     end
     set_value!(uncertain_value, scenario, value)
 end
@@ -351,7 +355,9 @@ end
 function set_prod_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::Float64)
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
-        return missing
+        msg = @sprintf("cannot set uninitialized schedule production value for generator `%s` at timestep %s",
+                        sub_schedule.gen_id, ts)
+        throw( error(msg) )
     end
     set_definitive_value!(uncertain_value, value)
 end
@@ -362,7 +368,9 @@ end
 function set_commitment_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::GeneratorState)
     uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
-        return missing
+        msg = @sprintf("cannot set uninitialized schedule commitment value for generator `%s` at timestep %s",
+                        sub_schedule.gen_id, ts)
+        throw( error(msg) )
     end
     set_definitive_value!(uncertain_value, value)
 end
