@@ -75,8 +75,8 @@ TS2:                                                    D        X    <--DP=DMO-
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]))
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
@@ -86,8 +86,8 @@ TS2:                                                    D        X    <--DP=DMO-
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]))
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
@@ -97,8 +97,8 @@ TS2:                                                    D        X    <--DP=DMO-
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]))
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
@@ -108,8 +108,8 @@ TS2:                                                    D        X    <--DP=DMO-
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.DECIDED
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.DECIDED
-        @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]))
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.DECIDED
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
     end
