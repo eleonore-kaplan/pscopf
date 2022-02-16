@@ -1,12 +1,14 @@
+module TestCustomSequence
+
 using PSCOPF
 
 using Test
 using Dates
 using DataStructures
 
-@testset verbose=true "test_sequencing" begin
+@testset verbose=true "test_custom_sequence" begin
 
-    @testset "test_sequencing" begin
+    @testset "test_custom_sequence" begin
         println("\n\n\n")
         network = PSCOPF.Networks.Network()
         TS = PSCOPF.create_target_timepoints(DateTime("2015-01-01T11:00:00"))
@@ -63,3 +65,5 @@ using DataStructures
     end
 
 end
+
+end #module

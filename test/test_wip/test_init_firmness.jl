@@ -5,21 +5,12 @@ using Dates
 
 @testset "test_init_firmness" begin
 
-    network = PSCOPF.Networks.Network()
-    #no branches
-    PSCOPF.Networks.add_new_bus!(network, "bus_1")
-    #no PTDF
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_0", PSCOPF.Networks.LIMITABLE, 0., 0., 0., 10.,
-                                            Dates.Second(210*60), Dates.Second(210*60)) #dmo, dp
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "gen_1_0", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
-                                            Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
+    gen1 = PSCOPF.Networks.Generator("wind_1_0", "bus_1", PSCOPF.Networks.LIMITABLE, 0., 0., 0., 10.,
+                                    Dates.Second(210*60), Dates.Second(210*60)) #dmo, dp
+    gen2 = PSCOPF.Networks.Generator( "gen_1_0", "bus_1", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
+                                    Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
 
     TS = [DateTime("2015-01-01T14:00:00"), DateTime("2015-01-01T14:30:00")]
-    exec_context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1)
-
-    struct MockRunnable <: PSCOPF.AbstractRunnable end
-    runnable = MockRunnable()
-
 
     #=
        10h30         12h            14h   14h30
@@ -32,10 +23,11 @@ using Dates
                  11h
     =#
     @testset "ech_late" begin
+        generators = [gen1]
         ech = Dates.DateTime("2015-01-01T12:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.DECIDED
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.DECIDED
@@ -55,10 +47,11 @@ using Dates
                 11h
     =#
     @testset "ech_last_moment" begin
+        generators = [gen1]
         ech = Dates.DateTime("2015-01-01T10:30:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:30:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
@@ -67,7 +60,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
@@ -76,7 +69,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -85,7 +78,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
 
         next_ech = nothing
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -105,10 +98,11 @@ using Dates
                             11h
     =#
     @testset "ech_early" begin
+        generators = [gen1]
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:30:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
@@ -117,7 +111,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
@@ -126,7 +120,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -150,10 +144,11 @@ using Dates
 
     =#
     @testset "two_generators" begin
+        generators = [gen1, gen2]
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(runnable, ech, next_ech, TS, exec_context)
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
 
         @test length(PSCOPF.get_commitment_firmness(firmness, "wind_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]) == PSCOPF.TO_DECIDE

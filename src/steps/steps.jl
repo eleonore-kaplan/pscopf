@@ -182,12 +182,10 @@ function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.Dat
     end
 end
 
-function init_firmness(runnable::AbstractRunnable,
-                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
-                    TS::Vector{Dates.DateTime}, context::AbstractContext)
+function init_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                    TS::Vector{Dates.DateTime}, generators::Vector{Networks.Generator})
     firmness = Firmness()
-    network = get_network(context)
-    for generator in Networks.get_generators(network)
+    for generator in generators
         gen_id = Networks.get_id(generator)
         dmo = Networks.get_dmo(generator)
         dp = Networks.get_dp(generator)
@@ -202,21 +200,28 @@ function init_firmness(runnable::AbstractRunnable,
             set_power_level_firmness!(firmness, gen_id, ts, power_level_firmness)
         end
     end
-
-    println("Initialisation de la fermeté des décisions.")
     return firmness
 end
 
+function init_firmness(runnable::AbstractRunnable,
+                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                    TS::Vector{Dates.DateTime}, context::AbstractContext)
+    println("Initialisation de la fermeté des décisions.")
+    generators = collect(Networks.get_generators(get_network(context)))
+    return init_firmness(ech, next_ech, TS, generators)
+end
 
-#TODO
-# """
-#     All decisions are Firm (to_decide or decided)
-# """
-# function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
-#                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
-#                     TS::Vector{Dates.DateTime}, context::AbstractContext)
-#     next_ech = nothing
-# end
+"""
+    All decisions are Firm (DECIDED or TO_DECIDE)
+"""
+function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
+                    ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                    TS::Vector{Dates.DateTime}, context::AbstractContext)
+    println("Initialisation de la fermeté des décisions : DECIDED ou TO_DECIDE")
+    next_ech = nothing
+    generators = collect(Networks.get_generators(get_network(context)))
+    return init_firmness(ech, next_ech, TS, generators)
+end
 
 
 ################################################################################
