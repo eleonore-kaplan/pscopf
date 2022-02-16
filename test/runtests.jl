@@ -19,6 +19,7 @@ using PSCOPF
 #     end
 # end
 
+#TODO : redirect logs
 @testset verbose=true "PSCOPF_TESTS" begin
     include("test_wip/test_modes.jl")
     include("test_wip/test_target_ts.jl")

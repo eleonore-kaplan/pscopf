@@ -7,7 +7,9 @@ mutable struct PSCOPFContext <: AbstractContext
     target_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
 
-    #FIXME : which gen is on ? Question : need info by TS ?
+    #FIXME : Question : Do we need an initial schedule for power levels ?
+    #Not if we make sure ECH[1] <= TS-DMO
+
     generators_initial_state::SortedDict{String,GeneratorState}
 
     #uncertainties

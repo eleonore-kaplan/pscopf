@@ -80,7 +80,7 @@ using Dates
         uncertainties = PSCOPF.generate_uncertainties(network, TS, horizon_timepoints,
                                                     uncertainties_distribution, nb_scenarios)
 
-        # Tests
+        # Tests #FIXME
         EXPECTED_NODAL_INJECTION_NAMES = ["poste_1_0", "poste_2_0", "wind_1", "wind_2"]
         EXPECTED_SCENARIOS = ["S1", "S2", "S3", "S4", "S5"]
         @test collect(keys(uncertainties)) == horizon_timepoints

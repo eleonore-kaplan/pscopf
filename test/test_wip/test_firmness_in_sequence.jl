@@ -38,7 +38,7 @@ TS2:                                                    D        X    <--DP=DMO-
                                                 0., 100., 0., 0.,
                                                 Dates.Second(20*60), Dates.Second(20*60))
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "fuel_1_0", PSCOPF.Networks.IMPOSABLE,
-                                                0., 100., 0., 0.,
+                                                10., 100., 0., 0.,
                                                 Dates.Second(4*60*60), Dates.Second(50*60))
 
         TS = [DateTime("2015-01-01T14:00:00"),

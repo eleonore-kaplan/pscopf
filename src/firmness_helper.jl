@@ -2,6 +2,30 @@ using ..Networks
 
 using Dates
 
+"""
+    Determines whether a decision should be :
+    - already decided : DECIDED
+    - to decide firmly (setting a common value for all scenarios) : TO_DECIDE
+    - to decide freely (possibly setting different values for different scenarios): FREE
+    The decision is based on the characteristic time period `delta` (delta can represent the DMO or DP)
+"""
+function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                        ts::Dates.DateTime, delta::Dates.Period)
+    if ( !isnothing(next_ech) && (next_ech < ech) )
+        throw( error("next_ech (", next_ech, ") must be later than ech (", ech,").") )
+    end
+
+    final_decision_time = ts - delta
+
+    if final_decision_time < ech
+        return DECIDED
+    elseif ( isnothing(next_ech) || (final_decision_time < next_ech) )
+        return TO_DECIDE
+    else
+        return FREE
+    end
+end
+
 function init_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, generators::Vector{Networks.Generator})
     firmness = Firmness()
@@ -11,7 +35,7 @@ function init_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTi
         dp = Networks.get_dp(generator)
 
         for ts in TS
-            if Networks.get_type(generator) != Networks.LIMITABLE
+            if Networks.get_p_min(generator) > eps()
                 #commitment
                 commitment_firmness = compute_firmness(ech, next_ech, ts, dmo)
                 set_commitment_firmness!(firmness, gen_id, ts, commitment_firmness)
@@ -60,7 +84,6 @@ end
 
 """
     Verfies if a given schedule respects the firmness constraints at a given timestep
-    Note that this does not verify if successive values do not change with the time
 """
 function verify_firmness(generator_firmness::SortedDict{Dates.DateTime, DecisionFirmness},
                         scheduled_values::SortedDict{Dates.DateTime, UncertainValue{T}}) where T

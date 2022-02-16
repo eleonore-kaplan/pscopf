@@ -5,12 +5,14 @@ using Dates
 
 @testset verbose=true "test_init_firmness" begin
 
-    gen1 = PSCOPF.Networks.Generator("fuel_1_0", "bus_1", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
+    gen1 = PSCOPF.Networks.Generator("fuel_1_0", "bus_1", PSCOPF.Networks.IMPOSABLE, 10., 100., 0., 10.,
                                     Dates.Second(210*60), Dates.Second(210*60)) #dmo, dp
-    gen2 = PSCOPF.Networks.Generator( "fuel_1_1", "bus_1", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
+    gen2 = PSCOPF.Networks.Generator( "fuel_1_1", "bus_1", PSCOPF.Networks.IMPOSABLE, 10., 100., 0., 10.,
+                                    Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
+    gen_no_pmin = PSCOPF.Networks.Generator("fuel_1_2", "bus_1", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
                                     Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
     lim1 = PSCOPF.Networks.Generator("wind_1_0", "bus_1", PSCOPF.Networks.LIMITABLE, 0., 0., 0., 10.,
-                                    Dates.Second(210*60), Dates.Second(210*60)) #dmo, dp
+                                    Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
     TS = [DateTime("2015-01-01T14:00:00"), DateTime("2015-01-01T14:30:00")]
 
     #=
@@ -24,6 +26,19 @@ using Dates
                        TS2-Delta
                             11h
     =#
+    @testset "gen_with_no_pmin" begin
+        generators = [gen_no_pmin]
+        ech = Dates.DateTime("2015-01-01T07:00:00")
+
+        next_ech = Dates.DateTime("2015-01-01T10:45:00")
+        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2"))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2", TS[1]))
+        @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2", TS[2]))
+        @test length(PSCOPF.get_power_level_firmness(firmness, "fuel_1_2")) == 2
+        @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_2", TS[1]) == PSCOPF.TO_DECIDE
+        @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_2", TS[2]) == PSCOPF.FREE
+    end
     @testset "limitable" begin
         generators = [lim1]
         ech = Dates.DateTime("2015-01-01T07:00:00")
