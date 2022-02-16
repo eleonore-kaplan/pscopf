@@ -192,75 +192,167 @@ end
 ## Schedule
 ##########################################
 
-GeneratorSchedule = SortedDict{Dates.DateTime, UncertainValue{Float64}}
+struct GeneratorSchedule
+    gen_id::String
+    production::SortedDict{Dates.DateTime, UncertainValue{Float64}}
+    commitment::SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}
+end
+function GeneratorSchedule(gen_id::String)
+    return  GeneratorSchedule(gen_id,
+                            SortedDict{Dates.DateTime, UncertainValue{Float64}}(),
+                            SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}())
+end
+
 mutable struct Schedule <: AbstractSchedule
     type::DeciderType
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
-    values::SortedDict{String, GeneratorSchedule }
+    generator_schedules::SortedDict{String, GeneratorSchedule }
 end
-
 function Schedule(type::DeciderType, ech::Dates.DateTime)
-    return Schedule(type, ech, SortedDict{String, GeneratorSchedule}())
+    return Schedule(type, ech,
+                    SortedDict{String, GeneratorSchedule}() )
 end
 
-function init!(schedule::Schedule, network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, scenarios::Vector{String})
-    empty!(schedule.values)
+function init!(schedule::Schedule, network::Networks.Network,
+            target_timepoints::Vector{Dates.DateTime}, scenarios::Vector{String})
+    empty!(schedule.generator_schedules)
     for generator_l in Networks.get_generators(network)
         gen_id = Networks.get_id(generator_l)
-        schedule.values[gen_id] = SortedDict{String, GeneratorSchedule}()
+        schedule.generator_schedules[gen_id] = GeneratorSchedule(gen_id)
         for ts in target_timepoints
-            schedule.values[gen_id][ts] = UncertainValue{Float64}(scenarios)
+
+            schedule.generator_schedules[gen_id].production[ts] = UncertainValue{Float64}(scenarios)
+
+            #commitment values are only defined for generators that have a pmin > 0
+            if (Networks.get_p_min(generator_l) > eps())
+                schedule.generator_schedules[gen_id].commitment[ts] = UncertainValue{GeneratorState}(scenarios)
+            end
         end
     end
 end
 
-function get_values(schedule::Schedule)
-    return schedule.values
+function get_sub_schedule(schedule::Schedule, gen_id::String)::Union{GeneratorSchedule,Missing}
+    if haskey(schedule.generator_schedules, gen_id)
+        return schedule.generator_schedules[gen_id]
+    else
+        throw( error("no generator schedule was initialized for generator ", sub_schedule.gen_id))
+        #return missing
+    end
 end
 
-function get_sub_schedule(schedule::Schedule, gen_id::String)::SortedDict{Dates.DateTime, UncertainValue{Float64}}
-    return get_values(schedule)[gen_id]
+function get_prod_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{UncertainValue{Float64},Missing}
+    if haskey(sub_schedule.production, ts)
+        return sub_schedule.production[ts]
+    else
+        throw( error("power level schedule is not defined for generator ", sub_schedule.gen_id))
+        #return missing
+    end
+end
+function get_prod_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{Float64},Missing}
+    return get_prod_uncertain_value(schedule.generator_schedules[gen_id], ts)
 end
 
-function get_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::UncertainValue{Float64}
-    return sub_schedule[ts]
+function get_commitment_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{UncertainValue{GeneratorState},Missing}
+    if haskey(sub_schedule.commitment, ts)
+        return sub_schedule.commitment[ts]
+    else
+        # @warn("commitment schedule is not defined for generator ", sub_schedule.gen_id)
+        return missing
+    end
 end
-function get_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::UncertainValue{Float64}
-    return get_uncertain_value(get_sub_schedule(schedule, gen_id), ts)
+function get_commitment_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{GeneratorState},Missing}
+    return get_commitment_uncertain_value(schedule.generator_schedules[gen_id], ts)
 end
 
-function get_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{Float64, Missing}
-    uncertain_value = get_uncertain_value(sub_schedule, ts)
+
+function get_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{Float64, Missing}
+    uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
     return get_value(uncertain_value)
 end
-function get_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
-    return get_value(get_sub_schedule(schedule, gen_id), ts)
+function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
+    return get_prod_value(schedule.generator_schedules[gen_id], ts)
 end
 
-function get_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
-    uncertain_value = get_uncertain_value(sub_schedule, ts)
+function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{GeneratorState, Missing}
+    uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
+    return get_value(uncertain_value)
+end
+function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{GeneratorState, Missing}
+    return get_commitment_value(schedule.generator_schedules[gen_id], ts)
+end
+
+
+function get_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
+    uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
     return get_value(uncertain_value, scenario)
 end
-function get_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
-    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
+function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
+    return get_prod_value(schedule.generator_schedules[gen_id], ts, scenario)
+end
+
+function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{GeneratorState, Missing}
+    uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
     return get_value(uncertain_value, scenario)
 end
-
-function set_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
-    uncertain_value = get_uncertain_value(sub_schedule, ts)
-    set_value!(uncertain_value, scenario, value)
-end
-function set_value!(schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
-    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
-    set_value!(uncertain_value, scenario, value)
+function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{GeneratorState, Missing}
+    return get_commitment_value(schedule.generator_schedules[gen_id], ts, scenario)
 end
 
-function set_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::Float64)
-    uncertain_value = get_uncertain_value(sub_schedule, ts)
+
+function set_prod_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
+    uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
+    set_value!(uncertain_value, scenario, value)
+end
+function set_prod_value!(schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
+    return set_prod_value!(schedule.generator_schedules[gen_id], ts, scenario, value)
+end
+
+function set_commitment_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::GeneratorState)
+    uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
+    set_value!(uncertain_value, scenario, value)
+end
+function set_commitment_value!(schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::GeneratorState)
+    return set_commitment_value!(schedule.generator_schedules[gen_id], ts, scenario, value)
+end
+
+
+function set_prod_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::Float64)
+    uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
     set_definitive_value!(uncertain_value, value)
 end
-function set_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::Float64)
-    uncertain_value = get_uncertain_value(schedule, gen_id, ts)
+function set_prod_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::Float64)
+    return set_prod_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
+end
+
+function set_commitment_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, value::GeneratorState)
+    uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
     set_definitive_value!(uncertain_value, value)
+end
+function set_commitment_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
+    return set_commitment_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
 end
