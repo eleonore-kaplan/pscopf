@@ -186,6 +186,16 @@ function get_generators(network::Network)
     return values(network.generators)
 end
 
+function get_generators_of_type(network::Network, type::GeneratorType)
+    selected_generators = Vector{Generator}()
+    for generator in get_generators(network)
+        if get_type(generator) == type
+            push!(selected_generators, generator)
+        end
+    end
+    return selected_generators
+end
+
 ########################
 ##        PTDF        ##
 ########################

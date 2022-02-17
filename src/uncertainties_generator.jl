@@ -19,7 +19,6 @@ end
 function generate_uncertainties(network::Networks.Network, target_timepoints::Vector{Dates.DateTime}, horizon_timepoints::Vector{Dates.DateTime},
     uncertainties_distribution, nb_scenarios::Int)
     generator = UncertaintiesGenerator(network, target_timepoints, horizon_timepoints, uncertainties_distribution, nb_scenarios)
-    #FIXME add write to file
     return launch(generator)
 end
 

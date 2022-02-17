@@ -6,6 +6,7 @@ module PSCOPF
     include("bo/target_ts.jl")
     include("bo/uncertainties.jl")
     include("bo/schedule.jl")
+    include("bo/tso_actions.jl")
 
     include("data/AmplTxt.jl")
     include("data/PSCOPFio.jl")
@@ -14,6 +15,7 @@ module PSCOPF
     include("ech_generator.jl")
     include("uncertainties_generator.jl")
     include("context.jl")
+    include("firmness_helper.jl")
 
     include("steps/steps.jl")
 

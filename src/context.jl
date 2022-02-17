@@ -7,7 +7,9 @@ mutable struct PSCOPFContext <: AbstractContext
     target_timepoints::Vector{Dates.DateTime}
     management_mode::ManagementMode
 
-    #FIXME : which gen is on ? Question : need info by TS ?
+    #FIXME : Question : Do we need an initial schedule for power levels ?
+    #Not if we make sure ECH[1] <= TS-DMO
+
     generators_initial_state::SortedDict{String,GeneratorState}
 
     #uncertainties
@@ -16,15 +18,10 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
-    schedule_history::Vector{Schedule}
-    #Imposition
-    # ts,gen,s Q: keep history (ie index by ech too)?
-    # SortedDict{Dates.DateTime, SortedDict{String, SortedDict{String, Float64}} }
-    impositions
-    #Limitation : because the schedule is not enough to know the limit
-    # ts,gen Q: keep history (ie index by ech too)?
-    # SortedDict{Dates.DateTime, SortedDict{String, Float64} }
-    limitations
+    market_schedule::Schedule
+    tso_schedule::Schedule
+
+    tso_actions::TSOActions
     #flows ?
 end
 
@@ -34,10 +31,16 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
                     uncertainties::Uncertainties=Uncertainties(),
                     assessment_uncertainties=nothing
                     )
+    market_schedule = Schedule(Market(), Dates.DateTime(0))
+    init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
+    tso_schedule = Schedule(TSO(), Dates.DateTime(0))
+    init!(tso_schedule, network, target_timepoints, get_scenarios(uncertainties))
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
-                        Vector{Schedule}(),nothing,nothing)
+                        market_schedule,
+                        tso_schedule,
+                        TSOActions())
 end
 
 function get_network(context::PSCOPFContext)
@@ -68,6 +71,24 @@ function get_uncertainties(context::PSCOPFContext, ech::Dates.DateTime)::Uncerta
     return get_uncertainties(context)[ech]
 end
 
+function get_scenarios(context::PSCOPFContext, ech::Dates.DateTime)::Vector{String}
+    uncertainties_at_ech = get_uncertainties(context, ech)
+    if isnothing(uncertainties_at_ech)
+        return Vector{String}()
+    else
+        return get_scenarios(uncertainties_at_ech)
+    end
+end
+
+function get_scenarios(context::PSCOPFContext)::Vector{String}
+    uncertainties = get_uncertainties(context)
+    if isnothing(uncertainties)
+        return Vector{String}()
+    else
+        return get_scenarios(uncertainties)
+    end
+end
+
 function get_assessment_uncertainties(context::PSCOPFContext)
     return context.assessment_uncertainties
 end
@@ -76,29 +97,10 @@ function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
 end
 
-function safeget_last_schedule(context_p::PSCOPFContext)
-    if isempty(context_p.schedule_history)
-        throw( error("empty schedule history!") )
-    end
-    return context_p.schedule_history[end]
+function get_tso_schedule(context_p::PSCOPFContext)
+    return context_p.tso_schedule
 end
 
-function safeget_last_tso_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_tso(schedule.decider), context_p.schedule_history)
-    if isnothing(index_l)
-        throw( error("no TSO schedule in schedule history!") )
-    end
-    return context_p.schedule_history[index_l]
-end
-
-function safeget_last_market_schedule(context_p::PSCOPFContext)
-    index_l = findlast(schedule -> is_market(schedule.decider), context_p.schedule_history)
-    if isnothing(index_l)
-        throw( error("no market schedule in schedule history!") )
-    end
-    return context_p.schedule_history[index_l]
-end
-
-function add_schedule!(context_p::PSCOPFContext, schedule::Schedule)
-    push!(context_p.schedule_history, schedule)
+function get_market_schedule(context_p::PSCOPFContext)
+    return context_p.market_schedule
 end

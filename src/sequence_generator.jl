@@ -5,7 +5,6 @@ using Parameters
 using ..Networks
 
 @with_kw struct Sequence
-    #FIXME : maybe just a vector of pairs that we sort (or not) before launch
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end
 
@@ -34,38 +33,44 @@ end
 
 function add_step!(sequence::Sequence, step_type::Type{T}, ech::Dates.DateTime) where T<:AbstractRunnable
     step_instance = step_type()
+    add_step!(sequence, step_instance, ech)
+end
+function add_step!(sequence::Sequence, step_instance::AbstractRunnable, ech::Dates.DateTime)
     steps_at_ech = get!(sequence.operations, ech, Vector{AbstractRunnable}())
     push!(steps_at_ech, step_instance)
 end
 
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
-    println("Dates d'interet : ", context_p.target_timepoints)
+    println("Dates d'interet : ", get_target_timepoints(context_p))
+
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
         println("-"^50)
-        delta = Dates.value(Dates.Minute(context_p.target_timepoints[1]-ech))
+        delta = Dates.value(Dates.Minute(get_target_timepoints(context_p)[1]-ech))
         println("ECH : ", ech, " : M-", delta)
         println("-"^50)
         for step in steps_at_ech
             println(typeof(step), " à l'échéance ", ech)
             firmness = init_firmness(step, ech, next_ech,
-                                    context_p.target_timepoints, context_p)
+                                    get_target_timepoints(context_p), context_p)
             result = run(step, ech, firmness,
-                        context_p.target_timepoints,
+                        get_target_timepoints(context_p),
                         context_p)
-            if is_market(step)
-                market_schedule = Schedule(Market(), ech)
-                add_schedule!(context_p, market_schedule)
-                update_market_schedule!(market_schedule, ech, result, firmness, context_p, step)
+            if affects_market_schedule(step)
+                context_p.market_schedule.decision_time = ech
+                update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
+                #TODO : error if !verify
+                verify_firmness(firmness, context_p.market_schedule)
             end
-            if is_tso(step)
-                tso_schedule = Schedule(TSO(), ech)
-                add_schedule!(context_p, tso_schedule)
-                update_tso_schedule!(tso_schedule, ech, result, firmness, context_p, step)
-                update_limitations!(context_p.limitations,
-                                    ech, result, firmness, context_p, step)
-                update_impositions!(context_p.impositions,
+            if affects_tso_schedule(step)
+                context_p.tso_schedule.decision_time = ech
+                update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
+                #TODO : error if !verify
+                verify_firmness(firmness, context_p.tso_schedule)
+            end
+            if affects_tso_actions(step)
+                update_tso_actions!(context_p.tso_actions,
                                     ech, result, firmness, context_p, step)
             end
         end
@@ -174,6 +179,7 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
                 add_step!(sequence, TSOAtFOBiLevel, ech)
 
             else
+                #TODO : check if this is an EnergyMarket or BalanceMarket or another implem
                 add_step!(sequence, EnergyMarket, ech)
             end
         end

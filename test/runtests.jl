@@ -19,16 +19,22 @@ using PSCOPF
 #     end
 # end
 
+#TODO : redirect logs
 @testset verbose=true "PSCOPF_TESTS" begin
-    include("test_wip/test_network.jl")
     include("test_wip/test_modes.jl")
     include("test_wip/test_target_ts.jl")
+    include("test_wip/test_network.jl")
     include("test_wip/test_ech_generator.jl")
-    include("test_wip/test_seq_generator.jl")
-    include("test_wip/test_seq_launch.jl")
     include("test_wip/test_uncertainties_generator.jl")
     include("test_wip/test_schedule.jl")
-    include("test_wip/test_sequencing.jl")
+    include("test_wip/test_tso_actions.jl")
+    include("test_wip/test_verify_firmness.jl")
+    include("test_wip/test_verify_firmness_on_schedule.jl")
+    include("test_wip/test_compute_firmness.jl")
+    include("test_wip/test_init_firmness.jl")
+    include("test_wip/test_custom_sequence.jl")
+    include("test_wip/test_firmness_in_sequence.jl")
+    include("test_wip/test_seq_generator.jl")
+    include("test_wip/test_seq_launch.jl")
     include("test_wip/test_usecase.jl")
-    # include("test_wip/test_steps.jl")
 end

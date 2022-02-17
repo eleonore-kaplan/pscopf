@@ -52,7 +52,7 @@ mutable struct Generator
             error(msg)
         end
         if dmo < dp
-            msg = @sprintf("Invalid input %f : dmo must be greater than or equal to dp (i.e. %f).", dmo, dp)
+            msg = @sprintf("Invalid input %s : dmo must be greater than or equal to dp (i.e. %s).", dmo, dp)
             error(msg)
         end
         if type == LIMITABLE
@@ -60,13 +60,8 @@ mutable struct Generator
                 msg = @sprintf("Invalid input %f : Limitable units must have a minimum production capacity of 0.", p_min)
                 error(msg)
             end
-            #WARN : p_max is not actually used! the max is the limitation if applicable
             if start_cost > 0
                 msg = @sprintf("Invalid input %f : Limitable units must have a start_cost of 0.", start_cost)
-                error(msg)
-            end
-            if dmo > Dates.Second(0)
-                msg = @sprintf("Invalid input %f : Limitable units must have a DMO of 0.", dmo)
                 error(msg)
             end
         end
@@ -83,35 +78,15 @@ function get_type(gen::Generator)
 end
 
 function get_p_min(gen::Generator)
-    if gen.type == LIMITABLE
-        return 0.
-    else
-        return gen.p_min
-    end
+    return gen.p_min
 end
 
 function get_p_max(gen::Generator)
-    if gen.type == LIMITABLE
-        return 0.
-    else
-        return gen.p_max
-    end
-end
-
-function safeget_p_max(gen::Generator)
-    if gen.type == LIMITABLE
-        error("Limitable units have no maximum production capacity!")
-    else
-        return gen.p_max
-    end
+    return gen.p_max
 end
 
 function get_start_cost(gen::Generator)
-    if gen.type == LIMITABLE
-        return 0.
-    else
-        return gen.start_cost
-    end
+    return gen.start_cost
 end
 
 function get_prop_cost(gen::Generator)
@@ -119,19 +94,11 @@ function get_prop_cost(gen::Generator)
 end
 
 function get_dmo(gen::Generator)
-    if gen.type == LIMITABLE
-        return Dates.Second(0)
-    else
-        return gen.dmo
-    end
+    return gen.dmo
 end
 
 function get_dp(gen::Generator)
-    if gen.type == LIMITABLE
-        return Dates.Second(0)
-    else
-        return gen.dp
-    end
+    return gen.dp
 end
 
 
