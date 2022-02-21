@@ -17,6 +17,8 @@ module PSCOPF
     include("context.jl")
     include("firmness_helper.jl")
 
+    include("checkers.jl")
+
     include("steps/steps.jl")
 
     include("sequence_generator.jl")
