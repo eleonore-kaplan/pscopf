@@ -47,24 +47,32 @@ function add_uncertainty!(uncertainties::Uncertainties, ech::Dates.DateTime, nod
 end
 
 function get_scenarios(uncertainties_at_ech::UncertaintiesAtEch)::Vector{String}
-    #FIXME : make sure all entries handle the same scenarios
-    scenarios = Set{String}()
-    for (name, _) in uncertainties_at_ech
-        for (ts, _) in uncertainties_at_ech[name]
-            union!(scenarios, keys(uncertainties_at_ech[name][ts]))
+    for (_, uncertainties_by_ts) in uncertainties_at_ech
+        for (_, by_scenario) in uncertainties_by_ts
+            return collect(keys(by_scenario))
         end
     end
-    return sort(collect(scenarios))
+    return Vector{String}()
 end
 
 function get_scenarios(uncertainties::Uncertainties)::Vector{String}
-    #FIXME : make sure all entries handle the same scenarios
-    scenarios = Set{String}()
-    for (ech, _) in uncertainties
-        scenarios_at_ech = get_scenarios(uncertainties[ech])
-        union!(scenarios, scenarios_at_ech)
+    for (_, uncertainties_at_ech) in uncertainties
+        return get_scenarios(uncertainties_at_ech)
     end
-    return sort(collect(scenarios))
+    return Vector{String}()
+end
+
+function get_target_timepoints(uncertainties::Uncertainties)::Vector{Dates.DateTime}
+    for (_, uncertainties_at_ech) in uncertainties
+        for (_, by_ts) in uncertainties_at_ech
+            return collect(keys(by_ts))
+        end
+    end
+    return Vector{Dates.DateTime}()
+end
+
+function get_horizon_timepoints(uncertainties::Uncertainties)::Vector{Dates.DateTime}
+    return collect(keys(uncertainties))
 end
 
 function get_uncertainties(uncertainties::Uncertainties, ech::Dates.DateTime)::UncertaintiesAtEch
@@ -79,12 +87,48 @@ function get_uncertainties(uncertainties::Uncertainties, ech::Dates.DateTime, in
     return get_uncertainties(uncertainties_at_ech, injection_name)
 end
 
-function compute_load(uncertainties_at_ech::UncertaintiesAtEch,
-                    buses::Vector{Networks.Bus}, ts::Dates.DateTime, s::String)
-    load = 0.
-    for bus in buses
-        bus_id = Networks.get_id(bus)
-        load += uncertainties_at_ech[bus_id][ts][s]
+
+function get_uncertainties(injection_uncertainties::InjectionUncertainties, ts::Dates.DateTime)
+    return injection_uncertainties[ts]
+end
+function get_uncertainties(uncertainties_at_ech::UncertaintiesAtEch, injection_name::String, ts::Dates.DateTime)
+    injection_uncertainties = get_uncertainties(uncertainties_at_ech, injection_name)
+    return get_uncertainties(injection_uncertainties, ts)
+end
+function get_uncertainties(uncertainties::Uncertainties, ech::Dates.DateTime, injection_name::String, ts::Dates.DateTime)
+    uncertainties_at_ech = get_uncertainties(uncertainties, ech)
+    return get_uncertainties(uncertainties_at_ech, injection_name, ts)
+end
+
+
+function sum_uncertainties(uncertainties_at_ech::UncertaintiesAtEch,
+    ids::Vector{String},
+    ts::Dates.DateTime, s::String)
+    sum = 0.
+    for id in ids
+        sum += get_uncertainties(uncertainties_at_ech, id, ts)[s]
     end
-    return load
+    return sum
+end
+
+function compute_prod(uncertainties_at_ech::UncertaintiesAtEch,
+    network, ts::Dates.DateTime, s::String)
+    generators_ids = map(Networks.get_id, Networks.get_generators_of_type(network, Networks.LIMITABLE))
+    return sum_uncertainties(uncertainties_at_ech, generators_ids, ts, s)
+end
+function compute_prod(uncertainties::Uncertainties,
+    network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
+    uncertainties_at_ech = get_uncertainties(uncertainties, ech)
+    return compute_prod(uncertainties_at_ech, network, ts, s)
+end
+
+function compute_load(uncertainties_at_ech::UncertaintiesAtEch,
+    network, ts::Dates.DateTime, s::String)
+    buses_ids = map(Networks.get_id, Networks.get_buses(network))
+    return sum_uncertainties(uncertainties_at_ech, buses_ids, ts, s)
+end
+function compute_load(uncertainties::Uncertainties,
+    network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
+    uncertainties_at_ech = get_uncertainties(uncertainties, ech)
+    return compute_load(uncertainties_at_ech, network, ts, s)
 end
