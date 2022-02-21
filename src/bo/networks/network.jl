@@ -1,6 +1,6 @@
 using DataStructures
 
-mutable struct Network
+struct Network
     name::String
     # Direct access containers
     buses::SortedDict{String, Bus}
@@ -137,13 +137,7 @@ function get_branches(network::Network, bus::Union{Int, Bus})::Vector{Tuple{Bran
 end
 
 function get_branches(network::Network)
-    branches = Vector{Tuple{Branch, Bool}}()
-    for bus_src in values(network.branches)
-        for branch in values(bus_src)
-            push!(branches, branch)
-        end
-    end
-    return branches
+    return values(network.branches)
 end
 
 
@@ -238,7 +232,7 @@ function safeget_ptdf(network::Network, branch_id::String, bus_id::String)
     end
 end
 
-function add_ptdf_elt(network, branch_id::String, bus_id::String, ptdf_value::Float64)
+function add_ptdf_elt!(network, branch_id::String, bus_id::String, ptdf_value::Float64)
     ptdf_component = get!(network.ptdf, branch_id, SortedDict{String, Float64}())
     ptdf_component[bus_id] = ptdf_value
 end
@@ -247,16 +241,20 @@ end
 ##        utils       ##
 ########################
 
-function safeget_generator_or_bus(network::Network, id::String)
+function get_generator_or_bus(network::Network, id::String)
     generator::Union{Generator, Missing} = get_generator(network, id)
     if !isequal(generator, missing)
         return generator
     else
-        bus::Union{Bus, Missing} = get_bus(network, id)
-        if !isequal(bus, missing)
-            return bus
-        else
-            throw( error("Generator or Bus with id ", generator_id, " does not exist in Network ", network.name) )
-        end
+        return get_bus(network, id) #bus or missing
+    end
+end
+
+function safeget_generator_or_bus(network::Network, id::String)
+    generator_or_bus::Union{Generator, Bus, Missing} = get_generator_or_bus(network, id)
+    if ismissing(generator_or_bus)
+        throw( error("No Generator or Bus with id `", id, "` exists in Network ", network.name) )
+    else
+        return generator_or_bus
     end
 end

@@ -68,7 +68,7 @@ function read_ptdf!(network::Network, data::String)
                 branch_id = buffer[1]
                 bus_id = buffer[2]
                 ptdf_value = parse(Float64, buffer[3])
-                Networks.add_ptdf_elt(network, branch_id, bus_id, ptdf_value)
+                Networks.add_ptdf_elt!(network, branch_id, bus_id, ptdf_value)
             end
         end
     end

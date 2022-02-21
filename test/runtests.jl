@@ -28,6 +28,14 @@ using PSCOPF
     include("test_wip/test_uncertainties_generator.jl")
     include("test_wip/test_schedule.jl")
     include("test_wip/test_tso_actions.jl")
+
+    include("test_wip/test_coherence_checks/test_check_ptdf.jl")
+    include("test_wip/test_coherence_checks/test_check_generator.jl")
+    include("test_wip/test_coherence_checks/test_check_branch.jl")
+    include("test_wip/test_coherence_checks/test_check_uncertainties.jl")
+    include("test_wip/test_coherence_checks/test_check_initial_state.jl")
+    include("test_wip/test_coherence_checks/test_check_timesteps.jl")
+
     include("test_wip/test_verify_firmness.jl")
     include("test_wip/test_verify_firmness_on_schedule.jl")
     include("test_wip/test_compute_firmness.jl")
@@ -37,4 +45,5 @@ using PSCOPF
     include("test_wip/test_seq_generator.jl")
     include("test_wip/test_seq_launch.jl")
     include("test_wip/test_usecase.jl")
+
 end
