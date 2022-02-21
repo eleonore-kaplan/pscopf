@@ -18,6 +18,8 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
+    horizon_timepoints::Vector{Dates.DateTime}
+
     market_schedule::Schedule
     tso_schedule::Schedule
 
@@ -38,6 +40,7 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
+                        Vector{Dates.DateTime}(),
                         market_schedule,
                         tso_schedule,
                         TSOActions())
@@ -53,6 +56,10 @@ end
 
 function get_horizon_timepoints(context::PSCOPFContext)
     return context.horizon_timepoints
+end
+
+function set_horizon_timepoints(context::PSCOPFContext, horizon_timepoints::Vector{Dates.DateTime})
+    context.horizon_timepoints = horizon_timepoints
 end
 
 function get_management_mode(context::PSCOPFContext)
@@ -103,4 +110,11 @@ end
 
 function get_market_schedule(context_p::PSCOPFContext)
     return context_p.market_schedule
+end
+
+
+function get_limitables_ids(context_p::PSCOPFContext)
+    limitables = Networks.get_generators_of_type(get_network(context_p), Networks.LIMITABLE)
+    limitables_ids = map(lim_gen->Networks.get_id(lim_gen), limitables)
+    return limitables_ids
 end

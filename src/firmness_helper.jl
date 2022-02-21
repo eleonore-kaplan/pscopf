@@ -54,15 +54,20 @@ end
 #       Schedule Firmness
 #########################################
 
-
-function verify_firmness(firmness::Firmness, schedule::Schedule)
-    return ( verify_commitment_firmness(get_commitment_firmness(firmness), schedule)
-            && verify_production_firmness(get_power_level_firmness(firmness), schedule) )
+function verify_firmness(firmness::Firmness, schedule::Schedule;
+                        excluded_ids::Union{Set{String},Vector{String}}=Set{String}())
+    excluded_ids = Set{String}(excluded_ids)
+    return ( verify_commitment_firmness(get_commitment_firmness(firmness), schedule, excluded_ids=excluded_ids)
+            && verify_production_firmness(get_power_level_firmness(firmness), schedule, excluded_ids=excluded_ids) )
 end
 
 function verify_commitment_firmness(firmness::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} },
-                                    schedule::Schedule)
+                                    schedule::Schedule;
+                                    excluded_ids::Set{String}=Set{String}())
     for (gen_id, generator_firmness) in firmness
+        if gen_id in excluded_ids
+            continue
+        end
         if !verify_firmness(generator_firmness, get_sub_schedule(schedule, gen_id).commitment)
             @warn(@sprintf("commitment schedule of generator %s violates firmness", gen_id))
             return false
@@ -72,8 +77,12 @@ function verify_commitment_firmness(firmness::SortedDict{String, SortedDict{Date
 end
 
 function verify_production_firmness(firmness::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} },
-                                    schedule::Schedule)
+                                    schedule::Schedule;
+                                    excluded_ids::Set{String}=Set{String}())
     for (gen_id, generator_firmness) in firmness
+        if gen_id in excluded_ids
+            continue
+        end
         if !verify_firmness(generator_firmness, get_sub_schedule(schedule, gen_id).production)
             @warn(@sprintf("production schedule of generator %s violates firmness", gen_id))
             return false
