@@ -11,7 +11,7 @@ using DataStructures
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus");
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus", "lim", PSCOPF.Networks.LIMITABLE, 0., 10., 0., 10., Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus", "imp", PSCOPF.Networks.IMPOSABLE, 0., 10., 1000., 10., Dates.Second(0), Dates.Second(0))
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus", "imp", PSCOPF.Networks.IMPOSABLE, 0., 10., 0., 10., Dates.Second(0), Dates.Second(0))
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus", "gen_pmin", PSCOPF.Networks.IMPOSABLE, 1., 10., 1000., 10., Dates.Second(0), Dates.Second(0))
 
         TS = [DateTime("2015-01-01T11:00:00"),
