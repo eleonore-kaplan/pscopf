@@ -118,3 +118,38 @@ function get_limitables_ids(context_p::PSCOPFContext)
     limitables_ids = map(lim_gen->Networks.get_id(lim_gen), limitables)
     return limitables_ids
 end
+
+function get_initial_state(initial_states::SortedDict{String,GeneratorState}, generator::Generator)
+    if Networks.get_p_min(generator) < 1e-09
+        return ON
+    else
+        return initial_states[Networks.get_id(generator)]
+    end
+end
+
+function definitive_starts(schedule::Schedule, initial_state::SortedDict{String, GeneratorState})
+    result = Set{Tuple{String,Dates.DateTime}}()
+
+    for (gen_id, gen_schedule) in schedule.generator_schedules
+        if isempty(gen_schedule.commitment)
+            continue
+        end
+
+        prev_ts = nothing
+        prev_state = initial_state[gen_id]
+
+        for (ts, current_state) in gen_schedule.commitment
+            @assert( isnothing(prev_ts) || (prev_ts < ts) )
+            if !is_definitive(current_state)
+                break #if current state is not definitive the following are not neither
+
+            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) )
+                push!(result, (gen_id,ts) )
+                prev_state = get_value(current_state)
+                prev_ts = ts
+            end
+        end
+    end
+
+    return result
+end

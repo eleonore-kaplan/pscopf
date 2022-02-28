@@ -127,7 +127,7 @@ function check(generator::Generator)
     #if pmin=0, we can suppose that the generator is always
     # 1- the start cost is supposed to be paid in the far past => 0
     # 2- no need for DMO since the decision is always ON => DMO=DP (actually, infinite DMO)
-    if Networks.get_p_min(generator) < eps()
+    if Networks.get_p_min(generator) < 1e-09
         if Networks.get_start_cost(generator) > 0
             checks = false
             msg = @sprintf("Invalid input %s : generators with null p_min must have 0 start cost.", Networks.get_start_cost(generator))
@@ -351,7 +351,6 @@ function check_initial_state(initial_state::SortedDict{String, GeneratorState}, 
         checks = false
     end
 
-    #FIXME : maybe just warn and not set checks to false
     for extra_gen_id in setdiff(listed_gen_ids, must_list_gen_ids)
         if initial_state[extra_gen_id] == OFF
             msg = @sprintf("Initial state for generator %s must be ON (or can be ommited). \

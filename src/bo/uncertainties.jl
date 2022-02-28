@@ -100,6 +100,18 @@ function get_uncertainties(uncertainties::Uncertainties, ech::Dates.DateTime, in
     return get_uncertainties(uncertainties_at_ech, injection_name, ts)
 end
 
+function get_uncertainties(injection_uncertainties::InjectionUncertainties, ts::Dates.DateTime, scenario::String)
+    return get_uncertainties(injection_uncertainties, ts)[scenario]
+end
+function get_uncertainties(uncertainties_at_ech::UncertaintiesAtEch, injection_name::String, ts::Dates.DateTime, scenario::String)
+    injection_uncertainties = get_uncertainties(uncertainties_at_ech, injection_name)
+    return get_uncertainties(injection_uncertainties, ts, scenario)
+end
+function get_uncertainties(uncertainties::Uncertainties, ech::Dates.DateTime, injection_name::String, ts::Dates.DateTime, scenario::String)
+    uncertainties_at_ech = get_uncertainties(uncertainties, ech)
+    return get_uncertainties(uncertainties_at_ech, injection_name, ts, scenario)
+end
+
 
 function sum_uncertainties(uncertainties_at_ech::UncertaintiesAtEch,
     ids::Vector{String},
