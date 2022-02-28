@@ -16,6 +16,7 @@ module PSCOPF
     include("uncertainties_generator.jl")
     include("context.jl")
     include("firmness_helper.jl")
+    include("kpi_helpers.jl")
 
     include("checkers.jl")
 
