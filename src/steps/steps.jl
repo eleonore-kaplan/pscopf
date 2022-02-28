@@ -88,6 +88,7 @@ end
 #### TSO COMMON :
 function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
                             context::AbstractContext, runnable::AbstractTSO)
+    tso_schedule.decision_time = ech
     println("\tJe mets à jour le planning tso: ",
             tso_schedule.type, ",",tso_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.")
@@ -147,6 +148,7 @@ end
 #### Market COMMON :
 function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
                                 context::AbstractContext, runnable::AbstractMarket)
+    market_schedule.decision_time = ech
     println("\tJe mets à jour le planning du marché: ",
             market_schedule.type, ",",market_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.",
