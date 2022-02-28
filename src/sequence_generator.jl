@@ -64,14 +64,12 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
                         get_target_timepoints(context_p),
                         context_p)
             if affects_market_schedule(step)
-                context_p.market_schedule.decision_time = ech
                 update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.market_schedule,
                                 excluded_ids=get_limitables_ids(context_p))
             end
             if affects_tso_schedule(step)
-                context_p.tso_schedule.decision_time = ech
                 update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.tso_schedule,
@@ -80,6 +78,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
             if affects_tso_actions(step)
                 update_tso_actions!(context_p.tso_actions,
                                     ech, result, firmness, context_p, step)
+                # verify_firmness(firmness, context_p.tso_actions)
             end
         end
     end
