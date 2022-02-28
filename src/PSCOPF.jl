@@ -20,7 +20,9 @@ module PSCOPF
 
     include("checkers.jl")
 
+    include("steps/common.jl")
     include("steps/steps.jl")
+    include("steps/energy_market.jl")
 
     include("sequence_generator.jl")
 end
