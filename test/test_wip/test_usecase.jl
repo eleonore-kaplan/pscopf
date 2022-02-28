@@ -47,7 +47,7 @@ using DataStructures
                                                 12000., 120.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
 
-        #initial generators state
+        # initial generators state
         generators_init_state = SortedDict(
                         "ccg_1_0" => PSCOPF.ON,
                         "tac_2_0" => PSCOPF.OFF,

@@ -59,4 +59,27 @@ using DataStructures
 
     end
 
+    @testset "test_compute_production_from_schedule" begin
+        c_definitive_uncertain_value = PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF,
+                                                SortedDict("S1"=>PSCOPF.ON,"S2"=>PSCOPF.ON))
+        p_non_firm_uncertain_value = PSCOPF.UncertainValue{Float64}(missing,
+                                                SortedDict("S1"=>10.,"S2"=>15.))
+        p_definitive_uncertain_value = PSCOPF.UncertainValue{Float64}(10.,
+                                                SortedDict("S1"=>10.,"S2"=>10.))
+        schedule = PSCOPF.Schedule(PSCOPF.TSO(), Dates.DateTime("2015-01-01T07:00:00"), SortedDict(
+                        "gen1" => PSCOPF.GeneratorSchedule("gen1",
+                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => c_definitive_uncertain_value),
+                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(
+                                                                                            10., SortedDict("S1"=>10.,"S2"=>10.)))
+                            ),
+                        "gen2" => PSCOPF.GeneratorSchedule("gen2",
+                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => c_definitive_uncertain_value),
+                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(
+                                                                                            missing, SortedDict("S1"=>15.,"S2"=>20.)))
+                            )
+                        ))
+
+        @test PSCOPF.compute_prod(schedule, Dates.DateTime("2015-01-01T11:00:00"), "S1") ≈ 25.
+        @test PSCOPF.compute_prod(schedule, Dates.DateTime("2015-01-01T11:00:00"), "S2") ≈ 30.
+    end
 end
