@@ -43,7 +43,7 @@ using PSCOPF
     include("test_wip/test_custom_sequence.jl")
     include("test_wip/test_firmness_in_sequence.jl")
     include("test_wip/test_seq_generator.jl")
-    include("test_wip/test_seq_launch.jl")
+    # include("test_wip/test_seq_launch.jl")
     include("test_wip/test_usecase.jl")
 
 end

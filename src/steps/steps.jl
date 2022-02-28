@@ -103,18 +103,7 @@ end
 ####       MARKET
 ################################################################################
 
-"""
-utilisé pour les trois modes :
-Ne regarde pas le planning du TSO
-"""
-struct EnergyMarket <: AbstractMarket
-end
-function run(runnable::EnergyMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
-    println("\tJe ne regarde pas le planning du TSO.")
-    return #result
-end
+# EnergyMarket : c.f. energy_market.jl
 
 """
 utilisé pour le mode 1:

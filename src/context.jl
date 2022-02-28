@@ -25,13 +25,16 @@ mutable struct PSCOPFContext <: AbstractContext
 
     tso_actions::TSOActions
     #flows ?
+
+    out_dir::String
 end
 
 function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
                     generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
                     uncertainties::Uncertainties=Uncertainties(),
-                    assessment_uncertainties=nothing
+                    assessment_uncertainties=nothing,
+                    out_dir=joinpath(@__DIR__, "..", "default_out")
                     )
     market_schedule = Schedule(Market(), Dates.DateTime(0))
     init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
@@ -43,7 +46,8 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
                         Vector{Dates.DateTime}(),
                         market_schedule,
                         tso_schedule,
-                        TSOActions())
+                        TSOActions(),
+                        out_dir)
 end
 
 function get_network(context::PSCOPFContext)
