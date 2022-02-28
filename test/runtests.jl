@@ -46,4 +46,10 @@ using PSCOPF
     # include("test_wip/test_seq_launch.jl")
     include("test_wip/test_usecase.jl")
 
+    include("test_wip/test_models/energy_market/test_constraints.jl")
+    include("test_wip/test_models/energy_market/test_unit_priority.jl")
+    include("test_wip/test_models/energy_market/test_start_cost.jl")
+    include("test_wip/test_models/energy_market/test_dmo.jl")
+    include("test_wip/test_models/energy_market/test_dp.jl")
+
 end
