@@ -23,6 +23,7 @@ module PSCOPF
     include("steps/common.jl")
     include("steps/steps.jl")
     include("steps/energy_market.jl")
+    include("steps/energy_market_at_fo.jl")
 
     include("sequence_generator.jl")
 end
