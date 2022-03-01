@@ -64,6 +64,31 @@ using Dates
         "prod_1_1" => PSCOPF.OFF,
         "prod_2_1" => PSCOPF.OFF
     )
+    #ManagementMode
+    mode = PSCOPF.ManagementMode("test_mode", Dates.Minute(5))
+
+    @testset "energy_market_cannot_be_launched_after_or_at_FO" begin
+        ech = DateTime("2015-01-01T10:00:00")
+
+        # firmness : wrong firmness % ech/DMO/DP but doesn't matter
+        firmness = PSCOPF.Firmness(
+                SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                            "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), ),
+                SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                            "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                            "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
+                )
+
+        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1, # FO == 10h
+                                        generators_init_state,
+                                        uncertainties, nothing)
+
+        market = PSCOPF.EnergyMarket()
+        @test_throws ErrorException PSCOPF.run(market, ech, firmness,
+                                                PSCOPF.get_target_timepoints(context),
+                                                context)
+    end
+
 
     @testset "energy_market_can_change_the_production_level_before_dp" begin
         ech = DateTime("2015-01-01T10:00:00")
@@ -77,7 +102,7 @@ using Dates
                             "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
                 )
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
                                         generators_init_state,
                                         uncertainties, nothing)
 
@@ -137,7 +162,7 @@ using Dates
                             "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
                 )
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
                                         generators_init_state,
                                         uncertainties, nothing)
 
@@ -196,7 +221,7 @@ using Dates
                             "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
                 )
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
                                         generators_init_state,
                                         uncertainties, nothing)
 

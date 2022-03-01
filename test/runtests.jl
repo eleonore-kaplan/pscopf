@@ -1,5 +1,6 @@
 using Test
 using Dates: Date, DateTime;
+using DataStructures
 import Logging
 
 using PSCOPF
@@ -51,5 +52,6 @@ using PSCOPF
     include("test_wip/test_models/energy_market/test_start_cost.jl")
     include("test_wip/test_models/energy_market/test_dmo.jl")
     include("test_wip/test_models/energy_market/test_dp.jl")
+    include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
 
 end
