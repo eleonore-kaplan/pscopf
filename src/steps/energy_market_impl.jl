@@ -117,7 +117,6 @@ function add_firmness_constraints!(model::Model,
             val = float(safeget_value(generator_reference_schedule[ts]))
             for s in scenarios
                 @assert( !has_upper_bound(vars[gen_id, ts, s]) || (val <= upper_bound(vars[gen_id, ts, s])) )
-                # fix(vars[gen_id, ts, s], val, force=true)
                 @constraint(model, vars[gen_id, ts, s] == val)
             end
         elseif vars_firmness[ts] == TO_DECIDE

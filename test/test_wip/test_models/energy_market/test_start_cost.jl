@@ -2,6 +2,8 @@ using PSCOPF
 
 using Test
 using Dates
+using DataStructures
+using JuMP
 
 @testset verbose=true "test_energy_market_start_cost" begin
 
@@ -310,8 +312,8 @@ using Dates
         @test 50. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[2], "S1")
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[1], "S1") < 1e-09
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[2], "S1") < 1e-09
-        
-        # S2 : prod_2_1 is needed to satisfy demand it also has high proportional cost 
+
+        # S2 : prod_2_1 is needed to satisfy demand it also has high proportional cost
         # => prod_2_1 is only started when needed
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S2")
@@ -323,10 +325,11 @@ using Dates
         @test 65. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[2], "S2")
         @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[2], "S2")
-        
+
         #reset original value
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)
     end
+
 
     @testset "energy_market_test_gratis_start" begin
         #bus2, S2, TS:11h15 : high demand
@@ -357,7 +360,7 @@ using Dates
                                         "prod_2_1" => PSCOPF.GeneratorSchedule("prod_2_1",
                                             SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
                                                                                                                     SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
-                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF,
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
                                                                                                                     SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
                                                         ),
                                             SortedDict{Dates.DateTime, PSCOPF.UncertainValue{Float64}}(),
@@ -382,7 +385,7 @@ using Dates
               )
         )
 
-        #S1 : need one generator, prod_2_1 can be started gratis
+        #S1 : need one generator, prod_2_1 can be started gratis => no need to start prod_1_1
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S1")
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S1")
@@ -406,6 +409,136 @@ using Dates
         @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[1], "S2")
         @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[2], "S2")
         @test 65. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[2], "S2")
+
+        #reset original value
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)
+    end
+
+    #=
+    For now, we simply impose previous decided values (=> gratis starts are not used properly)
+    To use them correctly we need to :
+    1- decide on how they are used (does TSO update the market_schedule to impose them?
+                                    can market still use a unit it started but the TSO did not ?)
+    2- allow shutting down decided units ?
+    3- include DMO in model to avoid breaking constraints
+    e.g If we decided [ON ON ON ON], we cant go to a [ON OFF ON ON] cause that requires a restart
+    neither to [OFF OFF OFF ON] cause that requires a starting 45mins
+    =#
+    @testset "energy_market_test_gratis_start_are_ignored_for_decided_values" begin
+        #bus2, S2, TS:11h15 : high demand
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 180.)
+
+        # firmness
+        firmness_test = PSCOPF.Firmness(
+            SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE),
+                        "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.DECIDED,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.DECIDED) ),
+            SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE),
+                        "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE),
+                        "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE), )
+            )
+
+        # initial generators state
+        generators_init_state = SortedDict(
+            "prod_1_1" => PSCOPF.OFF,
+            "prod_2_1" => PSCOPF.OFF
+        )
+        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+                                        generators_init_state,
+                                        uncertainties, nothing)
+
+        context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
+                                        "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
+                                            SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing))
+                                                        ),
+                                            ),
+                                        "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing))
+                                                        ),
+                                            ),
+                                        "prod_2_1" => PSCOPF.GeneratorSchedule("prod_2_1",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF,
+                                                                                                                    SortedDict("S1"=>PSCOPF.OFF, "S2"=>PSCOPF.OFF)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                                                    SortedDict("S1"=>missing, "S2"=>missing))
+                                                        ),
+                                            )
+                                        )
+                                )
+
+        context.tso_schedule = PSCOPF.Schedule(PSCOPF.TSO(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
+                                        "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
+                                            SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
+                                            SortedDict{Dates.DateTime, PSCOPF.UncertainValue{Float64}}(),
+                                            ),
+                                        "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict{Dates.DateTime, PSCOPF.UncertainValue{Float64}}(),
+                                            ),
+                                        "prod_2_1" => PSCOPF.GeneratorSchedule("prod_2_1",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict{Dates.DateTime, PSCOPF.UncertainValue{Float64}}(),
+                                            )
+                                        )
+                                )
+
+        market = PSCOPF.EnergyMarket()
+        result = PSCOPF.run(market, ech, firmness_test,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness_test, context, market)
+
+        # Solution is optimal
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+        @test (45000) ≈ value(result.objective_model.start_cost)  # prod1 started in 2 scenarios, prod2 in S2
+        @test( value(result.objective_model.prop_cost) ≈
+              (   (20. *10 + 0.   *10. + 30. * 15) #TS1, S1
+                + (15. *10 + 0.   *10. + 50. * 15) #TS2, S1
+                + (30. *10 + 15.  *10. + 10.  * 15) #TS1, S2
+                + (30. *10 + 100. *10. + 65. * 15) #TS2, S2
+              )
+        )
+
+        #prod_2_1 was starting by TSO, normally we should use it
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S1")
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S1")
+
+        #S2 :
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S2")
 
         #reset original value
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)
