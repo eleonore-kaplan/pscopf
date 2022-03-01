@@ -68,11 +68,11 @@ function run(runnable::EnergyMarketAtFO,
                         )
 end
 
-function update_market_schedule!(market_schedule::Schedule, ech,
+function update_market_schedule!(context::AbstractContext, ech,
                                 result::EnergyMarketModel,
                                 firmness,
-                                context::AbstractContext, runnable::EnergyMarketAtFO)
-
+                                runnable::EnergyMarketAtFO)
+    market_schedule = get_market_schedule(context)
     println("\tJe mets à jour le planning du marché: ",
             market_schedule.type, ",",market_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.",

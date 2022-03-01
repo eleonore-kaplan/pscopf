@@ -23,7 +23,8 @@ using DataStructures
             return nothing
         end
         #affects_market_schedule default to true cause <:AbstractMarket
-        function PSCOPF.update_market_schedule!(market_schedule::PSCOPF.Schedule, ech, result, firmness, context::PSCOPF.AbstractContext, runnable::MockMarket)
+        function PSCOPF.update_market_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockMarket)
+            market_schedule = PSCOPF.get_market_schedule(context)
             market_schedule.decision_time = ech
             push!(schedule_history, deepcopy(market_schedule))
         end
@@ -34,7 +35,8 @@ using DataStructures
             return nothing
         end
         #affects_tso_schedule default to true cause <:AbstractTSO
-        function PSCOPF.update_tso_schedule!(tso_schedule::PSCOPF.Schedule, ech, result, firmness,  context::PSCOPF.AbstractContext, runnable::MockTSO)
+        function PSCOPF.update_tso_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness,  runnable::MockTSO)
+            tso_schedule = PSCOPF.get_tso_schedule(context)
             tso_schedule.decision_time = ech
             push!(schedule_history, deepcopy(tso_schedule))
         end
