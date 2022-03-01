@@ -98,7 +98,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -128,7 +128,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -160,7 +160,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -190,7 +190,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -247,7 +247,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -295,7 +295,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -372,7 +372,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
@@ -515,7 +515,7 @@ using JuMP
         result = PSCOPF.run(market, ech, firmness_test,
                     PSCOPF.get_target_timepoints(context),
                     context)
-        PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness_test, context, market)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness_test, market)
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL

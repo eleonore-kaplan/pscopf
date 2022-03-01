@@ -86,8 +86,9 @@ end
 
 
 #### TSO COMMON :
-function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
-                            context::AbstractContext, runnable::AbstractTSO)
+function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
+                            runnable::AbstractTSO)
+    tso_schedule = get_tso_schedule(context)
     tso_schedule.decision_time = ech
     println("\tJe mets à jour le planning tso: ",
             tso_schedule.type, ",",tso_schedule.decision_time,
@@ -123,8 +124,9 @@ function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{
 end
 
 #### Market COMMON :
-function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
-                                context::AbstractContext, runnable::AbstractMarket)
+function update_market_schedule!(context::AbstractContext, ech, result, firmness,
+                                runnable::AbstractMarket)
+    market_schedule = get_market_schedule(context)
     market_schedule.decision_time = ech
     println("\tJe mets à jour le planning du marché: ",
             market_schedule.type, ",",market_schedule.decision_time,
