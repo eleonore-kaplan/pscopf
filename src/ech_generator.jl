@@ -36,7 +36,7 @@ function launch(ech_generator::EchGenerator)
     elseif ech_generator.management_mode == PSCOPF_MODE_3
         return generate_with_deltas(ech_generator, deltas)
     end
-    error("unsuppported mode : ", ech_generator.management_mode)
+    error("unsupported mode : ", ech_generator.management_mode)
 end
 
 function generate_with_deltas(ech_generator::EchGenerator, deltas)
