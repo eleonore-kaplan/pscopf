@@ -118,10 +118,10 @@ using Printf
                         excluded_ids=PSCOPF.get_limitables_ids(context))
         for ts in TS
             for s in ["S1", "S2"]
-                @test ( PSCOPF.compute_eod(PSCOPF.get_uncertainties(context),
+                @test ( abs( PSCOPF.compute_eod(PSCOPF.get_uncertainties(context),
                                         PSCOPF.get_market_schedule(context),
                                         PSCOPF.get_network(context),
-                                        ech, ts, s)
+                                        ech, ts, s) )
                         < 1e-09 )
             end
         end

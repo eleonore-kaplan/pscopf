@@ -49,6 +49,12 @@ end
 function run(runnable::EnergyMarket,
             ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime},
             context::AbstractContext)
+    fo_start_time = TS[1] - get_fo_length(get_management_mode(context))
+    if fo_start_time <= ech
+        msg = @sprintf("invalid step at ech=%s : EnergyMarket needs to be launched before FO start (ie %s)", ech, fo_start_time)
+        throw( error(msg) )
+    end
+
     problem_name_l = @sprintf("energy_market_%s", ech)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
      get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)

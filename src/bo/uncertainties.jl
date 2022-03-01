@@ -37,12 +37,17 @@ InjectionUncertainties = SortedDict{Dates.DateTime,
 UncertaintiesAtEch = SortedDict{String, InjectionUncertainties}
 Uncertainties = SortedDict{Dates.DateTime, UncertaintiesAtEch}
 
-function add_uncertainty!(uncertainties::Uncertainties, ech::Dates.DateTime, nodal_injection_name::String, ts::Dates.DateTime, scenario_name::String, val::Float64)
-    get!(uncertainties, ech, SortedDict{String, SortedDict{Dates.DateTime, SortedDict{String, Float64}}}())
-    get!(uncertainties[ech], nodal_injection_name, SortedDict{Dates.DateTime, SortedDict{String, Float64}}())
-    get!(uncertainties[ech][nodal_injection_name], ts, SortedDict{String, Float64}())
 
-    uncertainties[ech][nodal_injection_name][ts][scenario_name] = val
+function add_uncertainty!(uncertainties_at_ech::UncertaintiesAtEch, nodal_injection_name::String, ts::Dates.DateTime, scenario_name::String, val::Float64)
+    get!(uncertainties_at_ech, nodal_injection_name, SortedDict{Dates.DateTime, SortedDict{String, Float64}}())
+    get!(uncertainties_at_ech[nodal_injection_name], ts, SortedDict{String, Float64}())
+
+    uncertainties_at_ech[nodal_injection_name][ts][scenario_name] = val
+    return uncertainties_at_ech
+end
+function add_uncertainty!(uncertainties::Uncertainties, ech::Dates.DateTime, nodal_injection_name::String, ts::Dates.DateTime, scenario_name::String, val::Float64)
+    uncertainties_at_ech = get!(uncertainties, ech, SortedDict{String, SortedDict{Dates.DateTime, SortedDict{String, Float64}}}())
+    add_uncertainty!(uncertainties_at_ech, nodal_injection_name, ts, scenario_name, val)
     return uncertainties
 end
 
