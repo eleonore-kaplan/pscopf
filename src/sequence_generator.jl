@@ -12,6 +12,10 @@ function get_operations(sequence::Sequence)
     return sequence.operations
 end
 
+function get_timepoints(sequence::Sequence)
+    return collect(keys(get_operations(sequence)))
+end
+
 """
     length of the sequence in terms of time not in terms of number of runnables to execute
 """
@@ -43,6 +47,8 @@ end
 function run!(context_p::AbstractContext, sequence_p::Sequence)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
+    set_horizon_timepoints(context_p, get_timepoints(sequence_p))
+    println("Dates d'échéances : ", get_horizon_timepoints(context_p))
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
@@ -58,20 +64,21 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
                         get_target_timepoints(context_p),
                         context_p)
             if affects_market_schedule(step)
-                context_p.market_schedule.decision_time = ech
                 update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
                 #TODO : error if !verify
-                verify_firmness(firmness, context_p.market_schedule)
+                verify_firmness(firmness, context_p.market_schedule,
+                                excluded_ids=get_limitables_ids(context_p))
             end
             if affects_tso_schedule(step)
-                context_p.tso_schedule.decision_time = ech
                 update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
                 #TODO : error if !verify
-                verify_firmness(firmness, context_p.tso_schedule)
+                verify_firmness(firmness, context_p.tso_schedule,
+                                excluded_ids=get_limitables_ids(context_p))
             end
             if affects_tso_actions(step)
                 update_tso_actions!(context_p.tso_actions,
                                     ech, result, firmness, context_p, step)
+                # verify_firmness(firmness, context_p.tso_actions)
             end
         end
     end

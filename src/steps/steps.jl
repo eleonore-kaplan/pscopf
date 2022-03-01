@@ -88,6 +88,7 @@ end
 #### TSO COMMON :
 function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
                             context::AbstractContext, runnable::AbstractTSO)
+    tso_schedule.decision_time = ech
     println("\tJe mets à jour le planning tso: ",
             tso_schedule.type, ",",tso_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.")
@@ -102,32 +103,9 @@ end
 ####       MARKET
 ################################################################################
 
-"""
-utilisé pour les trois modes :
-Ne regarde pas le planning du TSO
-"""
-struct EnergyMarket <: AbstractMarket
-end
-function run(runnable::EnergyMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
-    println("\tJe ne regarde pas le planning du TSO.")
-    return #result
-end
+# EnergyMarket : c.f. energy_market.jl
+# EnergyMarketAtFO : c.f. energy_market_at_fo.jl
 
-"""
-utilisé pour le mode 1:
-Dans le mode 1, le marché ne s'écecutera plus dans la FO => besoin de décisions fermes
-"""
-struct EnergyMarketAtFO <: AbstractMarket
-end
-function run(runnable::EnergyMarketAtFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
-    println("\tJe ne regarde pas le planning du TSO.")
-    println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
-    return #result
-end
 
 """
 utilisé pour les modes 2
@@ -147,6 +125,7 @@ end
 #### Market COMMON :
 function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
                                 context::AbstractContext, runnable::AbstractMarket)
+    market_schedule.decision_time = ech
     println("\tJe mets à jour le planning du marché: ",
             market_schedule.type, ",",market_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.",

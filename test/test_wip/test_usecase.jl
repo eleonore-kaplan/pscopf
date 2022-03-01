@@ -17,8 +17,8 @@ using DataStructures
         PSCOPF.Networks.add_new_branch!(network, "branch_1_2", 500.);
 
         # PTDF
-        PSCOPF.Networks.add_ptdf_elt(network, "branch_1_2", "bus_1", 0.5)
-        PSCOPF.Networks.add_ptdf_elt(network, "branch_1_2", "bus_2", -0.5)
+        PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_1", 0.5)
+        PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_2", -0.5)
         #Alternatively,
         # network.ptdf = SortedDict{String,SortedDict{String, Float64}}(
         #                         "branch_1_2" => SortedDict{String, Float64}(
@@ -47,7 +47,7 @@ using DataStructures
                                                 12000., 120.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
 
-        #initial generators state
+        # initial generators state
         generators_init_state = SortedDict(
                         "ccg_1_0" => PSCOPF.ON,
                         "tac_2_0" => PSCOPF.OFF,

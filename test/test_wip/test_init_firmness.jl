@@ -39,6 +39,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_2", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_2", TS[2]) == PSCOPF.FREE
     end
+
     @testset "limitable" begin
         generators = [lim1]
         ech = Dates.DateTime("2015-01-01T07:00:00")
@@ -69,6 +70,8 @@ using Dates
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
         firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+
+
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.DECIDED
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.DECIDED

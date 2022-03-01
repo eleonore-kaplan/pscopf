@@ -9,7 +9,7 @@ using Parameters
     OFF
 end
 
-function float(generator_state::GeneratorState)
+function Base.float(generator_state::GeneratorState)
     if generator_state == ON
         return 1.
     elseif generator_state == OFF
@@ -30,7 +30,7 @@ function Base.parse(type::Type{GeneratorState}, str::String)
 end
 
 function Base.parse(type::Type{GeneratorState}, val::Float64)
-    if val > 1e-9
+    if val > 1e-09
         return ON
     else
         return OFF
@@ -157,7 +157,11 @@ end
 function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
         existing_value = get_value(uncertain_value)
-        throw( error("A definitive value was already set to the UncertainValue : ", existing_value) )
+        if existing_value != value
+            msg = @sprintf("Unable to set definitive value to %s : The definitive value `%s` was already set to the UncertainValue.",
+                            value, existing_value)
+            throw( error(msg) )
+        end
     else
         uncertain_value.definitive_value = value
         for (scenario, _) in uncertain_value.anticipated_value
@@ -171,7 +175,7 @@ function get_value(uncertain_value::UncertainValue{T})::Union{T, Missing} where 
     return uncertain_value.definitive_value
 end
 
-function safeget_value(uncertain_value::UncertainValue{T})::Union{T, Missing} where T
+function safeget_value(uncertain_value::UncertainValue{T})::T where T
     if is_definitive(uncertain_value)
         return get_value(uncertain_value)
     else
@@ -238,7 +242,7 @@ function init!(schedule::Schedule, network::Networks.Network,
             schedule.generator_schedules[gen_id].production[ts] = UncertainValue{Float64}(scenarios)
 
             #commitment values are only defined for generators that have a pmin > 0
-            if (Networks.get_p_min(generator_l) > eps())
+            if (Networks.get_p_min(generator_l) > 1e-09)
                 schedule.generator_schedules[gen_id].commitment[ts] = UncertainValue{GeneratorState}(scenarios)
             end
         end
@@ -311,6 +315,16 @@ function get_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, sce
 end
 function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
     return get_prod_value(schedule.generator_schedules[gen_id], ts, scenario)
+end
+function safeget_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
+    prod = get_prod_value(schedule.generator_schedules[gen_id], ts, scenario)
+    if ismissing(prod)
+        msg = @sprintf("Missing production value in schedule for (gen_id=%s,ts=%s,s=%s)",
+                        gen_id,ts,scenario)
+        throw( error(msg) )
+    else
+        return prod
+    end
 end
 
 function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{GeneratorState, Missing}

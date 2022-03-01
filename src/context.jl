@@ -18,18 +18,23 @@ mutable struct PSCOPFContext <: AbstractContext
     #AssessmentUncertainties
     assessment_uncertainties
 
+    horizon_timepoints::Vector{Dates.DateTime}
+
     market_schedule::Schedule
     tso_schedule::Schedule
 
     tso_actions::TSOActions
     #flows ?
+
+    out_dir::String
 end
 
 function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
                     management_mode::ManagementMode,
                     generators_initial_state::SortedDict{String,GeneratorState}=SortedDict{String,GeneratorState}(),
                     uncertainties::Uncertainties=Uncertainties(),
-                    assessment_uncertainties=nothing
+                    assessment_uncertainties=nothing,
+                    out_dir=joinpath(@__DIR__, "..", "default_out")
                     )
     market_schedule = Schedule(Market(), Dates.DateTime(0))
     init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
@@ -38,9 +43,11 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,
                         uncertainties, assessment_uncertainties,
+                        Vector{Dates.DateTime}(),
                         market_schedule,
                         tso_schedule,
-                        TSOActions())
+                        TSOActions(),
+                        out_dir)
 end
 
 function get_network(context::PSCOPFContext)
@@ -53,6 +60,10 @@ end
 
 function get_horizon_timepoints(context::PSCOPFContext)
     return context.horizon_timepoints
+end
+
+function set_horizon_timepoints(context::PSCOPFContext, horizon_timepoints::Vector{Dates.DateTime})
+    context.horizon_timepoints = horizon_timepoints
 end
 
 function get_management_mode(context::PSCOPFContext)
@@ -103,4 +114,46 @@ end
 
 function get_market_schedule(context_p::PSCOPFContext)
     return context_p.market_schedule
+end
+
+
+function get_limitables_ids(context_p::PSCOPFContext)
+    limitables = Networks.get_generators_of_type(get_network(context_p), Networks.LIMITABLE)
+    limitables_ids = map(lim_gen->Networks.get_id(lim_gen), limitables)
+    return limitables_ids
+end
+
+function get_initial_state(initial_states::SortedDict{String,GeneratorState}, generator::Generator)
+    if Networks.get_p_min(generator) < 1e-09
+        return ON
+    else
+        return initial_states[Networks.get_id(generator)]
+    end
+end
+
+function definitive_starts(schedule::Schedule, initial_state::SortedDict{String, GeneratorState})
+    result = Set{Tuple{String,Dates.DateTime}}()
+
+    for (gen_id, gen_schedule) in schedule.generator_schedules
+        if isempty(gen_schedule.commitment)
+            continue
+        end
+
+        prev_ts = nothing
+        prev_state = initial_state[gen_id]
+
+        for (ts, current_state) in gen_schedule.commitment
+            @assert( isnothing(prev_ts) || (prev_ts < ts) )
+            if !is_definitive(current_state)
+                break #if current state is not definitive the following are not neither
+
+            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) )
+                push!(result, (gen_id,ts) )
+                prev_state = get_value(current_state)
+                prev_ts = ts
+            end
+        end
+    end
+
+    return result
 end
