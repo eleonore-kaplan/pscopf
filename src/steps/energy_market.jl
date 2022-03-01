@@ -2,47 +2,6 @@ using ..Networks
 
 using JuMP
 using Parameters
-
-
-@with_kw struct EnergyMarketLimitableModel <: AbstractGeneratorModel
-    #gen,ts,s
-    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #firmness_constraints
-end
-
-@with_kw struct EnergyMarketImposableModel <: AbstractGeneratorModel
-    #gen,ts,s
-    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts,s
-    b_start = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts,s
-    b_on = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #commitment_constraints = Dict{Tuple{String,DateTime,String},ConstraintRef}();
-    #firmness_constraints
-end
-
-
-@with_kw mutable struct EnergyMarketObjectiveModel <: AbstractObjectiveModel
-    prop_cost = AffExpr(0)
-    start_cost = AffExpr(0)
-
-    full_obj = AffExpr(0)
-end
-
-
-@with_kw mutable struct EnergyMarketModel <: AbstractModelContainer
-    model::Model = Model()
-    limitable_model::EnergyMarketLimitableModel = EnergyMarketLimitableModel()
-    imposable_model::EnergyMarketImposableModel = EnergyMarketImposableModel()
-    objective_model::EnergyMarketObjectiveModel = EnergyMarketObjectiveModel()
-    eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
-        SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
-    #v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
-    status::PSCOPFStatus = pscopf_UNSOLVED
-end
-
-include("energy_market_impl.jl")
-
 struct EnergyMarket <: AbstractMarket
 end
 

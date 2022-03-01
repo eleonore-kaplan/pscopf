@@ -1,4 +1,5 @@
 module PSCOPF
+    include("utils.jl")
     include("abstracts.jl")
 
     include("bo/networks/Networks.jl")
@@ -21,9 +22,10 @@ module PSCOPF
     include("checkers.jl")
 
     include("steps/common.jl")
-    include("steps/steps.jl")
+    include("steps/energy_market_impl.jl")
     include("steps/energy_market.jl")
     include("steps/energy_market_at_fo.jl")
+    include("steps/steps.jl")
 
     include("sequence_generator.jl")
 end
