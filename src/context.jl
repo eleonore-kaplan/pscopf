@@ -36,9 +36,9 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
                     assessment_uncertainties=nothing,
                     out_dir=joinpath(@__DIR__, "..", "default_out")
                     )
-    market_schedule = Schedule(Market(), Dates.DateTime(0))
+    market_schedule = Schedule(Utilitary(), Dates.DateTime(0))
     init!(market_schedule, network, target_timepoints, get_scenarios(uncertainties))
-    tso_schedule = Schedule(TSO(), Dates.DateTime(0))
+    tso_schedule = Schedule(Utilitary(), Dates.DateTime(0))
     init!(tso_schedule, network, target_timepoints, get_scenarios(uncertainties))
     return PSCOPFContext(network, target_timepoints, management_mode,
                         generators_initial_state,

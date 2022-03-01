@@ -221,13 +221,13 @@ function GeneratorSchedule(gen_id::String)
 end
 
 mutable struct Schedule <: AbstractSchedule
-    type::DeciderType
+    decider_type::DeciderType
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
     generator_schedules::SortedDict{String, GeneratorSchedule }
 end
-function Schedule(type::DeciderType, ech::Dates.DateTime)
-    return Schedule(type, ech,
+function Schedule(decider_type::DeciderType, ech::Dates.DateTime)
+    return Schedule(decider_type, ech,
                     SortedDict{String, GeneratorSchedule}() )
 end
 

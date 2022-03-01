@@ -25,6 +25,7 @@ using DataStructures
         #affects_market_schedule default to true cause <:AbstractMarket
         function PSCOPF.update_market_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockMarket)
             market_schedule = PSCOPF.get_market_schedule(context)
+            market_schedule.decider_type = PSCOPF.DeciderType(runnable)
             market_schedule.decision_time = ech
             push!(schedule_history, deepcopy(market_schedule))
         end
@@ -37,6 +38,7 @@ using DataStructures
         #affects_tso_schedule default to true cause <:AbstractTSO
         function PSCOPF.update_tso_schedule!(context::PSCOPF.AbstractContext, ech, result, firmness,  runnable::MockTSO)
             tso_schedule = PSCOPF.get_tso_schedule(context)
+            tso_schedule.decider_type = PSCOPF.DeciderType(runnable)
             tso_schedule.decision_time = ech
             push!(schedule_history, deepcopy(tso_schedule))
         end
@@ -58,13 +60,13 @@ using DataStructures
 
         @test length(schedule_history) == 4 # one for each executed step
 
-        @test PSCOPF.is_market(schedule_history[1].type)
+        @test PSCOPF.is_market(schedule_history[1].decider_type)
         @test schedule_history[1].decision_time == ECH[1]
-        @test PSCOPF.is_tso(schedule_history[2].type)
+        @test PSCOPF.is_tso(schedule_history[2].decider_type)
         @test schedule_history[2].decision_time == ECH[1]
-        @test PSCOPF.is_tso(schedule_history[3].type)
+        @test PSCOPF.is_tso(schedule_history[3].decider_type)
         @test schedule_history[3].decision_time == ECH[2]
-        @test PSCOPF.is_tso(schedule_history[4].type)
+        @test PSCOPF.is_tso(schedule_history[4].decider_type)
         @test schedule_history[4].decision_time == ECH[3]
     end
 
