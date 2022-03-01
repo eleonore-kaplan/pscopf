@@ -104,20 +104,8 @@ end
 ################################################################################
 
 # EnergyMarket : c.f. energy_market.jl
+# EnergyMarketAtFO : c.f. energy_market_at_fo.jl
 
-"""
-utilisé pour le mode 1:
-Dans le mode 1, le marché ne s'écecutera plus dans la FO => besoin de décisions fermes
-"""
-struct EnergyMarketAtFO <: AbstractMarket
-end
-function run(runnable::EnergyMarketAtFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
-    println("\tJe ne regarde pas le planning du TSO.")
-    println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
-    return #result
-end
 
 """
 utilisé pour les modes 2
