@@ -16,7 +16,7 @@ function run(runnable::EnergyMarket,
 
     problem_name_l = @sprintf("energy_market_%s", ech)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-     get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
+     get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
     println("\tJe regarde le planning du TSO et je ne paie pas les couts de démarrage des unités déjà démarrées de façon définitive.")
 
     gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
@@ -40,10 +40,11 @@ function update_market_schedule!(context::AbstractContext, ech,
                                 runnable::EnergyMarket)
     market_schedule = get_market_schedule(context)
     println("\tJe mets à jour le planning du marché: ",
-            market_schedule.type, ",",market_schedule.decision_time,
+            market_schedule.decider_type, ",",market_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning du TSO")
 
+    market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
 

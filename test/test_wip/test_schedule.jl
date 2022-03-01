@@ -23,8 +23,8 @@ using DataStructures
         schedule = PSCOPF.Schedule(PSCOPF.Market(), ech)
         PSCOPF.init!(schedule, network, TS, scenarios)
 
-        @test PSCOPF.is_market(schedule.type)
-        @test !PSCOPF.is_tso(schedule.type)
+        @test PSCOPF.is_market(schedule.decider_type)
+        @test !PSCOPF.is_tso(schedule.decider_type)
         @test schedule.decision_time == ech
         @test length(schedule.generator_schedules) == 3
 
