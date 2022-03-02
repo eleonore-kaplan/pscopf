@@ -44,11 +44,16 @@ function add_step!(sequence::Sequence, step_instance::AbstractRunnable, ech::Dat
     push!(steps_at_ech, step_instance)
 end
 
-function run!(context_p::AbstractContext, sequence_p::Sequence)
+function run!(context_p::AbstractContext, sequence_p::Sequence;
+                check_context=true)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
     set_horizon_timepoints(context_p, get_timepoints(sequence_p))
     println("Dates d'échéances : ", get_horizon_timepoints(context_p))
+
+    if check_context && !check(context_p)
+        throw( error("Invalid context!") )
+    end
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)

@@ -324,13 +324,16 @@ end
 ###########################################################
 
 function check(context)
+    #TODO replace & with &&
     return (
         check(get_network(context))
-        && check_uncertainties(get_uncertainties(context), get_network(context))
-        && check_initial_state(get_generators_initial_state(context), get_network(context))
-        && check_target_timepoints(get_target_timepoints(context))
-        && check_uncertainties_contain_ts(get_uncertainties(context), get_target_timepoints(context))
-        && check_uncertainties_contains_ech(get_uncertainties(context), get_horizon_timepoints(context))
+        & check_fo_compatibility(get_network(context), get_fo_length(get_management_mode(context)))
+        & check_dmo_compatibility(get_network(context), get_horizon_timepoints(context)[1], get_target_timepoints(context)[1])
+        & check_uncertainties(get_uncertainties(context), get_network(context))
+        & check_initial_state(get_generators_initial_state(context), get_network(context))
+        & check_target_timepoints(get_target_timepoints(context))
+        & check_uncertainties_contain_ts(get_uncertainties(context), get_target_timepoints(context))
+        & check_uncertainties_contains_ech(get_uncertainties(context), get_horizon_timepoints(context))
     )
 end
 
@@ -404,6 +407,41 @@ function check_uncertainties_contains_ech(uncertainties::Uncertainties, horizon_
     if !issubset(horizon_timepoints, uncertainties_horizon_timepoints)
         for ech in setdiff(horizon_timepoints, uncertainties_horizon_timepoints)
             msg = @sprintf("Horizon timepoint %s is missing in uncertainties", ech)
+            @error(msg)
+            checks = false
+        end
+    end
+    return checks
+end
+
+####    DMO-related
+##################################
+
+function check_dmo_compatibility(network::Network, ech_1, ts_1)
+    checks = true
+    for generator in Networks.get_generators(network)
+        dmo = Networks.get_dmo(generator)
+        if ts_1 - dmo < ech_1
+            msg = @sprintf("DMO of generator %s (=> %s) must be shorter than the farthest horizon (%s). \
+                            Otherwise, commitment values of the corresponding generator should have already been decided at the first executed step!",
+                            Networks.get_id(generator), ts_1-dmo, ech_1)
+            @error(msg)
+            checks = false
+        end
+    end
+    return checks
+end
+
+####    FO-related
+##################################
+
+function check_fo_compatibility(network::Network, fo::Dates.Period)
+    checks = true
+    for generator in Networks.get_generators(network)
+        dp = Networks.get_dp(generator)
+        if dp > fo
+            msg = @sprintf("DP of generator %s (i.e. %s) should be shorter than the FO length (%s)!",
+                            Networks.get_id(generator), dp, fo)
             @error(msg)
             checks = false
         end
