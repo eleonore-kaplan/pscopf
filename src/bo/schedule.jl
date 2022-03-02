@@ -19,7 +19,7 @@ function Base.float(generator_state::GeneratorState)
     end
 end
 
-function Base.parse(type::Type{GeneratorState}, str::String)
+function Base.parse(::Type{GeneratorState}, str::String)
     if lowercase(str) == "on"
         return ON
     elseif  lowercase(str) == "off"
@@ -29,7 +29,7 @@ function Base.parse(type::Type{GeneratorState}, str::String)
     end
 end
 
-function Base.parse(type::Type{GeneratorState}, val::Float64)
+function Base.parse(::Type{GeneratorState}, val::Float64)
     if val > 1e-09
         return ON
     else
@@ -47,7 +47,7 @@ end
     FREE # by scenario decisions
 end
 
-@with_kw struct Firmness
+@with_kw_noshow struct Firmness
     #gen,ts
     commitment::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
@@ -112,6 +112,14 @@ function get_power_level_firmness(firmness::Firmness, gen_id::String, ts::Dates.
         return missing
     end
 end
+
+function Base.show(io::IO, firmness::Firmness)
+    println(io, "commitment :")
+    pretty_print(io, firmness.commitment)
+    println(io, "power_level :")
+    pretty_print(io, firmness.power_level)
+end
+
 
 ##########################################
 ## UncertainValue

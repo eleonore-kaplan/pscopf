@@ -98,7 +98,8 @@ function read_generators!(network, data)
                 pmax = parse(Float64, buffer[4])
                 start_cost = parse(Float64, buffer[5])
                 prop_cost = parse(Float64, buffer[6])
-                dmo = dp = Dates.Second(parse(Float64, buffer[7]))
+                dmo = Dates.Second(parse(Float64, buffer[7]))
+                dp = Dates.Second(parse(Float64, buffer[8]))
 
                 Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
                                         generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
@@ -147,6 +148,22 @@ function read_uncertainties(data)
                 scenario = buffer[4]
                 value = parse(Float64, buffer[5])
                 PSCOPF.add_uncertainty!(result, ech, name, ts, scenario, value)
+            end
+        end
+    end
+    return result
+end
+
+function read_initial_state(data)
+    result = SortedDict{String, PSCOPF.GeneratorState}()
+    open(joinpath(data, "pscopf_init.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln)
+                gen_id = buffer[1]
+                state = parse(PSCOPF.GeneratorState, buffer[2])
+                result[gen_id] = state
             end
         end
     end
