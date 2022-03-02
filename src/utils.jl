@@ -12,11 +12,14 @@ Note that `file_p` is open in write mode by default.
 """
 function redirect_to_file(f::Function, file_p::String, mode_p="w")
     open(file_p, mode_p) do file_l
+        redirect_to_file(f, file_l)
+    end
+end
+function redirect_to_file(f::Function, io::IO)
+    Base.Libc.flush_cstdio()
+    redirect_stdout(io) do
+        f()
         Base.Libc.flush_cstdio()
-        redirect_stdout(file_l) do
-            f()
-            Base.Libc.flush_cstdio()
-        end
     end
 end
 
