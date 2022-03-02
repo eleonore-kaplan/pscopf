@@ -19,3 +19,20 @@ function redirect_to_file(f::Function, file_p::String, mode_p="w")
         end
     end
 end
+
+function pretty_print(io::IO, d::AbstractDict; spacing=1, sort_p::Bool=false)
+    d_l = d
+    if sort_p
+        d_l = sort(d)
+    end
+    for (k,v) in d_l
+        if typeof(v) <: AbstractDict
+            str_k = "$(repr(k)) => "
+            print(io, join(fill(" ", spacing)), str_k, "\n")
+            pretty_print(io, v, spacing=spacing+1+length(str_k), sort_p=sort_p)
+        else
+            print(io, join(fill(" ", spacing)), k, " => ", v, "\n")
+        end
+    end
+    nothing
+end

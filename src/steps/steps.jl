@@ -106,10 +106,8 @@ function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
-
-#### Market COMMON :
 function update_market_schedule!(context::AbstractContext, ech, result, firmness,
-                                runnable::AbstractMarket)
+                                runnable::BalanceMarket)
     market_schedule = get_market_schedule(context)
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech

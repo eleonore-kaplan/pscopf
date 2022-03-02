@@ -21,7 +21,7 @@ using Dates
     end
 
     @testset "read_uncertain_distributions" begin
-        data_path = joinpath(@__DIR__, "..", "..", "2buses")
+        data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
         uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
 
@@ -31,7 +31,7 @@ using Dates
     end
 
     @testset "one_mode" begin
-        data_path = joinpath(@__DIR__, "..", "..", "2buses")
+        data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
         uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
         nb_scenarios = 5#= FIXME =#
@@ -64,7 +64,7 @@ using Dates
     end
 
     @testset "multiple_modes" begin
-        data_path = joinpath(@__DIR__, "..", "..", "2buses")
+        data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
         uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
         nb_scenarios = 5#= FIXME =#
