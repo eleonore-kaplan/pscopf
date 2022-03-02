@@ -399,3 +399,15 @@ end
 function set_commitment_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
     return set_commitment_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
 end
+
+function Base.show(io::IO, gen_schedule::GeneratorSchedule)
+    @printf("generator %s:\n", gen_schedule.gen_id)
+    println("commitment:")
+    pretty_print(io, gen_schedule.commitment)
+    println("production:")
+    pretty_print(io, gen_schedule.production)
+end
+function Base.show(io::IO, schedule::Schedule)
+    @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
+    pretty_print(io, schedule.generator_schedules)
+end
