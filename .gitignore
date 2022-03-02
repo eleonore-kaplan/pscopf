@@ -15,8 +15,10 @@ data/*
 !data/2ech
 !data/data_slack/*/base
 !data/random_generation/
+!data/2buses_usecase/
 
 #log and dbg files
+default_out
 *.lp
 *.sol
 *.log
