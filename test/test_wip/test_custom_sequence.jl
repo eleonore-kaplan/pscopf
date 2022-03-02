@@ -56,7 +56,7 @@ using DataStructures
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
 
-        PSCOPF.run!(exec_context, sequence)
+        PSCOPF.run!(exec_context, sequence, check_context=false)
 
         @test length(schedule_history) == 4 # one for each executed step
 
