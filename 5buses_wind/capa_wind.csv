@@ -1,6 +1,0 @@
-rso	poste	prodtyde	id	p	max_p
-RSO_5nodes_PJM_slackA_wind.xiidm	1	wind	wind_1	40	50
-RSO_5nodes_PJM_slackA_wind.xiidm	2	wind	wind_2	18	20
-RSO_5nodes_PJM_slackA_wind.xiidm	3	wind	wind_3	20	80
-RSO_5nodes_PJM_slackA_wind.xiidm	4	wind	wind_4	70	100
-RSO_5nodes_PJM_slackA_wind.xiidm	5	wind	wind_5	8	10
