@@ -342,6 +342,8 @@ end
 
 function check_initial_state(initial_state::SortedDict{String, GeneratorState}, network)
     checks = true
+    gen_ids = Set(map( gen -> Networks.get_id(gen),
+                        Networks.get_generators(network) ))
     must_list_generators = filter(gen -> Networks.get_p_min(gen) > 0,
                                 collect(Networks.get_generators(network)) )
     must_list_gen_ids = Set(map( gen -> Networks.get_id(gen),
@@ -355,7 +357,9 @@ function check_initial_state(initial_state::SortedDict{String, GeneratorState}, 
     end
 
     for extra_gen_id in setdiff(listed_gen_ids, must_list_gen_ids)
-        if initial_state[extra_gen_id] == OFF
+        if !(extra_gen_id in gen_ids)
+            @warn(@sprintf("Unrecognized generator id %s.", extra_gen_id))
+        elseif initial_state[extra_gen_id] == OFF
             msg = @sprintf("Initial state for generator %s must be ON (or can be ommited). \
                             Generators with no Pmin can always be considered on and no start cost is linked to them",
                             extra_gen_id)
