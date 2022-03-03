@@ -1,7 +1,7 @@
 using Dates
 using DataStructures
 
-using ..Networks
+using .Networks
 
 ###########################################################
 ###         Network Checkers

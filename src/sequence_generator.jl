@@ -2,7 +2,7 @@ using Dates
 using DataStructures
 using Parameters
 
-using ..Networks
+using .Networks
 
 @with_kw struct Sequence
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
