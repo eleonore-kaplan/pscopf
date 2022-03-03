@@ -338,10 +338,36 @@ function write_production_schedule(dir_path::String, schedule::PSCOPF.Schedule, 
     end
 end
 
-function write(dir_path, schedule::PSCOPF.Schedule, prefix="")
+
+function write_flows(dir_path::String, context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
+    ech = schedule.decision_time
+    flows_filename_l = joinpath(dir_path, prefix*"flows.txt")
+
+    flows = PSCOPF.compute_flows(context, schedule)
+    open(flows_filename_l, "a") do flows_file_l
+        if filesize(flows_file_l) == 0
+            Base.write(flows_file_l, @sprintf("#%19s%10s%25s%20s%10s%16s\n", "ech", "decider", "branch_name", "ts", "scenario", "value"))
+        end
+        for ((branch_id, ts, scenario), flow_value) in flows
+            Base.write(flows_file_l, @sprintf("%20s%10s%25s%20s%10s%16.8E\n",
+                                ech,
+                                schedule.decider_type,
+                                branch_id,
+                                ts,
+                                scenario,
+                                flow_value
+                                )
+                    )
+        end
+    end
+end
+
+function write(context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
+    dir_path = context.out_dir
     if !isnothing(dir_path)
         write_commitment_schedule(dir_path, schedule, prefix)
         write_production_schedule(dir_path, schedule, prefix)
+        write_flows(dir_path, context, schedule, prefix)
     end
 end
 
