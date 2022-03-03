@@ -3,6 +3,8 @@ using .Networks
 using JuMP
 using Dates
 using DataStructures
+using Printf
+using Parameters
 
 @with_kw struct EnergyMarketLimitableModel <: AbstractGeneratorModel
     #gen,ts,s
@@ -267,26 +269,13 @@ function add_limitable!(limitable_model::EnergyMarketLimitableModel, model::Mode
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
         for s in scenarios
-            p_max = min(Networks.get_p_max(generator), inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
+            p_enr = min(Networks.get_p_max(generator), inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
             name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-            limitable_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=p_max)
+            limitable_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=p_enr)
 
-            #Level of the limitable is set to the uncertainty or pmax
-            #FIXME : if decided : set minimum(decided,uncertain)
-            #        if to_decide : add firmness constraints
-            #        else (if free) : fix to upper_bound
-            #fix(limitable_model.p_injected[gen_id, ts, s], p_max, force=true)
-            @constraint(model, limitable_model.p_injected[gen_id, ts, s] == p_max)
+            @constraint(model, limitable_model.p_injected[gen_id, ts, s] == p_enr)
         end
     end
-
-
-    # add_power_level_firmness_constraints!(model, generator,
-    #                                     limitable_model.p_injected,
-    #                                     target_timepoints, scenarios,
-    #                                     power_level_firmness,
-    #                                     generator_reference_schedule
-    #                                     )
 
     return limitable_model, model
 end

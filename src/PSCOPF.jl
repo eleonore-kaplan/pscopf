@@ -9,7 +9,6 @@ module PSCOPF
     include("bo/schedule.jl")
     include("bo/tso_actions.jl")
 
-    include("data/AmplTxt.jl")
     include("data/PSCOPFio.jl")
     include("data/DataToNetwork.jl")
 

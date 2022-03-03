@@ -1,8 +1,13 @@
 using Dates
 using DataStructures
 using Parameters
+using Printf
 
 using .Networks
+
+###############################################
+# Sequence
+###############################################
 
 @with_kw struct Sequence
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
@@ -44,8 +49,11 @@ function add_step!(sequence::Sequence, step_instance::AbstractRunnable, ech::Dat
     push!(steps_at_ech, step_instance)
 end
 
-function run!(context_p::AbstractContext, sequence_p::Sequence;
-                check_context=true)
+###############################################
+# Sequence Launch
+###############################################
+
+function init!(context_p::AbstractContext, sequence_p::Sequence, check_context::Bool)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
     set_horizon_timepoints(context_p, get_timepoints(sequence_p))
@@ -54,6 +62,42 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
     if check_context && !check(context_p)
         throw( error("Invalid context!") )
     end
+end
+
+function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next_ech)
+    println(typeof(step), " à l'échéance ", ech)
+    firmness = compute_firmness(step, ech, next_ech,
+                            get_target_timepoints(context_p), context_p)
+    result = run(step, ech, firmness,
+                get_target_timepoints(context_p),
+                context_p)
+
+    if affects_market_schedule(step)
+        update_market_schedule!(context_p, ech, result, firmness, step)
+        #TODO : error if !verify
+        verify_firmness(firmness, context_p.market_schedule,
+                        excluded_ids=get_limitables_ids(context_p))
+        PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), "market_")
+    end
+
+    if affects_tso_schedule(step)
+        update_tso_schedule!(context_p, ech, result, firmness, step)
+        #TODO : error if !verify
+        verify_firmness(firmness, context_p.tso_schedule,
+                        excluded_ids=get_limitables_ids(context_p))
+        # PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
+    end
+
+    if affects_tso_actions(step)
+        update_tso_actions!(context_p.tso_actions,
+                            ech, result, firmness, context_p, step)
+        # verify_firmness(firmness, context_p.tso_actions)
+    end
+end
+
+function run!(context_p::AbstractContext, sequence_p::Sequence;
+                check_context=true)
+    init!(context_p, sequence_p, check_context)
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
@@ -62,37 +106,14 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
         println("ECH : ", ech, " : M-", delta)
         println("-"^50)
         for step in steps_at_ech
-            println(typeof(step), " à l'échéance ", ech)
-            firmness = init_firmness(step, ech, next_ech,
-                                    get_target_timepoints(context_p), context_p)
-            result = run(step, ech, firmness,
-                        get_target_timepoints(context_p),
-                        context_p)
-
-            if affects_market_schedule(step)
-                update_market_schedule!(context_p, ech, result, firmness, step)
-                #TODO : error if !verify
-                verify_firmness(firmness, context_p.market_schedule,
-                                excluded_ids=get_limitables_ids(context_p))
-                PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), "market_")
-            end
-
-            if affects_tso_schedule(step)
-                update_tso_schedule!(context_p, ech, result, firmness, step)
-                #TODO : error if !verify
-                verify_firmness(firmness, context_p.tso_schedule,
-                                excluded_ids=get_limitables_ids(context_p))
-                # PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
-            end
-
-            if affects_tso_actions(step)
-                update_tso_actions!(context_p.tso_actions,
-                                    ech, result, firmness, context_p, step)
-                # verify_firmness(firmness, context_p.tso_actions)
-            end
+            run_step!(context_p, step, ech, next_ech)
         end
     end
 end
+
+###############################################
+# Sequence Generation
+###############################################
 
 struct SequenceGenerator <: AbstractDataGenerator
     network::Networks.Network #Not used for now (but potentially we can have specific operations at DMO horizons)
@@ -127,10 +148,11 @@ end
 
 function gen_seq_mode1(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
+    first_ts = seq_generator.target_timepoints[1]
+    fo_startpoint = first_ts - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.target_timepoints[1]
+        if ech <  first_ts
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -143,6 +165,10 @@ function gen_seq_mode1(seq_generator::SequenceGenerator)
             else
                 add_step!(sequence, TSOInFO, ech)
             end
+        elseif first_ts < ech
+            msg = @sprintf(("Error when generating sequence: ech (%s) is after target timepoint (%s)."),
+                            ech, first_ts)
+            throw( error(msg) )
         end
     end
 
@@ -154,10 +180,11 @@ end
 
 function gen_seq_mode2(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
+    first_ts = seq_generator.target_timepoints[1]
+    fo_startpoint = first_ts - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.target_timepoints[1]
+        if ech <  first_ts
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -171,6 +198,10 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
                 add_step!(sequence, BalanceMarket, ech)
                 add_step!(sequence, TSOBiLevel, ech)
             end
+        elseif first_ts < ech
+            msg = @sprintf(("Error when generating sequence: ech (%s) is after target timepoint (%s)."),
+                            ech, first_ts)
+            throw( error(msg) )
         end
     end
 
@@ -182,10 +213,11 @@ end
 
 function gen_seq_mode3(seq_generator::SequenceGenerator)
     sequence = Sequence()
-    fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
+    first_ts = seq_generator.target_timepoints[1]
+    fo_startpoint = first_ts - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.target_timepoints[1]
+        if ech <  first_ts
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -199,6 +231,10 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
                 #TODO : check if this is an EnergyMarket or BalanceMarket or another implem
                 add_step!(sequence, EnergyMarket, ech)
             end
+        elseif first_ts < ech
+            msg = @sprintf(("Error when generating sequence: ech (%s) is after target timepoint (%s)."),
+                            ech, first_ts)
+            throw( error(msg) )
         end
     end
 

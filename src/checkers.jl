@@ -1,5 +1,6 @@
 using Dates
 using DataStructures
+using Printf
 
 using .Networks
 
@@ -421,6 +422,7 @@ end
 ####    DMO-related
 ##################################
 
+#avoid needing an initial schedule
 function check_dmo_compatibility(network::Network, ech_1, ts_1)
     checks = true
     for generator in Networks.get_generators(network)

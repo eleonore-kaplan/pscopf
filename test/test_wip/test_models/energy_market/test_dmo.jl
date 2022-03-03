@@ -101,7 +101,7 @@ using Dates
         #                     "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
         #                     "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
         #         )
-        firmness = PSCOPF.init_firmness(ech, #7h
+        firmness = PSCOPF.compute_firmness(ech, #7h
                                         DateTime("2015-01-01T08:00:00"), # corresponds to ECH-DMO
                                         TS, collect(PSCOPF.Networks.get_generators(network)))
 
@@ -165,7 +165,7 @@ using Dates
         #                     "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
         #                     "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
         #         )
-        firmness = PSCOPF.init_firmness(ech, #9h
+        firmness = PSCOPF.compute_firmness(ech, #9h
                                         DateTime("2015-01-01T10:30:00"), # corresponds to ECH-DMO
                                         TS, collect(PSCOPF.Networks.get_generators(network)))
 
