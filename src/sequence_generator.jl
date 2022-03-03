@@ -44,11 +44,16 @@ function add_step!(sequence::Sequence, step_instance::AbstractRunnable, ech::Dat
     push!(steps_at_ech, step_instance)
 end
 
-function run!(context_p::AbstractContext, sequence_p::Sequence)
+function run!(context_p::AbstractContext, sequence_p::Sequence;
+                check_context=true)
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
     set_horizon_timepoints(context_p, get_timepoints(sequence_p))
     println("Dates d'échéances : ", get_horizon_timepoints(context_p))
+
+    if check_context && !check(context_p)
+        throw( error("Invalid context!") )
+    end
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
@@ -63,18 +68,23 @@ function run!(context_p::AbstractContext, sequence_p::Sequence)
             result = run(step, ech, firmness,
                         get_target_timepoints(context_p),
                         context_p)
+
             if affects_market_schedule(step)
-                update_market_schedule!(context_p.market_schedule, ech, result, firmness, context_p, step)
+                update_market_schedule!(context_p, ech, result, firmness, step)
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.market_schedule,
                                 excluded_ids=get_limitables_ids(context_p))
+                PSCOPF.PSCOPFio.write(context_p.out_dir, get_market_schedule(context_p), "market_")
             end
+
             if affects_tso_schedule(step)
-                update_tso_schedule!(context_p.tso_schedule, ech, result, firmness, context_p, step)
+                update_tso_schedule!(context_p, ech, result, firmness, step)
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.tso_schedule,
                                 excluded_ids=get_limitables_ids(context_p))
+                PSCOPF.PSCOPFio.write(context_p.out_dir, get_tso_schedule(context_p), "tso_")
             end
+
             if affects_tso_actions(step)
                 update_tso_actions!(context_p.tso_actions,
                                     ech, result, firmness, context_p, step)
@@ -120,7 +130,7 @@ function gen_seq_mode1(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -147,7 +157,7 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -175,7 +185,7 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)

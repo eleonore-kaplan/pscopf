@@ -19,7 +19,7 @@ function Base.float(generator_state::GeneratorState)
     end
 end
 
-function Base.parse(type::Type{GeneratorState}, str::String)
+function Base.parse(::Type{GeneratorState}, str::String)
     if lowercase(str) == "on"
         return ON
     elseif  lowercase(str) == "off"
@@ -29,7 +29,7 @@ function Base.parse(type::Type{GeneratorState}, str::String)
     end
 end
 
-function Base.parse(type::Type{GeneratorState}, val::Float64)
+function Base.parse(::Type{GeneratorState}, val::Float64)
     if val > 1e-09
         return ON
     else
@@ -47,7 +47,7 @@ end
     FREE # by scenario decisions
 end
 
-@with_kw struct Firmness
+@with_kw_noshow struct Firmness
     #gen,ts
     commitment::SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} } =
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
@@ -112,6 +112,14 @@ function get_power_level_firmness(firmness::Firmness, gen_id::String, ts::Dates.
         return missing
     end
 end
+
+function Base.show(io::IO, firmness::Firmness)
+    println(io, "commitment :")
+    pretty_print(io, firmness.commitment)
+    println(io, "power_level :")
+    pretty_print(io, firmness.power_level)
+end
+
 
 ##########################################
 ## UncertainValue
@@ -221,13 +229,13 @@ function GeneratorSchedule(gen_id::String)
 end
 
 mutable struct Schedule <: AbstractSchedule
-    type::DeciderType
+    decider_type::DeciderType
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
     generator_schedules::SortedDict{String, GeneratorSchedule }
 end
-function Schedule(type::DeciderType, ech::Dates.DateTime)
-    return Schedule(type, ech,
+function Schedule(decider_type::DeciderType, ech::Dates.DateTime)
+    return Schedule(decider_type, ech,
                     SortedDict{String, GeneratorSchedule}() )
 end
 
@@ -390,4 +398,16 @@ function set_commitment_definitive_value!(sub_schedule::GeneratorSchedule, ts::D
 end
 function set_commitment_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
     return set_commitment_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
+end
+
+function Base.show(io::IO, gen_schedule::GeneratorSchedule)
+    @printf("generator %s:\n", gen_schedule.gen_id)
+    println("commitment:")
+    pretty_print(io, gen_schedule.commitment)
+    println("production:")
+    pretty_print(io, gen_schedule.production)
+end
+function Base.show(io::IO, schedule::Schedule)
+    @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
+    pretty_print(io, schedule.generator_schedules)
 end

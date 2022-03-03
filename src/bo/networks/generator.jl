@@ -16,7 +16,7 @@ function Base.string(g::GeneratorType)
     end
 end
 
-function Base.parse(type::Type{GeneratorType}, str::String)
+function Base.parse(::Type{GeneratorType}, str::String)
     if lowercase(str) == "limitable"
         return LIMITABLE
     elseif  lowercase(str) == "imposable"

@@ -98,7 +98,8 @@ function read_generators!(network, data)
                 pmax = parse(Float64, buffer[4])
                 start_cost = parse(Float64, buffer[5])
                 prop_cost = parse(Float64, buffer[6])
-                dmo = dp = Dates.Second(parse(Float64, buffer[7]))
+                dmo = Dates.Second(parse(Float64, buffer[7]))
+                dp = Dates.Second(parse(Float64, buffer[8]))
 
                 Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
                                         generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
@@ -133,9 +134,9 @@ function read_uncertainties_distributions(network, data)
     return result
 end
 
-function read_uncertainties(data)
+function read_uncertainties(data, filename="pscopf_uncertainties.txt")
     result = PSCOPF.Uncertainties()
-    open(joinpath(data, "pscopf_uncertainties.txt"), "r") do file
+    open(joinpath(data, filename), "r") do file
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
@@ -147,6 +148,22 @@ function read_uncertainties(data)
                 scenario = buffer[4]
                 value = parse(Float64, buffer[5])
                 PSCOPF.add_uncertainty!(result, ech, name, ts, scenario, value)
+            end
+        end
+    end
+    return result
+end
+
+function read_initial_state(data, filename="pscopf_init.txt")
+    result = SortedDict{String, PSCOPF.GeneratorState}()
+    open(joinpath(data, filename), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = AmplTxt.split_with_space(ln)
+                gen_id = buffer[1]
+                state = parse(PSCOPF.GeneratorState, buffer[2])
+                result[gen_id] = state
             end
         end
     end
@@ -263,5 +280,82 @@ function write(dir_path::String, uncertainties::PSCOPF.Uncertainties)
 
     end
 end
+
+
+function write_commitment_schedule(dir_path::String, schedule::PSCOPF.Schedule, prefix="")
+    ech = schedule.decision_time
+    commitment_filename_l = joinpath(dir_path, prefix*"commitment_schedule.txt")
+    open(commitment_filename_l, "a") do commitment_file_l
+        if filesize(commitment_file_l) == 0
+            Base.write(commitment_file_l, @sprintf("#%19s%10s%25s%20s%10s%6s%10s\n", "ech", "decider", "name", "ts", "scenario", "value", "firmness"))
+        end
+        for (gen_id, gen_schedule) in schedule.generator_schedules
+            for (ts, uncertain_value) in gen_schedule.commitment
+                firmness = PSCOPF.is_definitive(uncertain_value) ? "FIRM" : "FREE"
+                for (scenario, value_l) in uncertain_value.anticipated_value
+                    value_l = ismissing(value_l) ? -1. : value_l
+                    Base.write(commitment_file_l, @sprintf("%20s%10s%25s%20s%10s%6s%10s\n",
+                                        ech,
+                                        schedule.decider_type,
+                                        gen_id,
+                                        ts,
+                                        scenario,
+                                        value_l,
+                                        firmness
+                                        )
+                            )
+                end
+            end
+        end
+    end
+end
+
+function write_production_schedule(dir_path::String, schedule::PSCOPF.Schedule, prefix="")
+    ech = schedule.decision_time
+    schedule_filename_l = joinpath(dir_path, prefix*"schedule.txt")
+    open(schedule_filename_l, "a") do schedule_file_l
+        if filesize(schedule_file_l) == 0
+            Base.write(schedule_file_l, @sprintf("#%19s%10s%25s%20s%10s%16s%10s\n", "ech", "decider", "name", "ts", "scenario", "value", "firmness"))
+        end
+        for (gen_id, gen_schedule) in schedule.generator_schedules
+            for (ts, uncertain_value) in gen_schedule.production
+                firmness = PSCOPF.is_definitive(uncertain_value) ? "FIRM" : "FREE"
+                for (scenario, value_l) in uncertain_value.anticipated_value
+                    value_l = ismissing(value_l) ? -1. : value_l
+                    Base.write(schedule_file_l, @sprintf("%20s%10s%25s%20s%10s%16.8E%10s\n",
+                                        ech,
+                                        schedule.decider_type,
+                                        gen_id,
+                                        ts,
+                                        scenario,
+                                        value_l,
+                                        firmness
+                                        )
+                            )
+                end
+            end
+        end
+    end
+end
+
+function write(dir_path, schedule::PSCOPF.Schedule, prefix="")
+    if !isnothing(dir_path)
+        write_commitment_schedule(dir_path, schedule, prefix)
+        write_production_schedule(dir_path, schedule, prefix)
+    end
+end
+
+
+function write(dir_path::String, context::PSCOPF.AbstractContext;
+                tso_schedule::Bool=true,
+                market_schedule::Bool=true)
+    if market_schedule
+        write(dir_path, PSCOPF.get_market_schedule(context), "market_")
+    end
+    if tso_schedule
+        write(dir_path, PSCOPF.get_tso_schedule(context), "tso_")
+    end
+end
+
 
 end #module PSCOPFio

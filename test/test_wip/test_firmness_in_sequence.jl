@@ -65,7 +65,7 @@ TS2:                                                    D        X    <--DP=DMO-
         mode = PSCOPF.ManagementMode("test_firmness_in_sequence", Dates.Minute(0))
         exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
 
-        PSCOPF.run!(exec_context, sequence)
+        PSCOPF.run!(exec_context, sequence, check_context=false)
 
         @test length(firmness_history) == 4 # one for each executed step
 

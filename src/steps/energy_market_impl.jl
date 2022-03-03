@@ -49,7 +49,7 @@ function energy_market(network::Networks.Network,
                     firmness::Firmness,
                     reference_schedule::Schedule,
                     gratis_starts::Set{Tuple{String,Dates.DateTime}};
-                    out_path=@__DIR__,
+                    out_path=nothing,
                     problem_name="energy_market",
                     )
 
