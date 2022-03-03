@@ -44,8 +44,6 @@ using PSCOPF
     include("test_wip/test_custom_sequence.jl")
     include("test_wip/test_firmness_in_sequence.jl")
     include("test_wip/test_seq_generator.jl")
-    # include("test_wip/test_seq_launch.jl")
-    include("test_wip/test_usecase.jl")
 
     include("test_wip/test_models/energy_market/test_constraints.jl")
     include("test_wip/test_models/energy_market/test_unit_priority.jl")
@@ -53,5 +51,9 @@ using PSCOPF
     include("test_wip/test_models/energy_market/test_dmo.jl")
     include("test_wip/test_models/energy_market/test_dp.jl")
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
+
+    # include("test_wip/test_seq_launch.jl")
+    include("test_wip/test_usecase.jl")
+    include("test_wip/test_usecase_from_folder.jl")
 
 end
