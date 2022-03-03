@@ -90,7 +90,7 @@ using Printf
     #                         "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
     #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE,), )
     #             )
-    firmness = PSCOPF.init_firmness(ech, #7h
+    firmness = PSCOPF.compute_firmness(ech, #7h
                                     nothing, # corresponds to ECH-DMO
                                     TS, collect(PSCOPF.Networks.get_generators(network)))
 
