@@ -39,3 +39,10 @@ function pretty_print(io::IO, d::AbstractDict; spacing=1, sort_p::Bool=false)
     end
     nothing
 end
+
+function rm_non_prefixed(dir::String, prefix::String)
+    non_prefixed = filter(!startswith(prefix), readdir(dir))
+    paths = joinpath.(dir, non_prefixed)
+    files_to_rm = filter(isfile, paths)
+    foreach(rm, files_to_rm)
+end
