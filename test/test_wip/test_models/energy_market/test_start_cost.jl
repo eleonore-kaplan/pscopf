@@ -416,15 +416,8 @@ using JuMP
 
     #=
     For now, we simply impose previous decided values (=> gratis starts are not used properly)
-    To use them correctly we need to :
-    1- decide on how they are used (does TSO update the market_schedule to impose them?
-                                    can market still use a unit it started but the TSO did not ?)
-    2- allow shutting down decided units ?
-    3- include DMO in model to avoid breaking constraints
-    e.g If we decided [ON ON ON ON], we cant go to a [ON OFF ON ON] cause that requires a restart
-    neither to [OFF OFF OFF ON] cause that requires a starting 45mins
     =#
-    @testset "energy_market_test_gratis_start_are_ignored_for_decided_values" begin
+    @testset "energy_market_test_gratis_start_not_used_for_decided_values" begin
         #bus2, S2, TS:11h15 : high demand
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 180.)
 
@@ -451,6 +444,7 @@ using JuMP
                                         generators_init_state,
                                         uncertainties, nothing)
 
+        # For market, Prod_2_1 is decided, it is OFF in ts1, ON in ts2 => automatically fixed in the next step
         context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
                                         "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                             SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
@@ -487,6 +481,7 @@ using JuMP
                                         )
                                 )
 
+        # TSO starts prod_2_1 for ts1 too
         context.tso_schedule = PSCOPF.Schedule(PSCOPF.TSO(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
                                         "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                             SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
@@ -520,17 +515,14 @@ using JuMP
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-        #prod_2_1 was starting by TSO, normally we should use it
-        @test_broken PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S1")
-        @test_broken PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S1")
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S1")
-
-        #S2 :
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S2")
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S2")
-        @test_broken PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S2")
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S1")
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S2")
+        @test value(result.objective_model.start_cost)  ≈ (
+                     2*45000 + 2*80000 )
+            # prod1 started in 2 scenarios at TS1
+            # prod2 started in both scenarios at TS2, Note that if we had started it at TS1 the cost would have not been payed by the market
 
         #reset original value
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)

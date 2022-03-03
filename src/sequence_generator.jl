@@ -130,7 +130,7 @@ function gen_seq_mode1(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -157,7 +157,7 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
@@ -185,7 +185,7 @@ function gen_seq_mode3(seq_generator::SequenceGenerator)
     fo_startpoint = seq_generator.target_timepoints[1] - get_fo_length(seq_generator.management_mode)
 
     for ech in seq_generator.horizon_timepoints
-        if ech <  seq_generator.horizon_timepoints[end]
+        if ech <  seq_generator.target_timepoints[1]
             if ech < fo_startpoint
                 add_step!(sequence, EnergyMarket, ech)
                 add_step!(sequence, TSOOutFO, ech)
