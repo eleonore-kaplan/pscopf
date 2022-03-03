@@ -6,10 +6,6 @@ using Printf
 
 @testset verbose=true "test_energy_market_constraints" begin
 
-
-    println("\n"^6)
-    println("ENERGY MARKET")
-
     #=
     TS: [11h, 11h15]
     S: [S1,S2]
@@ -99,7 +95,7 @@ using Printf
     result = PSCOPF.run(market, ech, firmness,
                 PSCOPF.get_target_timepoints(context),
                 context)
-    PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
+    PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
     @testset "energy_market_successful_launch" begin
         # Solution is optimal

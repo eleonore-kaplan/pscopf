@@ -58,17 +58,21 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
 end
 
 function solve!(model_container::AbstractModelContainer,
-                problem_name="problem", out_folder=".",
+                problem_name="problem", out_folder=nothing,
                 optimizer=OPTIMIZER)
-    mkpath(out_folder)
-
     model_l = get_model(model_container)
     set_optimizer(model_l, optimizer);
 
-    model_file_l = joinpath(out_folder, problem_name*".lp")
-    write_to_file(model_l, model_file_l)
+    if !isnothing(out_folder)
+        mkpath(out_folder)
+        model_file_l = joinpath(out_folder, problem_name*".lp")
+        write_to_file(model_l, model_file_l)
 
-    log_file_l = joinpath(out_folder, problem_name*".log")
+        log_file_l = joinpath(out_folder, problem_name*".log")
+    else
+        log_file_l = devnull
+    end
+
     redirect_to_file(log_file_l) do
         optimize!(model_l)
     end

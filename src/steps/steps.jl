@@ -2,23 +2,6 @@ using ..Networks
 
 using Dates
 
-struct OptimResult end
-
-struct TSO <: DeciderType end
-struct Market <: DeciderType end
-struct Utilitary <: DeciderType end
-DeciderType(::Type{<:AbstractRunnable}) = Utilitary()
-DeciderType(::Type{<:AbstractTSO}) = TSO()
-DeciderType(::Type{<:AbstractMarket}) = Market()
-
-is_tso(x::T) where {T} = is_tso(DeciderType(T))
-is_tso(::DeciderType) = false
-is_tso(::TSO) = true
-
-is_market(x::T) where {T} = is_market(DeciderType(T))
-is_market(::DeciderType) = false
-is_market(::Market) = true
-
 ################################################################################
 ####       TSO
 ################################################################################
@@ -32,9 +15,9 @@ struct TSOOutFO <: AbstractTSO
 end
 function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).type, ",", get_market_schedule(context).decision_time)
+            get_market_schedule(context).decider_type, ",", get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
+            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
     return #result
 end
 
@@ -47,9 +30,9 @@ struct TSOAtFOBiLevel <: AbstractTSO
 end
 function run(runnable::TSOAtFOBiLevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).type, ",", get_market_schedule(context).decision_time)
+            get_market_schedule(context).decider_type, ",", get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
+            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
     println("\tC'est le dernier lancement du tso => le planning TSO que je fournie doit etre ferme")
     return #result
 end
@@ -63,9 +46,9 @@ struct TSOInFO <: AbstractTSO
 end
 function run(runnable::TSOInFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
+            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
     println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).type, ",", get_tso_schedule(context).decision_time)
+            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
     return #result
 end
 
@@ -86,11 +69,13 @@ end
 
 
 #### TSO COMMON :
-function update_tso_schedule!(tso_schedule::Schedule, ech, result, firmness,
-                            context::AbstractContext, runnable::AbstractTSO)
+function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
+                            runnable::AbstractTSO)
+    tso_schedule = get_tso_schedule(context)
+    tso_schedule.decider_type = DeciderType(runnable)
     tso_schedule.decision_time = ech
     println("\tJe mets à jour le planning tso: ",
-            tso_schedule.type, ",",tso_schedule.decision_time,
+            tso_schedule.decider_type, ",",tso_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
 end
@@ -115,19 +100,19 @@ struct BalanceMarket <: AbstractMarket
 end
 function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("\tJe me base sur le planning marché (potentiellemnt maj par le TSO) pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time
+            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time
             )
     println("\tJe ne regarde pas le planning du TSO.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
     return #result
 end
-
-#### Market COMMON :
-function update_market_schedule!(market_schedule::Schedule, ech, result, firmness,
-                                context::AbstractContext, runnable::AbstractMarket)
+function update_market_schedule!(context::AbstractContext, ech, result, firmness,
+                                runnable::BalanceMarket)
+    market_schedule = get_market_schedule(context)
+    market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
     println("\tJe mets à jour le planning du marché: ",
-            market_schedule.type, ",",market_schedule.decision_time,
+            market_schedule.decider_type, ",",market_schedule.decision_time,
             " en me basant sur les résultats d'optimisation.",
             " et je ne touche pas au planning du TSO")
 end

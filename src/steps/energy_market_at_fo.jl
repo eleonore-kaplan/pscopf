@@ -47,11 +47,13 @@ function run(runnable::EnergyMarketAtFO,
 
     problem_name_l = @sprintf("energy_market_at_FO_%s", ech)
     println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).type, ",",get_market_schedule(context).decision_time)
+            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
     println("\tJe regarde le planning du TSO et je ne paie pas les couts de démarrage des unités déjà démarrées de façon définitive.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
 
-    gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
+    gratis_starts = union(tso_starts, market_starts)
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 
@@ -68,16 +70,17 @@ function run(runnable::EnergyMarketAtFO,
                         )
 end
 
-function update_market_schedule!(market_schedule::Schedule, ech,
+function update_market_schedule!(context::AbstractContext, ech,
                                 result::EnergyMarketModel,
                                 firmness,
-                                context::AbstractContext, runnable::EnergyMarketAtFO)
-
+                                runnable::EnergyMarketAtFO)
+    market_schedule = get_market_schedule(context)
     println("\tJe mets à jour le planning du marché: ",
-            market_schedule.type, ",",market_schedule.decision_time,
-            " en me basant sur les résultats d'optimisation.",
-            " et je ne touche pas au planning du TSO")
+    market_schedule.decider_type, ",",market_schedule.decision_time,
+    " en me basant sur les résultats d'optimisation.",
+    " et je ne touche pas au planning du TSO")
 
+    market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
 

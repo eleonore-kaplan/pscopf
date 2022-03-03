@@ -93,9 +93,6 @@ using Printf
     firmness = PSCOPF.init_firmness(ech, #7h
                                     nothing, # corresponds to ECH-DMO
                                     TS, collect(PSCOPF.Networks.get_generators(network)))
-    @show(firmness)
-    println(firmness.commitment)
-    println(firmness.power_level)
 
     context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                     generators_init_state,
@@ -140,12 +137,7 @@ using Printf
     result = PSCOPF.run(market, ech, firmness,
                 PSCOPF.get_target_timepoints(context),
                 context)
-    PSCOPF.update_market_schedule!(context.market_schedule, ech, result, firmness, context, market)
-
-    println("SCHEDULE:")
-    println(context.market_schedule)
-    # println(context.market_schedule.commitment)
-    # println(context.market_schedule.production)
+    PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
     @testset "energy_market_at_fo_successful_launch" begin
         # Solution is optimal
