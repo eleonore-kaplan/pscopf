@@ -1,7 +1,6 @@
 using Dates
-using DataStructures
 
-using PSCOPF
+include("PSCOPF.jl")
 
 # load network
 data_path = joinpath(@__DIR__, "..", "data", "2buses_usecase")
