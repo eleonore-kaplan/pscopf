@@ -519,10 +519,10 @@ using JuMP
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[1], "S2")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S1")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_2_1", TS[2], "S2")
-        @test value(result.objective_model.start_cost)  ≈ (
-                     2*45000 + 2*80000 )
+        @test value(result.objective_model.start_cost)  ≈ 2*45000
             # prod1 started in 2 scenarios at TS1
-            # prod2 started in both scenarios at TS2, Note that if we had started it at TS1 the cost would have not been payed by the market
+            # prod2 started in both scenarios at TS2, this decision was already decided/definitive/firm in the input market schedule
+            # => the cost was already paid by the market in the preceding ech
 
         #reset original value
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)

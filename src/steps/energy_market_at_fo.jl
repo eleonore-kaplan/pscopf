@@ -51,7 +51,9 @@ function run(runnable::EnergyMarketAtFO,
     println("\tJe regarde le planning du TSO et je ne paie pas les couts de démarrage des unités déjà démarrées de façon définitive.")
     println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
 
-    gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
+    gratis_starts = union(tso_starts, market_starts)
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 

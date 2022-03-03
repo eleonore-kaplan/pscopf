@@ -19,7 +19,9 @@ function run(runnable::EnergyMarket,
      get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
     println("\tJe regarde le planning du TSO et je ne paie pas les couts de démarrage des unités déjà démarrées de façon définitive.")
 
-    gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
+    gratis_starts = union(tso_starts, market_starts)
 
     return energy_market(get_network(context),
                         TS,
