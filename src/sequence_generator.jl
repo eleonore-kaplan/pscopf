@@ -74,7 +74,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.market_schedule,
                                 excluded_ids=get_limitables_ids(context_p))
-                PSCOPF.PSCOPFio.write(context_p.out_dir, get_market_schedule(context_p), "market_")
+                PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), "market_")
             end
 
             if affects_tso_schedule(step)
@@ -82,7 +82,7 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
                 #TODO : error if !verify
                 verify_firmness(firmness, context_p.tso_schedule,
                                 excluded_ids=get_limitables_ids(context_p))
-                PSCOPF.PSCOPFio.write(context_p.out_dir, get_tso_schedule(context_p), "tso_")
+                # PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
             end
 
             if affects_tso_actions(step)
