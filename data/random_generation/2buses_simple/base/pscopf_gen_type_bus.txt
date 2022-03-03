@@ -1,3 +1,0 @@
-prod_1 Imposable poste_1_0
-prod_2 Imposable poste_2_0
-wind_1 Limitable poste_1_0
