@@ -24,7 +24,7 @@ function pscopfdata2network(data::String)::Network
     #from pscopf_ptdf
     PSCOPFio.read_ptdf!(network, data)
 
-    #from pscopf_units and pscopf_gen_type_bus
+    #from pscopf_units
     PSCOPFio.read_generators!(network, data)
 
     # Return built network
