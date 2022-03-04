@@ -4,11 +4,11 @@ using Test
 using Dates
 using DataStructures
 
-@testset verbose=true "test_usecase_from_folder" begin
+@testset verbose=true "example_usecase_from_folder" begin
 
-    @testset "test_2bus_mode1" begin
+    @testset "example_2bus_mode1" begin
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
-        out_path = joinpath(data_path, "test_out")
+        out_path = joinpath(data_path, "example_out")
         rm(out_path, recursive=true, force=true)
         mode = PSCOPF.PSCOPF_MODE_1
 
