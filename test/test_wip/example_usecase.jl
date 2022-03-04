@@ -4,7 +4,7 @@ using Test
 using Dates
 using DataStructures
 
-@testset verbose=true "test_usecase" begin
+@testset verbose=true "example_usecase" begin
 
     #=
     S: [S1,S2]
@@ -43,8 +43,8 @@ using DataStructures
                                |                      |
 
     =#
-    @testset "test_small_usecase" begin
-        out_path = joinpath(@__DIR__, "..", "..", "default_out", "test_small_usecase")
+    @testset "example_small_usecase" begin
+        out_path = joinpath(@__DIR__, "..", "..", "default_out", "example_small_usecase")
         rm(out_path, recursive=true, force=true)
 
         ECH = [DateTime("2015-01-01T07:00:00"), DateTime("2015-01-01T07:30:00"),DateTime("2015-01-01T10:00:00")]
@@ -154,7 +154,7 @@ using DataStructures
     println("\n\n\n\n\n")
 
 
-    @testset "test_2bus" begin
+    @testset "example_2bus" begin
         network = PSCOPF.Networks.Network()
 
         # Buses
