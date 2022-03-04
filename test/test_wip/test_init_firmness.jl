@@ -31,7 +31,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2"))
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2", TS[1]))
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "fuel_1_2", TS[2]))
@@ -45,7 +45,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0"))
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[1]))
         @test ismissing(PSCOPF.get_commitment_firmness(firmness, "wind_1_0", TS[2]))
@@ -69,7 +69,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T12:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
 
 
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
@@ -95,7 +95,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T10:30:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:30:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
@@ -104,7 +104,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
@@ -113,7 +113,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -122,7 +122,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
 
         next_ech = nothing
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -146,7 +146,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:30:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.FREE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
@@ -155,7 +155,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
@@ -164,7 +164,7 @@ using Dates
         @test PSCOPF.get_power_level_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.FREE
 
         next_ech = Dates.DateTime("2015-01-01T13:00:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[2]) == PSCOPF.TO_DECIDE
@@ -192,7 +192,7 @@ using Dates
         ech = Dates.DateTime("2015-01-01T07:00:00")
 
         next_ech = Dates.DateTime("2015-01-01T10:45:00")
-        firmness = PSCOPF.init_firmness(ech, next_ech, TS, generators)
+        firmness = PSCOPF.compute_firmness(ech, next_ech, TS, generators)
 
         @test length(PSCOPF.get_commitment_firmness(firmness, "fuel_1_0")) == 2
         @test PSCOPF.get_commitment_firmness(firmness, "fuel_1_0", TS[1]) == PSCOPF.TO_DECIDE

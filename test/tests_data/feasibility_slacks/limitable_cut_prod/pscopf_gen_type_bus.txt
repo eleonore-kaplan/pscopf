@@ -1,2 +1,0 @@
-#unit    unit_kind bus
-wind_1   Limitable bus1

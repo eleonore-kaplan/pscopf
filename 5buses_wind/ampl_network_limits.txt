@@ -1,3 +1,0 @@
-#Temporary current limits (PJM_5nodes/InitialState)
-#"variant" "num" "branch" "side" "limit (A)" "accept. duration (s)" "fault" "curative"
-2_3 200

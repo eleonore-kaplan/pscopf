@@ -30,7 +30,7 @@ end
 ################
 
 function get_info(bus::Bus)::String
-    info::String = 
+    info::String =
         string(bus.id)
     return info
 end

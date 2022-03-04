@@ -1,4 +1,0 @@
-alta Imposable poste_1_0
-park_city Imposable poste_1_0
-wind_1 Limitable poste_1_0
-wind_2 Limitable poste_2_0

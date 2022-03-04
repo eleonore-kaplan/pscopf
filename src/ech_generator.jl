@@ -1,6 +1,6 @@
 using Dates
 
-using ..Networks
+using .Networks
 
 struct EchGenerator <: AbstractDataGenerator
     network::Networks.Network
