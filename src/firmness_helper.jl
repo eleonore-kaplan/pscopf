@@ -1,6 +1,8 @@
-using ..Networks
+using .Networks
 
 using Dates
+using DataStructures
+using Printf
 
 """
     Determines whether a decision should be :
@@ -26,7 +28,7 @@ function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.Dat
     end
 end
 
-function init_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+function compute_firmness(ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, generators::Vector{Networks.Generator})
     firmness = Firmness()
     for generator in generators

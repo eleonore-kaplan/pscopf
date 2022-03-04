@@ -1,7 +1,7 @@
 using Distributions
 using Dates
 
-using ..Networks
+using .Networks
 
 struct UncertaintiesGenerator <: AbstractDataGenerator
     network::Networks.Network

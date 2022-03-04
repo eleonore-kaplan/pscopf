@@ -1,8 +1,9 @@
-using ..Networks
+using .Networks
 
+using Dates
 using JuMP
-using Parameters
 using Statistics
+using Printf
 
 struct EnergyMarketAtFO <: AbstractMarket
 end
@@ -56,6 +57,10 @@ function run(runnable::EnergyMarketAtFO,
     gratis_starts = union(tso_starts, market_starts)
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
+
+    @assert(length(get_scenarios(agg_uncertainties)) == 1)
+    @assert check_uncertainties(Uncertainties(ech=>agg_uncertainties), get_network(context))
+    @assert check_uncertainties_contain_ts(Uncertainties(ech=>agg_uncertainties), get_target_timepoints(context))
 
     return energy_market(get_network(context),
                         TS,

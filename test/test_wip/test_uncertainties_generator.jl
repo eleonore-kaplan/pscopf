@@ -34,7 +34,7 @@ using Dates
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
         uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
-        nb_scenarios = 5#= FIXME =#
+        nb_scenarios = 2
 
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
@@ -46,7 +46,7 @@ using Dates
 
         # Tests
         EXPECTED_NODAL_INJECTION_NAMES = ["poste_1_0", "poste_2_0", "wind_1", "wind_2"]
-        EXPECTED_SCENARIOS = ["S1", "S2", "S3", "S4", "S5"]
+        EXPECTED_SCENARIOS = ["S1", "S2"]
         @test collect(keys(uncertainties)) == horizon_timepoints
         for (ech, _) in uncertainties
             @test collect(keys(uncertainties[ech])) == EXPECTED_NODAL_INJECTION_NAMES
@@ -67,7 +67,7 @@ using Dates
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
         uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
-        nb_scenarios = 5#= FIXME =#
+        nb_scenarios = 2
 
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
         TS = PSCOPF.create_target_timepoints(ts1)
@@ -82,7 +82,7 @@ using Dates
 
         # Tests #FIXME
         EXPECTED_NODAL_INJECTION_NAMES = ["poste_1_0", "poste_2_0", "wind_1", "wind_2"]
-        EXPECTED_SCENARIOS = ["S1", "S2", "S3", "S4", "S5"]
+        EXPECTED_SCENARIOS = ["S1", "S2"]
         @test collect(keys(uncertainties)) == horizon_timepoints
         for (ech, _) in uncertainties
             @test collect(keys(uncertainties[ech])) == EXPECTED_NODAL_INJECTION_NAMES

@@ -1,4 +1,4 @@
-using ..Networks
+using .Networks
 
 using Dates
 
@@ -122,24 +122,24 @@ end
 ####       Firmness
 ################################################################################
 
-function init_firmness(runnable::AbstractRunnable,
+function compute_firmness(runnable::AbstractRunnable,
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("Initialisation de la fermeté des décisions.")
     generators = collect(Networks.get_generators(get_network(context)))
-    return init_firmness(ech, next_ech, TS, generators)
+    return compute_firmness(ech, next_ech, TS, generators)
 end
 
 """
     All decisions are Firm (DECIDED or TO_DECIDE)
 """
-function init_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
+function compute_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("Initialisation de la fermeté des décisions : DECIDED ou TO_DECIDE")
     next_ech = nothing
     generators = collect(Networks.get_generators(get_network(context)))
-    return init_firmness(ech, next_ech, TS, generators)
+    return compute_firmness(ech, next_ech, TS, generators)
 end
 
 

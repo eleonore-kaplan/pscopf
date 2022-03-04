@@ -1,6 +1,7 @@
-using ..Networks
+using .Networks
 
 using Dates
+using DataStructures
 
 function compute_prod(schedule, ts, scenario)
     prod = 0.
@@ -59,4 +60,33 @@ function compute_flow(branch_id::String,
                         schedule,
                         network,
                         ts, scenario)
+end
+
+function compute_flows(uncertainties_at_ech::UncertaintiesAtEch,
+                        schedule::Schedule,
+                        network::Networks.Network,
+                        TS, scenarios)
+    #branch, ts, s
+    flows = SortedDict{Tuple{String, DateTime, String}, Float64}()
+    for branch in Networks.get_branches(network)
+        branch_id = Networks.get_id(branch)
+        for ts in TS
+            for scenario in scenarios
+                val = compute_flow(branch_id,
+                                uncertainties_at_ech,
+                                schedule,
+                                network,
+                                ts, scenario)
+                flows[branch_id, ts, scenario] = val
+            end
+        end
+    end
+    return flows
+end
+
+function compute_flows(context::PSCOPFContext,
+                        schedule::Schedule)
+    ech = schedule.decision_time
+    return compute_flows(get_uncertainties(context, ech), schedule, get_network(context),
+                        get_target_timepoints(context), get_scenarios(context))
 end

@@ -5,21 +5,6 @@ import Logging
 
 using PSCOPF
 
-# root_path = dirname(@__DIR__);
-# push!(LOAD_PATH, root_path);
-# cd(root_path);
-# include(joinpath(root_path, "test", "TestHelpers.jl"));
-# include(joinpath(root_path, "AmplTxt.jl"));
-# include(joinpath(root_path, "Workflow.jl"));
-
-# Logging.with_logger(Logging.NullLogger()) do
-#     @testset verbose=true "PSCOPF_TESTS" begin
-#         include("test_dmo_levers.jl")
-#         include("test_feasibility_slacks.jl")
-#         include("test_multiple_ts.jl")
-#     end
-# end
-
 #TODO : redirect logs
 @testset verbose=true "PSCOPF_TESTS" begin
     include("test_wip/test_modes.jl")
@@ -53,7 +38,7 @@ using PSCOPF
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
 
     # include("test_wip/test_seq_launch.jl")
-    include("test_wip/test_usecase.jl")
-    include("test_wip/test_usecase_from_folder.jl")
+    include("test_wip/example_usecase.jl")
+    include("test_wip/example_usecase_from_folder.jl")
 
 end

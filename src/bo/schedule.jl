@@ -3,6 +3,7 @@ using .Networks
 using Printf
 using Dates
 using Parameters
+using DataStructures
 
 @enum GeneratorState begin
     ON
@@ -126,7 +127,6 @@ end
 ##########################################
 
 mutable struct UncertainValue{T}
-    #FIXME: add a scenario list if need to check only certain scenarios are handled
     definitive_value::Union{T, Missing}
     anticipated_value::SortedDict{String, Union{T, Missing}}
 end

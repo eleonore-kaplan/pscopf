@@ -2,12 +2,35 @@
 module PSCOPFio
 
 using ..PSCOPF
-using ..AmplTxt
 using ..Networks
 
 using Dates
 using Printf
 using DataStructures
+
+function split_with_space(str::String)
+    result = String[];
+    if length(str) > 0
+        start_with_quote = startswith(str, "\"");
+        buffer_quote = split(str, keepempty=false, "\"");
+        i = 1;
+        while i <= length(buffer_quote)
+            if i > 1 || !start_with_quote
+                str2 = buffer_quote[i];
+                buffer_space = split(str2, keepempty=false);
+                for str3 in buffer_space
+                    push!(result, str3);
+                end
+                i += 1;
+            end
+            if i <= length(buffer_quote)
+                push!(result, buffer_quote[i]);
+                i += 1;
+            end
+        end
+    end
+    return result;
+end
 
 ##########################
 #   Readers
@@ -19,7 +42,7 @@ function read_buses!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
                 push!(buses_ids, buffer[2])
             end
         end
@@ -35,7 +58,7 @@ function read_branches!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
                 branch_id = buffer[1]
                 push!(branches, branch_id => default_limit)
             end
@@ -46,7 +69,7 @@ function read_branches!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
                 branch_id = buffer[1]
                 limit = parse(Float64, buffer[2]);
                 push!(branches, branch_id=>limit)
@@ -64,7 +87,7 @@ function read_ptdf!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
                 branch_id = buffer[1]
                 bus_id = buffer[2]
                 ptdf_value = parse(Float64, buffer[3])
@@ -75,33 +98,23 @@ function read_ptdf!(network::Network, data::String)
 end
 
 function read_generators!(network, data)
-    gen_type_bus = Dict{String, Tuple{String, String}}()
-    open(joinpath(data, "pscopf_gen_type_bus.txt"), "r") do file
-        for ln in eachline(file)
-            # don't read commentted line
-            if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
-                gen_type_bus[buffer[1]] = (buffer[2], buffer[3])
-            end
-        end
-    end
-
     open(joinpath(data, "pscopf_units.txt"), "r") do file
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
 
                 generator_id = buffer[1]
-                gen_type = parse(Networks.GeneratorType, gen_type_bus[generator_id][1])
-                pmin = parse(Float64, buffer[3])
-                pmax = parse(Float64, buffer[4])
-                start_cost = parse(Float64, buffer[5])
-                prop_cost = parse(Float64, buffer[6])
-                dmo = Dates.Second(parse(Float64, buffer[7]))
-                dp = Dates.Second(parse(Float64, buffer[8]))
+                gen_type = parse(Networks.GeneratorType, buffer[2])
+                gen_bus_id = buffer[3]
+                pmin = parse(Float64, buffer[4])
+                pmax = parse(Float64, buffer[5])
+                start_cost = parse(Float64, buffer[6])
+                prop_cost = parse(Float64, buffer[7])
+                dmo = Dates.Second(parse(Float64, buffer[8]))
+                dp = Dates.Second(parse(Float64, buffer[9]))
 
-                Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
+                Networks.add_new_generator_to_bus!(network, gen_bus_id,
                                         generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
             end
         end
@@ -114,7 +127,7 @@ function read_uncertainties_distributions(network, data)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln);
+                buffer = split_with_space(ln);
 
                 id = buffer[1]
                 min_value = parse(Float64, buffer[2])
@@ -140,7 +153,7 @@ function read_uncertainties(data, filename="pscopf_uncertainties.txt")
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln)
+                buffer = split_with_space(ln)
                 # "name", "ts", "ech", "scenario", "value"))
                 name = buffer[1]
                 ts = Dates.DateTime(buffer[2])
@@ -160,7 +173,7 @@ function read_initial_state(data, filename="pscopf_init.txt")
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = AmplTxt.split_with_space(ln)
+                buffer = split_with_space(ln)
                 gen_id = buffer[1]
                 state = parse(PSCOPF.GeneratorState, buffer[2])
                 result[gen_id] = state
@@ -182,7 +195,7 @@ function write(dir_path::String, network::Networks.Network)
     #     msg = @sprintf("data folder `%s` already exists!", dir_path)
     #     error(msg)
     # end
-    #units and gen_type_bus
+    #units
     write(dir_path, network.generators)
     #limits
     write(dir_path, network.branches)
@@ -193,30 +206,19 @@ end
 function write(dir_path::String, generators::SortedDict{String, Networks.Generator})
     output_file_l = joinpath(dir_path, "pscopf_units.txt")
     open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s%16s%16s%16s%16s%16s%16s\n", "name", "p", "minP","maxP", "start", "prop", "dmo", "dp"))
+        Base.write(file_l, @sprintf("#%24s%16s%25s%16s%16s%16s%16s%16s%16s\n",
+                    "name", "type", "bus_id", "minP","maxP", "start", "prop", "dmo(s)", "dp(s)"))
         for (id_l, generator_l) in generators
-            Base.write(file_l, @sprintf("%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
+            Base.write(file_l, @sprintf("%25s%16s%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
                                     Networks.get_id(generator_l),
-                                    0., #FIXME : delete input
+                                    Networks.get_type(generator_l),
+                                    Networks.get_bus_id(generator_l),
                                     Networks.get_p_min(generator_l),
                                     Networks.get_p_max(generator_l),
                                     Networks.get_start_cost(generator_l),
                                     Networks.get_prop_cost(generator_l),
                                     Dates.value(Networks.get_dmo(generator_l)),
                                     Dates.value(Networks.get_dp(generator_l))
-                                    )
-                    )
-        end
-    end
-
-    output_file_l = joinpath(dir_path, "pscopf_gen_type_bus.txt")
-    open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s%25s\n", "name", "type", "bus"))
-        for (id_l, generator_l) in generators
-            Base.write(file_l, @sprintf("%25s%16s%25s\n",
-                                    Networks.get_id(generator_l),
-                                    Networks.get_type(generator_l),
-                                    Networks.get_bus_id(generator_l),
                                     )
                     )
         end
@@ -338,10 +340,36 @@ function write_production_schedule(dir_path::String, schedule::PSCOPF.Schedule, 
     end
 end
 
-function write(dir_path, schedule::PSCOPF.Schedule, prefix="")
+
+function write_flows(dir_path::String, context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
+    ech = schedule.decision_time
+    flows_filename_l = joinpath(dir_path, prefix*"flows.txt")
+
+    flows = PSCOPF.compute_flows(context, schedule)
+    open(flows_filename_l, "a") do flows_file_l
+        if filesize(flows_file_l) == 0
+            Base.write(flows_file_l, @sprintf("#%19s%10s%25s%20s%10s%16s\n", "ech", "decider", "branch_name", "ts", "scenario", "value"))
+        end
+        for ((branch_id, ts, scenario), flow_value) in flows
+            Base.write(flows_file_l, @sprintf("%20s%10s%25s%20s%10s%16.8E\n",
+                                ech,
+                                schedule.decider_type,
+                                branch_id,
+                                ts,
+                                scenario,
+                                flow_value
+                                )
+                    )
+        end
+    end
+end
+
+function write(context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
+    dir_path = context.out_dir
     if !isnothing(dir_path)
         write_commitment_schedule(dir_path, schedule, prefix)
         write_production_schedule(dir_path, schedule, prefix)
+        write_flows(dir_path, context, schedule, prefix)
     end
 end
 
