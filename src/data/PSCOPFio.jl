@@ -117,12 +117,12 @@ function read_generators!(network, data)
 
                 generator_id = buffer[1]
                 gen_type = parse(Networks.GeneratorType, gen_type_bus[generator_id][1])
-                pmin = parse(Float64, buffer[3])
-                pmax = parse(Float64, buffer[4])
-                start_cost = parse(Float64, buffer[5])
-                prop_cost = parse(Float64, buffer[6])
-                dmo = Dates.Second(parse(Float64, buffer[7]))
-                dp = Dates.Second(parse(Float64, buffer[8]))
+                pmin = parse(Float64, buffer[2])
+                pmax = parse(Float64, buffer[3])
+                start_cost = parse(Float64, buffer[4])
+                prop_cost = parse(Float64, buffer[5])
+                dmo = Dates.Second(parse(Float64, buffer[6]))
+                dp = Dates.Second(parse(Float64, buffer[7]))
 
                 Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
                                         generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
@@ -216,11 +216,10 @@ end
 function write(dir_path::String, generators::SortedDict{String, Networks.Generator})
     output_file_l = joinpath(dir_path, "pscopf_units.txt")
     open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s%16s%16s%16s%16s%16s%16s\n", "name", "p", "minP","maxP", "start", "prop", "dmo", "dp"))
+        Base.write(file_l, @sprintf("#%24s%16s%16s%16s%16s%16s%16s\n", "name", "minP","maxP", "start", "prop", "dmo", "dp"))
         for (id_l, generator_l) in generators
-            Base.write(file_l, @sprintf("%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
+            Base.write(file_l, @sprintf("%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
                                     Networks.get_id(generator_l),
-                                    0., #FIXME : delete input
                                     Networks.get_p_min(generator_l),
                                     Networks.get_p_max(generator_l),
                                     Networks.get_start_cost(generator_l),
