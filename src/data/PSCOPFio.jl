@@ -98,17 +98,6 @@ function read_ptdf!(network::Network, data::String)
 end
 
 function read_generators!(network, data)
-    gen_type_bus = Dict{String, Tuple{String, String}}()
-    open(joinpath(data, "pscopf_gen_type_bus.txt"), "r") do file
-        for ln in eachline(file)
-            # don't read commentted line
-            if ln[1] != '#'
-                buffer = split_with_space(ln);
-                gen_type_bus[buffer[1]] = (buffer[2], buffer[3])
-            end
-        end
-    end
-
     open(joinpath(data, "pscopf_units.txt"), "r") do file
         for ln in eachline(file)
             # don't read commentted line
@@ -116,15 +105,16 @@ function read_generators!(network, data)
                 buffer = split_with_space(ln);
 
                 generator_id = buffer[1]
-                gen_type = parse(Networks.GeneratorType, gen_type_bus[generator_id][1])
-                pmin = parse(Float64, buffer[2])
-                pmax = parse(Float64, buffer[3])
-                start_cost = parse(Float64, buffer[4])
-                prop_cost = parse(Float64, buffer[5])
-                dmo = Dates.Second(parse(Float64, buffer[6]))
-                dp = Dates.Second(parse(Float64, buffer[7]))
+                gen_type = parse(Networks.GeneratorType, buffer[2])
+                gen_bus_id = buffer[3]
+                pmin = parse(Float64, buffer[4])
+                pmax = parse(Float64, buffer[5])
+                start_cost = parse(Float64, buffer[6])
+                prop_cost = parse(Float64, buffer[7])
+                dmo = Dates.Second(parse(Float64, buffer[8]))
+                dp = Dates.Second(parse(Float64, buffer[9]))
 
-                Networks.add_new_generator_to_bus!(network, gen_type_bus[generator_id][2],
+                Networks.add_new_generator_to_bus!(network, gen_bus_id,
                                         generator_id, gen_type, pmin, pmax, start_cost, prop_cost, dmo, dp)
             end
         end
@@ -205,7 +195,7 @@ function write(dir_path::String, network::Networks.Network)
     #     msg = @sprintf("data folder `%s` already exists!", dir_path)
     #     error(msg)
     # end
-    #units and gen_type_bus
+    #units
     write(dir_path, network.generators)
     #limits
     write(dir_path, network.branches)
@@ -216,29 +206,19 @@ end
 function write(dir_path::String, generators::SortedDict{String, Networks.Generator})
     output_file_l = joinpath(dir_path, "pscopf_units.txt")
     open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s%16s%16s%16s%16s%16s\n", "name", "minP","maxP", "start", "prop", "dmo", "dp"))
+        Base.write(file_l, @sprintf("#%24s%16s%25s%16s%16s%16s%16s%16s%16s\n",
+                    "name", "type", "bus_id", "minP","maxP", "start", "prop", "dmo(s)", "dp(s)"))
         for (id_l, generator_l) in generators
-            Base.write(file_l, @sprintf("%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
+            Base.write(file_l, @sprintf("%25s%16s%25s%16.8E%16.8E%16.8E%16.8E%16.8E%16.8E\n",
                                     Networks.get_id(generator_l),
+                                    Networks.get_type(generator_l),
+                                    Networks.get_bus_id(generator_l),
                                     Networks.get_p_min(generator_l),
                                     Networks.get_p_max(generator_l),
                                     Networks.get_start_cost(generator_l),
                                     Networks.get_prop_cost(generator_l),
                                     Dates.value(Networks.get_dmo(generator_l)),
                                     Dates.value(Networks.get_dp(generator_l))
-                                    )
-                    )
-        end
-    end
-
-    output_file_l = joinpath(dir_path, "pscopf_gen_type_bus.txt")
-    open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s%25s\n", "name", "type", "bus"))
-        for (id_l, generator_l) in generators
-            Base.write(file_l, @sprintf("%25s%16s%25s\n",
-                                    Networks.get_id(generator_l),
-                                    Networks.get_type(generator_l),
-                                    Networks.get_bus_id(generator_l),
                                     )
                     )
         end
