@@ -16,6 +16,11 @@ using DataStructures
                 DateTime("2015-01-01T10:00:00"),
                 DateTime("2015-01-01T10:30:00")]
         schedule_history = Vector{PSCOPF.Schedule}()
+        uncertainties = PSCOPF.Uncertainties(
+            DateTime("2015-01-01T07:00:00") => PSCOPF.UncertaintiesAtEch(),
+            DateTime("2015-01-01T10:00:00") => PSCOPF.UncertaintiesAtEch(),
+            DateTime("2015-01-01T10:30:00") => PSCOPF.UncertaintiesAtEch()
+            )
 
         struct MockMarket <: PSCOPF.AbstractMarket
         end
@@ -54,7 +59,8 @@ using DataStructures
         ))
 
         mode = PSCOPF.ManagementMode("test_sequencing", Dates.Minute(0))
-        exec_context = PSCOPF.PSCOPFContext(network, TS, mode)
+        exec_context = PSCOPF.PSCOPFContext(network, TS, mode,
+                                            SortedDict{String,PSCOPF.GeneratorState}(), uncertainties)
 
         PSCOPF.run!(exec_context, sequence, check_context=false)
 

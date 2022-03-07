@@ -139,6 +139,10 @@ function UncertainValue{T}(scenarios::Vector{String}) where T
     return UncertainValue{T}(missing, antcipated_values)
 end
 
+function get_scenarios(uncertain_value::UncertainValue{T}) where T
+    return keys(uncertain_value.anticipated_value)
+end
+
 function is_missing_values(uncertain_value::UncertainValue{T})::Bool where T
     for (_,value) in uncertain_value.anticipated_value
         if ismissing(value)
@@ -226,6 +230,15 @@ function GeneratorSchedule(gen_id::String)
     return  GeneratorSchedule(gen_id,
                             SortedDict{Dates.DateTime, UncertainValue{GeneratorState}}(),
                             SortedDict{Dates.DateTime, UncertainValue{Float64}}())
+end
+
+
+function get_commitment(generator_schedule::GeneratorSchedule)
+    return generator_schedule.commitment
+end
+
+function get_production(generator_schedule::GeneratorSchedule)
+    return generator_schedule.production
 end
 
 mutable struct Schedule <: AbstractSchedule
@@ -398,6 +411,14 @@ function set_commitment_definitive_value!(sub_schedule::GeneratorSchedule, ts::D
 end
 function set_commitment_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
     return set_commitment_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
+end
+
+function get_commitment_sub_schedule(schedule::Schedule, gen_id::String)
+    return get_commitment(get_sub_schedule(schedule, gen_id))
+end
+
+function get_production_sub_schedule(schedule::Schedule, gen_id::String)
+    return get_production(get_sub_schedule(schedule, gen_id))
 end
 
 function Base.show(io::IO, gen_schedule::GeneratorSchedule)

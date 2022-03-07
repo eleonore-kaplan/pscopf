@@ -60,15 +60,16 @@ end
 function solve!(model_container::AbstractModelContainer,
                 problem_name="problem", out_folder=nothing,
                 optimizer=OPTIMIZER)
+    problem_name_l = replace(problem_name, ":"=>"_")
     model_l = get_model(model_container)
     set_optimizer(model_l, optimizer);
 
     if !isnothing(out_folder)
         mkpath(out_folder)
-        model_file_l = joinpath(out_folder, problem_name*".lp")
+        model_file_l = joinpath(out_folder, problem_name_l*".lp")
         write_to_file(model_l, model_file_l)
 
-        log_file_l = joinpath(out_folder, problem_name*".log")
+        log_file_l = joinpath(out_folder, problem_name_l*".log")
     else
         log_file_l = devnull
     end
