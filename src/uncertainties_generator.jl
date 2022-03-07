@@ -20,13 +20,15 @@ function generate_uncertainties(network::Networks.Network,
                                 target_timepoints::Vector{Dates.DateTime},
                                 horizon_timepoints::Vector{Dates.DateTime},
                                 uncertainties_distribution, nb_scenarios::Int)
-    check_uncertainties_distribution(network, uncertainties_distribution)
     generator = UncertaintiesGenerator(network, target_timepoints, horizon_timepoints, uncertainties_distribution, nb_scenarios)
     return launch(generator)
 end
 
 function launch(uncertainties_generator::UncertaintiesGenerator)
     uncertainties = Uncertainties()
+    if !check_uncertainties_distribution(uncertainties_generator.network, uncertainties_generator.uncertainties_distribution)
+        error("Invalid uncertainties parameters!")
+    end
 
     scenarios = scenario_name.(1:uncertainties_generator.nb_scenarios)
 
