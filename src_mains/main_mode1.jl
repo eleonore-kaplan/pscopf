@@ -1,3 +1,12 @@
+"""
+    main_mode1
+A main file to launch PSCOPF in MODE 1.
+
+Parameters:
+    instance_path : path to input data directory
+    output_path : path to output directory
+"""
+
 using Dates
 
 root_path = dirname(@__DIR__)
