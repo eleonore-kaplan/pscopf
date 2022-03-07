@@ -107,10 +107,10 @@ function add_branches!(network::Network, branches::Vector{Branch})
     end
 end
 
-function get_branch(network::Network, bus_id::String)::Union{Missing, Branch}
+function get_branch(network::Network, branch_id::String)::Union{Missing, Branch}
     # Get branch
-    if haskey(network.branches, bus_id)
-        return network.branches[bus_id]
+    if haskey(network.branches, branch_id)
+        return network.branches[branch_id]
     else
         return missing
     end

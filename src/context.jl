@@ -22,7 +22,10 @@ mutable struct PSCOPFContext <: AbstractContext
     tso_schedule::Schedule
 
     tso_actions::TSOActions
-    #flows ?
+
+    #flows: branch, ts, s
+    market_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
+    tso_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
 
     out_dir
 end
@@ -45,6 +48,8 @@ function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Date
                         market_schedule,
                         tso_schedule,
                         TSOActions(),
+                        SortedDict{Tuple{String, DateTime, String}, Float64}(),
+                        SortedDict{Tuple{String, DateTime, String}, Float64}(),
                         out_dir)
 end
 
@@ -114,6 +119,14 @@ function get_market_schedule(context_p::PSCOPFContext)
     return context_p.market_schedule
 end
 
+function get_market_flows(context::PSCOPFContext)
+    return context.market_flows
+end
+
+function get_tso_flows(context::PSCOPFContext)
+    return context.tso_flows
+end
+
 
 function get_limitables_ids(context_p::PSCOPFContext)
     limitables = Networks.get_generators_of_type(get_network(context_p), Networks.LIMITABLE)
@@ -154,4 +167,15 @@ function definitive_starts(schedule::Schedule, initial_state::SortedDict{String,
     end
 
     return result
+end
+
+
+function update_market_flows!(context::PSCOPFContext)
+    flows = compute_flows(context, get_market_schedule(context))
+    context.market_flows = flows
+end
+
+function update_tso_flows!(context::PSCOPFContext)
+    flows = compute_flows(context, get_tso_schedule(context))
+    context.tso_flows = flows
 end
