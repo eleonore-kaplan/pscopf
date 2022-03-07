@@ -8,30 +8,6 @@ using Dates
 using Printf
 using DataStructures
 
-function split_with_space(str::String)
-    result = String[];
-    if length(str) > 0
-        start_with_quote = startswith(str, "\"");
-        buffer_quote = split(str, keepempty=false, "\"");
-        i = 1;
-        while i <= length(buffer_quote)
-            if i > 1 || !start_with_quote
-                str2 = buffer_quote[i];
-                buffer_space = split(str2, keepempty=false);
-                for str3 in buffer_space
-                    push!(result, str3);
-                end
-                i += 1;
-            end
-            if i <= length(buffer_quote)
-                push!(result, buffer_quote[i]);
-                i += 1;
-            end
-        end
-    end
-    return result;
-end
-
 ##########################
 #   Readers
 ##########################
@@ -82,8 +58,8 @@ function read_branches!(network::Network, data::String)
     end
 end
 
-function read_ptdf!(network::Network, data::String)
-    open(joinpath(data, "pscopf_ptdf.txt"), "r") do file
+function read_ptdf!(network::Network, data::String, filename="pscopf_ptdf.txt")
+    open(joinpath(data, filename), "r") do file
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
