@@ -47,11 +47,8 @@ function run(runnable::EnergyMarketAtFO,
     end
 
     problem_name_l = @sprintf("energy_market_at_FO_%s", ech)
-    println("\tJe me base sur le précédent planning du marché pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
-    println("\tJe regarde le planning du TSO et je ne paie pas les couts de démarrage des unités déjà démarrées de façon définitive.")
-    println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
 
+    #TODO create a TSO action for commitment, and base decisions on that imposition
     tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
     market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
     gratis_starts = union(tso_starts, market_starts)
@@ -80,10 +77,6 @@ function update_market_schedule!(context::AbstractContext, ech,
                                 firmness,
                                 runnable::EnergyMarketAtFO)
     market_schedule = get_market_schedule(context)
-    println("\tJe mets à jour le planning du marché: ",
-    market_schedule.decider_type, ",",market_schedule.decision_time,
-    " en me basant sur les résultats d'optimisation.",
-    " et je ne touche pas au planning du TSO")
 
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech

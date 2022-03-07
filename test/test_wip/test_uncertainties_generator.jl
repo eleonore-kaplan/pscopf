@@ -23,7 +23,7 @@ using Dates
     @testset "read_uncertain_distributions" begin
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
-        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
+        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(data_path)
 
         #FIXME : for now, the same mean value (mu) is used for all timepoints ts
         @test length(uncertainties_distribution) == 4
@@ -33,7 +33,7 @@ using Dates
     @testset "one_mode" begin
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
-        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
+        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(data_path)
         nb_scenarios = 2
 
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
@@ -66,7 +66,7 @@ using Dates
     @testset "multiple_modes" begin
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase")
         network = PSCOPF.Data.pscopfdata2network(data_path)
-        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(network, data_path)
+        uncertainties_distribution = PSCOPF.PSCOPFio.read_uncertainties_distributions(data_path)
         nb_scenarios = 2
 
         ts1 = Dates.DateTime("2015-01-01T11:00:00")
