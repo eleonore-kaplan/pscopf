@@ -121,8 +121,8 @@ function read_generators!(network, data)
     end
 end
 
-function read_uncertainties_distributions(network, data)
-    result = Dict{Union{Networks.Bus,Networks.Generator}, PSCOPF.UncertaintyDistribution}()
+function read_uncertainties_distributions(data)
+    result = PSCOPF.UncertaintiesDistribution()
     open(joinpath(data, "uncertainties_distribution.txt"), "r") do file
         for ln in eachline(file)
             # don't read commentted line
@@ -137,13 +137,13 @@ function read_uncertainties_distributions(network, data)
                 time_factor = parse(Float64, buffer[6])
                 cone_effect = parse(Float64, buffer[7])
 
-                key = Networks.safeget_generator_or_bus(network, id)
-                result[key] = PSCOPF.UncertaintyDistribution(id, min_value, max_value, mu, sigma, time_factor, cone_effect)
+                PSCOPF.add_uncertainty_distribution!(result,
+                                        id, min_value, max_value, mu, sigma,
+                                        time_factor, cone_effect)
             end
         end
     end
 
-    result = Dict(sort(collect(result), by=x->Networks.get_id(x[1]) ))
     return result
 end
 
@@ -258,7 +258,19 @@ function write(dir_path::String, ptdf::SortedDict{String,SortedDict{String, Floa
     end
 end
 
+function write(dir_path::String, gen_init::SortedDict{String, PSCOPF.GeneratorState})
+    mkpath(dir_path)
+    output_file_l = joinpath(dir_path, "pscopf_init.txt")
+    open(output_file_l, "w") do file_l
+        Base.write(file_l, @sprintf("#%24s%10s\n", "name", "state"))
+        for (gen_id, state) in gen_init
+            Base.write(file_l, @sprintf("%25s%10s\n", gen_id, state))
+        end
+    end
+end
+
 function write(dir_path::String, uncertainties::PSCOPF.Uncertainties)
+    mkpath(dir_path)
     output_file_l = joinpath(dir_path, "pscopf_uncertainties.txt")
     open(output_file_l, "w") do file_l
 
@@ -367,6 +379,7 @@ end
 function write(context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
     dir_path = context.out_dir
     if !isnothing(dir_path)
+        mkpath(dir_path)
         write_commitment_schedule(dir_path, schedule, prefix)
         write_production_schedule(dir_path, schedule, prefix)
         write_flows(dir_path, context, schedule, prefix)

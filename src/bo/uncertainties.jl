@@ -2,7 +2,7 @@ using Dates
 using DataStructures
 
 """
-    UncertaintyDistribution
+    UncertaintyNDistribution
 
 describes the uncertainty distribution of an injection (load or renewable)
 We consider `ts` as the target timepoint at which the realisation will have place,
@@ -20,7 +20,7 @@ random_injection = mu * (1 + rand(Normal(0, adjusted_sigma)) )
     - `time_factor::Float64` : per hour increase ratio of the uncertainty's standard deviation
     - `cone_effect::Float64` : variability of the uncertainty's standard deviation wrt time axis (timefactor > 0 => the cone uncertainty hypothesis)
 """
-struct UncertaintyDistribution
+struct UncertaintyNDistribution
     id::String
     min_value::Float64
     max_value::Float64
@@ -29,6 +29,19 @@ struct UncertaintyDistribution
     time_factor::Float64
     cone_effect::Float64
 end
+
+UncertaintiesDistribution = SortedDict{String, UncertaintyNDistribution}
+
+function add_uncertainty_distribution!(uncertainties_distribution::UncertaintiesDistribution,
+                        id::String,
+                        min_value::Float64, max_value::Float64,
+                        mu::Float64, sigma::Float64,
+                        time_factor::Float64=1., cone_effect::Float64=1.)
+    uncertainties_distribution[id] = UncertaintyNDistribution(id, min_value, max_value,
+                                                            mu, sigma,
+                                                            time_factor, cone_effect)
+end
+
 
 # uncertainties[ech][nodal_injection_name][ts][scenario_name]
 InjectionUncertainties = SortedDict{Dates.DateTime,
