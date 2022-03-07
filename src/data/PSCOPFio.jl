@@ -18,7 +18,7 @@ function read_buses!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
                 push!(buses_ids, buffer[2])
             end
         end
@@ -34,7 +34,7 @@ function read_branches!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
                 branch_id = buffer[1]
                 push!(branches, branch_id => default_limit)
             end
@@ -45,7 +45,7 @@ function read_branches!(network::Network, data::String)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
                 branch_id = buffer[1]
                 limit = parse(Float64, buffer[2]);
                 push!(branches, branch_id=>limit)
@@ -63,7 +63,7 @@ function read_ptdf!(network::Network, data::String, filename="pscopf_ptdf.txt")
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
                 branch_id = buffer[1]
                 bus_id = buffer[2]
                 ptdf_value = parse(Float64, buffer[3])
@@ -78,7 +78,7 @@ function read_generators!(network, data)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
 
                 generator_id = buffer[1]
                 gen_type = parse(Networks.GeneratorType, buffer[2])
@@ -103,7 +103,7 @@ function read_uncertainties_distributions(data)
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln);
+                buffer = PSCOPF.split_with_space(ln);
 
                 id = buffer[1]
                 min_value = parse(Float64, buffer[2])
@@ -129,7 +129,7 @@ function read_uncertainties(data, filename="pscopf_uncertainties.txt")
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln)
+                buffer = PSCOPF.split_with_space(ln)
                 # "name", "ts", "ech", "scenario", "value"))
                 name = buffer[1]
                 ts = Dates.DateTime(buffer[2])
@@ -149,7 +149,7 @@ function read_initial_state(data, filename="pscopf_init.txt")
         for ln in eachline(file)
             # don't read commentted line
             if ln[1] != '#'
-                buffer = split_with_space(ln)
+                buffer = PSCOPF.split_with_space(ln)
                 gen_id = buffer[1]
                 state = parse(PSCOPF.GeneratorState, buffer[2])
                 result[gen_id] = state
