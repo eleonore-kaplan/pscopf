@@ -1,4 +1,0 @@
-alta Imposable poste_1_0
-wind_1 Limitable poste_1_0
-sundance Imposable poste_2_0
-moonwalk Imposable poste_2_0

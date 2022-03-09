@@ -1,2 +1,0 @@
-#LCC Converter Stations (PJM_5nodes/InitialState)
-#"variant" "num" "bus" "con. bus" "substation" "lossFactor (%PDC)" "powerFactor" "fault" "curative" "id" "description" "P (MW)" "Q (MVar)"
