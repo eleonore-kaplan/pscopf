@@ -24,6 +24,16 @@ function read_buses!(network::Network, data::String)
         end
     end
 
+    open(joinpath(data, "pscopf_units.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = PSCOPF.split_with_space(ln);
+                push!(buses_ids, buffer[3])
+            end
+        end
+    end
+
     Networks.add_new_buses!(network, collect(buses_ids));
 end
 
