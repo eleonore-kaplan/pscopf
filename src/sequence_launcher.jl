@@ -9,6 +9,11 @@ using .Networks
 # Sequence
 ###############################################
 
+"""
+    Sequence
+
+Lists, for each horizon timepoint, the ordered operations to execute at that time.
+"""
 @with_kw struct Sequence
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end

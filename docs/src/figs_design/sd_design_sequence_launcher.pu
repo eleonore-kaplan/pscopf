@@ -1,38 +1,54 @@
 @startuml sd_design_sequence_launcher
 
-SequenceLauncher  -> ContextManager : init_step(session, initialSituation, uncertainties, assessmentUncertainties)
-activate ContextManager
-SequenceLauncher <-- ContextManager : context
-note right
-    Context :
-        Session (i.e. : Réseau, TS, ECH)
-        uncertainties
-        assessmentUncertainties
-        scheduleHistory
-end note
+Sequence  -> Context : init!(context, sequence)
+Sequence <-- Context : context
 
-loop for each ech in context.ECH
-    loop for each Operation in sequence[ech]
-        SequenceLauncher  -> Operation : launch(Operation, context)
-	    SequenceLauncher <-- Operation : newNetworkSituation
-
-        SequenceLauncher  -> ContextManager : update!(context, newNetworkSituation)
+loop for each ech in sequence.ECH
+    loop for each step in sequence.operations(ech)
+        ' Sequence  -> AbstractRunnable : run_step!(context, step, ech, next_ech)
+        Sequence  -> AbstractRunnable : compute_firmness(step, ech, next_ech, TS, context)
         note right
-            L'opération retourne une newNetworkSituation,
-            C'est le contextManager qui va décider de modifier (ou pas) le contexte
-            Par exemple, pour une exécution de marché,
-            on pourrait, se contenter de sauvegarder un planning (pour que le TSO le regarde)
-            sans mettre à jour la situation efective du réseau
-            (i.e. passer une unité en mode démarrage)
+            Determination du niveau de fermeté pour les décisions à prendre
         end note
-	    SequenceLauncher <-- ContextManager
+        Sequence  <-- AbstractRunnable : firmness
+
+        Sequence  -> AbstractRunnable : run(step, ech, firmness, TS, context)
+        note right
+            Lancement du modèle d'optimisation
+        end note
+        Sequence  <-- AbstractRunnable : step_result
+
+        alt step affects market schedule
+            note right
+                Mise a jour du planning marché
+                et des flux du réseau correspondantes
+            end note
+            Sequence  -> AbstractRunnable : update_market_schedule!(context, ech, step_result, firmness, step)
+            Sequence  <-- AbstractRunnable : context updated
+            Sequence  -> Context : update_market_flows!(context)
+            Sequence  <-- Context : updated context
+        end
+
+        alt step affects TSO schedule
+            note right
+                Mise a jour du planning TSO
+                et des flux du réseau correspondantes
+            end note
+            Sequence  -> AbstractRunnable : update_tso_schedule!(context, ech, optim_result, firmness, step)
+            Sequence  <-- AbstractRunnable : context updated
+            Sequence  -> Context : update_tso_flows!(context)
+            Sequence  <-- Context : updated context
+        end
+
+        alt step affects TSO actions
+            note right
+                Mise a jour des actions TSO (limitations, impositions)
+            end note
+            Sequence  -> AbstractRunnable : update_tso_actions!(context, ech, optim_result, firmness, step)
+            Sequence  <-- AbstractRunnable : updated context
+        end
     end
 
-    SequenceLauncher  -> ContextManager : step_ech!(context, ech)
-    SequenceLauncher <-- ContextManager
 end
-
-SequenceLauncher  -> ContextManager : final_step!(context)
-SequenceLauncher <-- ContextManager
 
 @enduml

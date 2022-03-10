@@ -3,7 +3,7 @@
 ## Introduction
 
 Cette section tente de découper la problématique traitée en définissant plusieurs composantes.
-Chaque composante a une responsabilité.
+Chaque composante ayant une responsabilité.
 Une responsabilité peut être définie par le sous-problème intermédiaire que la composante doit résoudre,
  des entrées et des sorties de ce sous-problème.
 Chaque composante doit résoudre le sous-problème qui lui est assigné indépendamment des autres composantes
@@ -65,7 +65,7 @@ Ces fonctionnements internes dépendront du processus de gestion envisagé
  mais sa responsabilité principale est de fixer un planning de production qui assurerait les contraintes d'offre et de demande (EOD).
 Pour cela il dispose d'une vision de l'état du réseau.
 C'est le marché lui-même qui décidera quelles données du réseau il a besoin de regarder
- (s'il a besoin de regarder les décisions TSO, les niveaux de réserve,...) pour bien assurer sa responsabilité.
+ (s'il a besoin de regarder les décisions TSO, ...) pour bien assurer sa responsabilité.
 
 ### Bloc TSO
 
@@ -74,20 +74,25 @@ C'est le marché lui-même qui décidera quelles données du réseau il a besoin
 Ce bloc simulerait le responsable du réseau :
  Il considérerait une situation du réseau en entrée décrivant les incertitudes sur le réseau ainsi que les choix des marchés.
  Le TSO répondra à cette situation d'entrée, en émettant des décisions d'imposition et de limitation.
- La principale résponsabilité du TSO est d'assurer les contraintes réseau pour cela il dispose d'une réserve, en plus des unités de production.
+ La principale résponsabilité du TSO est d'assurer les contraintes réseau.
 
-### Bloc de Démarrage des unités
+### [Bloc de fermeté des décisions](@id firmness_module)
 
-![Bloc du TSO](../figs/bloc_dmo.png)
+![Bloc de fermeté](../figs/bloc_firmness.png)
 
-Ce bloc a pour objectif de consolider la situation du réseau
- en s'assurant que les DMO et les DP des unités sont bien respectées dans le planning reflété par la situation du réseau.
+Ce bloc a la responsabilité de vérifier les DMO, les DP et l'identité du décideur pour déterminer le niveau de fermeté d'une décision.
 
-N.B. : Ce bloc a besoin de deux planning : un planning de référence et un planning à consolider, pour s'assurer que le nouveau planning ne change pas les valeurs des unités une fois la DP/DMO dépassée par exemple.
+Une décision (que ce soit de démarrage ou du niveau de production) peut être :
+- Non ferme (FREE) : Dans ce cas, les décisions sont prises par scénario de façon indépendante.
+- A décider (TO_DECIDE) : Dans ce cas, une décision ferme doit être prise à cet instant donné.
+ Par exemple, à l'instant correspondant à la DMO d'une unité, la décision du démarrage (ou non) de l'unité en question doit être prise de façon ferme.
+- Déjà décidée (DECIDED) : Dans ce cas, une décision ferme aurait dû être prise avant l'instant considéré.
+ Par exemple, après l'instant correspondant à la DMO d'une unité, il n'est plus possible de changer son état. La décision de démarrage est donc déjà prise.
+
 
 ### Bloc d'évaluation
 
-![Bloc du TSO](../figs/bloc_evaluation.png)
+![Bloc assessment](../figs/bloc_evaluation.png)
 
 Ce bloc est responsable de l'évaluation du processus de gestion en question et des décisions prises dans le cadre de ce dernier.
 Il permet de vérifier si les choix effectués permettent de satisfaire la demande
@@ -111,36 +116,11 @@ A un instant donné, un _bus_ peut être décrit par un niveau de production et 
 Il peut comprendre une ou plusieurs composantes du réseau d'électricité à savoir :
  des unités imposables et/ou des unités limitables voire de la réserve localisée.
 
-Dans le cadre de ce travail, nous considérons que nous disposons d'un certain niveau de réserve.
-Cette réserve est délocalisée.
-Une clé de répartition guidée par les coefficients de la PTDF décidera indirectement de cette localisation.
 
 ### Les incertitudes
 
 A chaque échéances, nous disposons d'une observation évoluée des incertitudes.
-Les incertitudes du réseau étant les injections nodales (les niveaux de consommation et les capacités de production des unités limitables).
-
-### Description de la situation du réseau
-
-Le réseau peut etre décrit grace à :
-
-- état des unités à l'échéance : unités démarrées, en démarrage, éteintes
-- planning prévisionnel pour tous les scénarios et toutes les dates d'intérêt :
- donnant le niveau de production des unités imposables, les limitations des unités limitables, les niveaux de réserve.
- Ces décisions (planning) peuvent être provisoires (valeurs différentes par scénario) ou définitives.
-- Les incertitudes du réseau vues à l'échéance :
- niveaux de consommation et capacité de production des limitables pour tous les scénarios et toutes les dates d'intérêt
-
-A voir :
-- Le planning ne semble pas suffire pour traiter les DMO/DP,
- il est probablement nécessaire d'avoir l'information sur les arrêts/démarrages des unités à l'échéance pour pouvoir faire le traitement.
- Le modèle lui-même pourrait devoir traiter les délais dmo/dp:
-
-![remarque dmo](../figs/dmo_dp.png)
-
-Dans la figure ci-dessus, à l'échéance ECH', la nature de la décision pour le pas de temps ts_2 diffère.
-Dans l'exemple 1, L'unité avait été démarrée à ECH pour le pas de temps ts_1, la DP s'applique donc.
-Par contre, dans l'exemple 2, l'unité est restée éteinte, c'est la DMO qui doit être respectée.
+Les incertitudes du réseau concernent les niveaux de consommation et les injections nodales (les capacités de production des unités limitables).
 
 
 ## Schéma Général
