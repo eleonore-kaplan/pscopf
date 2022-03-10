@@ -102,7 +102,9 @@ end
 
 
 function get_i_for_bus(network_p::Network, bus_name_p::String)
-    bus_id_l = first(filter( x -> x[2].name == bus_name_l , network.buses))[2].id
+    bus_id_l = first(filter( x -> x[2].name == bus_name_p , network_p.buses))[2].id
+    println(bus_name_p, " ; id ", bus_id_l, " ; i ", network_p.bus_to_i[bus_id_l])
+    println("BUSES:\n", network_p.buses)
     return network_p.bus_to_i[bus_id_l]
     #or for now, return first(filter( x -> x[2].name == bus_name_l , network.buses))[1]
 end
@@ -208,7 +210,7 @@ function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)
     return PTDF
 end
 
-function distribute_slack(PTDF::Matrix, ref_bus::Int, coeffs::Vector{Float64})
+function distribute_slack(PTDF::Matrix, coeffs::Vector{Float64})
     m, n = size(PTDF);
     v = PTDF * coeffs;
     result = -v*(ones(n)');
@@ -216,7 +218,7 @@ function distribute_slack(PTDF::Matrix, ref_bus::Int, coeffs::Vector{Float64})
     return result;
 end
 
-function distribute_slack(PTDF::Matrix, ref_bus::Int, coeffs_p::Dict{String,Float64}, network_p::Network)
+function distribute_slack(PTDF::Matrix, coeffs_p::Dict{String,Float64}, network_p::Network)
     m, n = size(PTDF);
     @assert( n == length(coeffs_p) )
 
@@ -229,14 +231,14 @@ function distribute_slack(PTDF::Matrix, ref_bus::Int, coeffs_p::Dict{String,Floa
     #normalize coeffs
     vect_coeffs_l = vect_coeffs_l / sum(vect_coeffs_l)
 
-    return distribute_slack(PTDF, ref_bus, vect_coeffs_l)
+    return distribute_slack(PTDF, vect_coeffs_l)
 end
 
-function distribute_slack(PTDF::Matrix, ref_bus::Int)
+function distribute_slack(PTDF::Matrix)
     m, n = size(PTDF);
     μ = 1/n;
     coeffs_l = ones(n)*μ
-    return distribute_slack(PTDF, ref_bus, coeffs_l)
+    return distribute_slack(PTDF, coeffs_l)
 end
 
 function write_slack_distribution(file_path::String, network::Network, coeffs_p::Vector{Float64})
@@ -251,11 +253,14 @@ function write_slack_distribution(file_path::String, network::Network, coeffs_p:
     end
 end
 
-function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Matrix, PTDF_TRIMMER::Float64)
+function write_PTDF(file_path::String,
+                    network::Network, PTDF::Matrix,
+                    distributed=false, ref_bus::Int=-1;
+                    PTDF_TRIMMER::Float64=1e-06,)
     n = length(network.bus_to_i);
     m = length(network.branches);
     open(file_path, "w") do file
-        ref_name =  @sprintf("\"%s\"", network.buses[ref_bus].name)
+        ref_name =  distributed ? "\"distributed\"" : @sprintf("\"%s\"", network.buses[ref_bus].name)
         write(file, @sprintf("#%20s %20s\n", "REF_BUS", ref_name))
         for branch_id in 1:m
             for bus_id in 1:n
@@ -271,18 +276,12 @@ function write_PTDF(file_path::String, network::Network, ref_bus::Int, PTDF::Mat
     end
 end
 
-function compute_ptdf(input_path, ref_bus::Int=1,
-                    name="pscopf_ptdf.txt", ptdf_trimmer::Float64=1e-6)
-    output_path = joinpath(input_path, name)
-
-    network = read_network(input_path)
-
+function compute_ptdf(network, ref_bus::Int=1)
     B = get_B(network, 1e-6);
     Binv = get_B_inv(B, ref_bus);
     PTDF = get_PTDF(network, Binv, ref_bus);
-    PTDF_distributed = distribute_slack(PTDF, 1);
 
-    write_PTDF(output_path, network, ref_bus, PTDF_distributed, ptdf_trimmer)
+    return PTDF
 end
 
 export compute_ptdf
