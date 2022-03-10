@@ -53,6 +53,7 @@ function create_network()
     println("adding the PTDF")
     PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_1", 0.5)
     PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_2", -0.5)
+    # Alternatively, PSCOPF.PSCOPFio.read_ptdf!(network, dirpath, filename)
     #Generators - Limitables
     println("adding Limitables")
     PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1", PSCOPF.Networks.LIMITABLE,
