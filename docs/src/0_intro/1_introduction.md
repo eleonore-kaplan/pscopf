@@ -7,6 +7,8 @@ En vue des changements observés dans le secteur de l'électricité, notamment l
 
 L'objectif de ce travail est de mettre en place les fondations d'un framework permettant de simuler ces différents processus
  sous différentes hypothèses et de pouvoir comparer leur validité.
+Il s'agit d'un travail exploratoire visant à mieux comprendre cette problèmatique et mieux défénir les besoins
+ afin de determiner les hypothèses initiales et redéfinir les objectifs.
 
 La validité d'un processus de gestion est principalement jugé par sa capacité à satisfaire la demande d'électricité tout en
  respectant un ensemble de contraintes réseau.

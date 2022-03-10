@@ -9,6 +9,16 @@ So, to start, you need to execute :
 julia --project=.
 ```
 
+## Build Docs
+
+To build the documentation. Run :
+
+```
+include("docs/make.jl")
+```
+
+The documentation will be built at `docs/build` and can be viewed by opening the file `docs/build/index.html` in a web browser.
+
 ## Launch Tests
 
 Enter package mode by pressing "]", then, launch :
