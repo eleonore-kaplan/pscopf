@@ -35,5 +35,7 @@ This can easily make the problem infeasable.
 \end{aligned}
 ```
 
+Need to add P_cut_prod and cut_conso here !
+
 This constraint expresses the power limits of the network's branches.
 This, actually, represents a thermal real constraint in terms of a power limit constraint.

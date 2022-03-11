@@ -1,6 +1,8 @@
+using Documenter
+
 module PSCOPFDocs
 
-using Documenter, PSCOPF
+using Documenter
 
 format = Documenter.HTML(
     prettyurls = false,
@@ -32,6 +34,11 @@ pages = Any[
                    ],
 
                 "Modèles du TSO" => Any[
+                    "TSO avant la FO" => Any[
+                        "Le Problème" => "2_modeles/2_tso/1_tso_avant_fo/1_problem.md",
+                        "Les Variables et les Contraintes" => "2_modeles/2_tso/1_tso_avant_fo/2_vars_and_cstrs.md",
+                        "L'Objectif" => "2_modeles/2_tso/1_tso_avant_fo/3_objective.md",
+                        ],
                     "Mode 1 (ANCIEN)" => Any[
                         "Problem Description" => "2_modeles/2_tso/1_mode_1/1_problem.md",
                         "Variables" => "2_modeles/2_tso/1_mode_1/2_variables.md",
@@ -50,7 +57,10 @@ pages = Any[
 
 end # PSCOPFDocs
 
-makedocs(modules = [PSCOPF],
+#TODO : PTDF docs go somewhere else
+include(joinpath(@__DIR__, "..", "src", "PSCOPF.jl"))
+include(joinpath(@__DIR__, "..", "src", "PTDF.jl"))
+makedocs(modules = [PSCOPF, PTDF],
         sitename="PSCOPF",
         format = PSCOPFDocs.format,
         pages = PSCOPFDocs.pages,
