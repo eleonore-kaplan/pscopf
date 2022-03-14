@@ -56,6 +56,8 @@ end
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
 end
 
+Base.:(==)(a::Firmness, b::Firmness) = a.commitment==b.commitment && a.power_level==b.power_level
+
 function get_commitment_firmness(firmness::Firmness)
     return firmness.commitment
 end

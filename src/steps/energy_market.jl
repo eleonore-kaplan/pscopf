@@ -47,13 +47,7 @@ function update_market_schedule!(context::AbstractContext, ech,
 
 
     for ((gen_id, ts, s), p_injected_var) in result.limitable_model.p_injected
-        if get_power_level_firmness(firmness, gen_id, ts) == FREE
-            set_prod_value!(market_schedule, gen_id, ts, s, value(p_injected_var))
-        elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
-            set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
-        elseif get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) == get_prod_value(market_schedule, gen_id, ts) )
-        end
+        set_prod_value!(market_schedule, gen_id, ts, s, value(p_injected_var))
     end
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) == FREE

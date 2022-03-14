@@ -158,7 +158,7 @@ function definitive_starts(schedule::Schedule, initial_state::SortedDict{String,
             if !is_definitive(current_state)
                 break #if current state is not definitive the following are not neither
 
-            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) )
+            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) ) # unit was started for ts
                 push!(result, (gen_id,ts) )
                 prev_state = get_value(current_state)
                 prev_ts = ts
