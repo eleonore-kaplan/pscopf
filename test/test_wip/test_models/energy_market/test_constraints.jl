@@ -135,7 +135,7 @@ using Printf
                                         PSCOPF.get_network(context),
                                         ech, ts, s)
                 @printf("ts:%s, s:%s : %f\n", ts, s, flow)
-                @test ( (flow > 35.) || (flow < -35.) ) #the branch limit
+                @test !( -35. < flow < 35. ) #flow exceeds branch limit
             end
         end
     end
