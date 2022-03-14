@@ -88,4 +88,6 @@ abstract type AbstractGeneratorModel end
 abstract type AbstractImposableModel <: AbstractGeneratorModel end
 abstract type AbstractLimitableModel <: AbstractGeneratorModel end
 
+abstract type AbstractSlackModel end
+
 abstract type AbstractObjectiveModel end

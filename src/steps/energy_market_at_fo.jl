@@ -5,7 +5,8 @@ using JuMP
 using Statistics
 using Printf
 
-struct EnergyMarketAtFO <: AbstractMarket
+@with_kw mutable struct EnergyMarketAtFO <: AbstractMarket
+    configs = EnergyMarketConfigs()
 end
 
 SCENARIOS_DELIMITER = "_+_"
@@ -59,6 +60,9 @@ function run(runnable::EnergyMarketAtFO,
     @assert check_uncertainties(Uncertainties(ech=>agg_uncertainties), get_network(context))
     @assert check_uncertainties_contain_ts(Uncertainties(ech=>agg_uncertainties), get_target_timepoints(context))
 
+    runnable.configs.out_path = context.out_dir
+    runnable.configs.problem_name = problem_name_l
+
     return energy_market(get_network(context),
                         TS,
                         get_generators_initial_state(context),
@@ -67,8 +71,7 @@ function run(runnable::EnergyMarketAtFO,
                         firmness,
                         get_market_schedule(context), #this uses original scenario names
                         gratis_starts,
-                        out_path=context.out_dir,
-                        problem_name=problem_name_l,
+                        runnable.configs
                         )
 end
 

@@ -4,7 +4,8 @@ using Dates
 using JuMP
 using Printf
 
-struct EnergyMarket <: AbstractMarket
+@with_kw mutable struct EnergyMarket <: AbstractMarket
+    configs = EnergyMarketConfigs()
 end
 
 function run(runnable::EnergyMarket,
@@ -23,6 +24,9 @@ function run(runnable::EnergyMarket,
     market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
     gratis_starts = union(tso_starts, market_starts)
 
+    runnable.configs.out_path = context.out_dir
+    runnable.configs.problem_name = problem_name_l
+
     return energy_market(get_network(context),
                         TS,
                         get_generators_initial_state(context),
@@ -31,8 +35,7 @@ function run(runnable::EnergyMarket,
                         firmness,
                         get_market_schedule(context),
                         gratis_starts,
-                        out_path=context.out_dir,
-                        problem_name=problem_name_l,
+                        runnable.configs
                         )
 end
 
