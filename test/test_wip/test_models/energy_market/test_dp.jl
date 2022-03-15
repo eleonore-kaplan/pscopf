@@ -13,7 +13,7 @@ using Dates
     (limitable) wind_1_1|load
     Pmin=0, Pmax=100    | S1: 55
     Csta=0, Cprop=1     |
-    DP => 10h45         |
+    DP => 10h40         |
       S1: 20            |
                         |
     (imposable) prod_1_1|
@@ -100,7 +100,7 @@ using Dates
                                   <--------------------------DP(wind1)----------->
                                                    <---------DP(prod2)----------->
     =#
-    @testset "energy_market_can_change_the_production_level_before_dp" begin
+    @testset "energy_market_can_change_the_production_level_before_dp_if_ON" begin
         ech = DateTime("2015-01-01T10:00:00")
 
         # firmness
@@ -116,7 +116,7 @@ using Dates
                                         generators_init_state,
                                         uncertainties, nothing)
 
-        # prod_1_1 and prod_1_2 are both ON (e.g. due to RSO constraint)
+        # prod_1_1 and prod_1_2 are both ON (e.g. due to RSO constraint though here we have 1 bus)
         context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
                                         "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                             SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
@@ -126,16 +126,16 @@ using Dates
                                                                                                                     SortedDict("S1"=>18.)))
                                             ),
                                         "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
-                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
-                                                                                                                    SortedDict("S1"=>PSCOPF.ON))),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF,
+                                                                                                                    SortedDict("S1"=>PSCOPF.OFF))),
                                             SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
-                                                                                                                    SortedDict("S1"=>17.)))
+                                                                                                                    SortedDict("S1"=>0.)))
                                             ),
                                         "prod_1_2" => PSCOPF.GeneratorSchedule("prod_1_2",
                                             SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
                                                                                                                     SortedDict("S1"=>PSCOPF.ON))),
                                             SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
-                                                                                                                    SortedDict("S1"=>20.)))
+                                                                                                                    SortedDict("S1"=>37.)))
                                             )
                                         )
                                 )
@@ -154,13 +154,12 @@ using Dates
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
-        # we change the production level of the units but keep them ON
-        # prod_1_1 : 17 => 25.
-        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
-        @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
-        # prod_1_2 : 20 => 10.
+        # prod_1_1 is OFF cause it already was OFF:
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
+        # prod_1_2 was ON, it can change it's production : 37 => 35.
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
-        @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
+        @test 35. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
     end
 
 

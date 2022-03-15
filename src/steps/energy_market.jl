@@ -66,10 +66,8 @@ function update_market_schedule!(context::AbstractContext, ech,
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(market_schedule, gen_id, ts, s, gen_state_value)
-        elseif get_commitment_firmness(firmness, gen_id, ts) == TO_DECIDE
+        elseif get_commitment_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
-        elseif get_commitment_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( gen_state_value == get_commitment_value(market_schedule, gen_id, ts) )
         end
     end
 

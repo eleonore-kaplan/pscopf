@@ -201,7 +201,9 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                         )
         add_commitment_firmness_constraints!(model, generator,
                                             imposable_model.b_on,
+                                            imposable_model.b_start,
                                             target_timepoints, scenarios,
+                                            generator_initial_state,
                                             commitment_firmness,
                                             generator_reference_schedule
                                             )
