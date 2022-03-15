@@ -1,7 +1,9 @@
 using PSCOPF
 
 using Test
+using JuMP
 using Dates
+using DataStructures
 using Printf
 
 @testset verbose=true "test_energy_market_constraints" begin
@@ -126,7 +128,9 @@ using Printf
     @testset "energy_market_does_not_consider_RSO_constraints" begin
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
         # But, RSO constraints are not satisfied:
+        # Note : compute_flow does not consider cut_conso (valid here cause cut_conso=0, proven by pscopf_OPTIMAL)
         for ts in TS
             for s in ["S1", "S2"]
                 flow = PSCOPF.compute_flow("branch_1_2",
@@ -135,7 +139,7 @@ using Printf
                                         PSCOPF.get_network(context),
                                         ech, ts, s)
                 @printf("ts:%s, s:%s : %f\n", ts, s, flow)
-                @test !( -35. < flow < 35. ) #flow exceeds branch limit
+                @test !( -35. <= flow <= 35. ) #flow exceeds branch limit
             end
         end
     end

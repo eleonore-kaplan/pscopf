@@ -20,11 +20,26 @@ end
 function get_limitations(tso_actions::TSOActions)
     return tso_actions.limitations
 end
+function get_limitations(limitations_dict::SortedDict{Tuple{String, Dates.DateTime}, Float64})
+    return limitations_dict
+end
+function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime}, Float64})
+    return impositions_dict
+end
 
-function get_limitation(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
+function get_limitation(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
     limitations = get_limitations(tso_actions)
     if !haskey(limitations, (gen_id, ts))
         return missing
+    else
+        return limitations[gen_id, ts]
+    end
+end
+function safeget_limitation(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
+    limitation = get_limitation(tso_actions, gen_id, ts)
+    if ismissing(limitation)
+        msg = @sprintf("Missing limitation value for (gen_id=%s,ts=%s).", gen_id, ts)
+        throw( error(msg) )
     else
         return limitations[gen_id, ts]
     end
