@@ -94,7 +94,7 @@ using JuMP
     end
 
     #=
-    If force_limitables_to_uncertainty is False,
+    If force_limitables is False,
       limitables are no longer chosen first but
       units are entirely chosen economically
 
@@ -167,7 +167,7 @@ using JuMP
 
         market = PSCOPF.EnergyMarket()
         # Change default configs
-        market.configs.force_limitables_to_uncertainty = false
+        market.configs.force_limitables = false
 
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
@@ -186,27 +186,6 @@ using JuMP
         @test ismissing( PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1") )
     end
 
-    #=
-    TS: [11h]
-    S: [S1]
-                        bus 1                   bus 2
-                        |                      |
-    (limitable) wind_1_1|       "1_2"          |(limitable) wind_2_1
-    Pmin=0, Pmax=100    |                      |Pmin=0, Pmax=100
-    Csta=0, Cprop=150   |                      |Csta=0, Cprop=1
-      S1: 20            |----------------------|  S1: 25
-                        |         500          |
-                        |                      |
-                        |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
-    Pmin=20, Pmax=100   |                      | Pmin=5, Pmax=100
-    Csta=10k, Cprop=10  |                      | Csta=10k, Cprop=15
-                        |                      |
-                        |                      |
-                load_1  |                      |load_2
-                 S1: 15 |                      | S1: 40
-
-    =#
     #=
     In S1:
       load = 55, wind=45 => missing 10

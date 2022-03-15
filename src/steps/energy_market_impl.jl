@@ -7,13 +7,13 @@ using Printf
 using Parameters
 
 @with_kw mutable struct EnergyMarketConfigs
-    force_limitables_to_uncertainty::Bool = true
+    force_limitables::Bool = true
     cut_conso_penalty = 1e7
     out_path = nothing
     problem_name = "EnergyMarket"
 end
 
-@with_kw struct EnergyMarketLimitableModel <: AbstractGeneratorModel
+@with_kw struct EnergyMarketLimitableModel <: AbstractLimitableModel
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #ts,s
@@ -21,7 +21,7 @@ end
     #firmness_constraints
 end
 
-@with_kw struct EnergyMarketImposableModel <: AbstractGeneratorModel
+@with_kw struct EnergyMarketImposableModel <: AbstractImposableModel
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -56,16 +56,6 @@ end
         SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
     #v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
     status::PSCOPFStatus = pscopf_UNSOLVED
-end
-
-function sum_injections(generator_model, ts::Dates.DateTime, s::String)::AffExpr
-    sum_l = AffExpr(0)
-    for ((_,ts_l,s_l), var_l) in generator_model.p_injected
-        if (ts_l,s_l) == (ts, s)
-            sum_l += var_l
-        end
-    end
-    return sum_l
 end
 
 """
@@ -107,14 +97,14 @@ function energy_market(network::Networks.Network,
                     network, target_timepoints,
                     scenarios,
                     uncertainties_at_ech,
-                    #firmness, reference_schedule
-                    configs.force_limitables_to_uncertainty
+                    force_limitables=configs.force_limitables,
+                    has_global_capping_vars=true,
                     )
 
     add_imposables!(model_container_l,
                     network, target_timepoints,
-                    generators_initial_state,
                     scenarios,
+                    generators_initial_state,
                     firmness, reference_schedule)
 
     add_slacks!(model_container_l,
@@ -129,7 +119,7 @@ function energy_market(network::Networks.Network,
 
     add_objective!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
 
-    solve!(model_container_l, configs.problem_name, configs.out_path)
+    solve!(get_model(model_container_l), configs.problem_name, configs.out_path)
 
     status_l = get_status(model_container_l)
 
@@ -180,89 +170,11 @@ function add_objective!(model_container, network, gratis_starts, cut_conso_cost)
     return model_container
 end
 
-function add_commitment_constraints!(model::Model,
-                                    generator::Networks.Generator,
-                                    b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                    b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                    target_timepoints::Vector{Dates.DateTime},
-                                    generator_initial_state::GeneratorState,
-                                    scenarios::Vector{String}
-                                    )
-    gen_id = Networks.get_id(generator)
-    for s in scenarios
-        for (ts_index, ts) in enumerate(target_timepoints)
-            #commitment_constraints
-            preceding_on = (ts_index > 1) ? b_on_vars[gen_id, target_timepoints[ts_index-1], s] : float(generator_initial_state)
-            @constraint(model, b_start_vars[gen_id, ts, s] <= b_on_vars[gen_id, ts, s])
-            @constraint(model, b_start_vars[gen_id, ts, s] <= 1 - preceding_on)
-            @constraint(model, b_start_vars[gen_id, ts, s] >= b_on_vars[gen_id, ts, s] - preceding_on)
-        end
-    end
-end
-
-function add_firmness_constraints!(model::Model,
-                                    generator::Networks.Generator,
-                                    vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                    target_timepoints::Vector{Dates.DateTime},
-                                    scenarios::Vector{String},
-                                    vars_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                    generator_reference_schedule::SortedDict{Dates.DateTime, UncertainValue{T}}, #by ts
-                                    ) where T
-    gen_id = Networks.get_id(generator)
-    for ts in target_timepoints
-        if vars_firmness[ts] == DECIDED
-            val = float(safeget_value(generator_reference_schedule[ts]))
-            for s in scenarios
-                @assert( !has_upper_bound(vars[gen_id, ts, s]) || (val <= upper_bound(vars[gen_id, ts, s])) )
-                @constraint(model, vars[gen_id, ts, s] == val)
-            end
-        elseif vars_firmness[ts] == TO_DECIDE
-            #all scenario values are equal
-            s1 = scenarios[1]
-            for (s_index, s) in enumerate(scenarios)
-                if s_index > 1
-                    @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
-                end
-            end
-        end
-    end
-end
-
-function add_commitment_firmness_constraints!(model::Model,
-                                            generator::Networks.Generator,
-                                            b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                            target_timepoints::Vector{Dates.DateTime},
-                                            scenarios::Vector{String},
-                                            commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                            generator_reference_schedule::GeneratorSchedule
-                                            )
-    add_firmness_constraints!(model, generator,
-                            b_on_vars,
-                            target_timepoints, scenarios,
-                            commitment_firmness,
-                            generator_reference_schedule.commitment)
-end
-
-function add_power_level_firmness_constraints!(model::Model,
-                                                generator::Networks.Generator,
-                                                p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                                target_timepoints::Vector{Dates.DateTime},
-                                                scenarios::Vector{String},
-                                                power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                generator_reference_schedule::GeneratorSchedule
-                                                )
-    add_firmness_constraints!(model, generator,
-                            p_injected_vars,
-                            target_timepoints, scenarios,
-                            power_level_firmness,
-                            generator_reference_schedule.production)
-end
-
 function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Model,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
-                        generator_initial_state::GeneratorState,
                         scenarios::Vector{String},
+                        generator_initial_state::GeneratorState,
                         commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
                         power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                         generator_reference_schedule::GeneratorSchedule
@@ -270,25 +182,9 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
     gen_id = Networks.get_id(generator)
     p_min = Networks.get_p_min(generator)
     p_max = Networks.get_p_max(generator)
-    for (ts_index, ts) in enumerate(target_timepoints)
+    for ts in target_timepoints
         for s in scenarios
-            name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-            imposable_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name)
-
-            if p_min > 0
-                @constraint(model, imposable_model.p_injected[gen_id, ts, s] in MOI.Semicontinuous(p_min, p_max))
-                name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
-                imposable_model.b_on[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-                name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
-                imposable_model.b_start[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-
-                # pmin < P_injected < pmax OR = 0
-                @constraint(model, imposable_model.p_injected[gen_id, ts, s] <= p_max * imposable_model.b_on[gen_id, ts, s]);
-                @constraint(model, imposable_model.p_injected[gen_id, ts, s] >= p_min * imposable_model.b_on[gen_id, ts, s]);
-            else #pmin=0
-                set_lower_bound(imposable_model.p_injected[gen_id, ts, s], 0.) #p_min=0
-                set_upper_bound(imposable_model.p_injected[gen_id, ts, s], p_max)
-            end
+            add_p_injected!(imposable_model, model, gen_id, ts, s, p_max, false)
         end
     end
 
@@ -300,10 +196,9 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                         )
 
     if p_min > 0
-        add_commitment_constraints!(model, generator,
-                                    imposable_model.b_on, imposable_model.b_start,
-                                    target_timepoints, generator_initial_state, scenarios
-                                    )
+        add_commitment!(imposable_model, model, generator,
+                        target_timepoints, scenarios, generator_initial_state
+                        )
         add_commitment_firmness_constraints!(model, generator,
                                             imposable_model.b_on,
                                             target_timepoints, scenarios,
@@ -320,20 +215,14 @@ function add_limitable!(limitable_model::EnergyMarketLimitableModel, model::Mode
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         inject_uncertainties::InjectionUncertainties,
-                        #power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        #generator_reference_schedule::GeneratorSchedule
-                        force_limitables::Bool
+                        force_limitables::Bool,
                         )
     gen_id = Networks.get_id(generator)
+    gen_pmax = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
-            p_enr = min(Networks.get_p_max(generator), inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
-            name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-            limitable_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=p_enr)
-
-            if force_limitables
-                @constraint(model, limitable_model.p_injected[gen_id, ts, s] == p_enr)
-            end
+            p_enr = min(gen_pmax, inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
+            add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, force_limitables)
         end
     end
 
@@ -342,8 +231,8 @@ end
 
 function add_imposables!(model_container::EnergyMarketModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
-                        generators_initial_state::SortedDict{String,GeneratorState},
                         scenarios::Vector{String},
+                        generators_initial_state::SortedDict{String,GeneratorState},
                         firmness::Firmness,
                         reference_schedule::Schedule
                         )
@@ -355,8 +244,8 @@ function add_imposables!(model_container::EnergyMarketModel, network::Networks.N
         add_imposable!(model_container.imposable_model, model_container.model,
                         imposable_gen,
                         target_timepoints,
-                        gen_initial_state,
                         scenarios,
+                        gen_initial_state,
                         get_commitment_firmness(firmness, gen_id),
                         get_power_level_firmness(firmness, gen_id),
                         get_sub_schedule(reference_schedule, gen_id)
@@ -368,10 +257,9 @@ end
 function add_limitables!(model_container::EnergyMarketModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
-                        uncertainties_at_ech::UncertaintiesAtEch,
-                        # firmness::Firmness,
-                        # reference_schedule::Schedule
-                        force_limitables::Bool
+                        uncertainties_at_ech::UncertaintiesAtEch;
+                        force_limitables::Bool=false,
+                        has_global_capping_vars::Bool=false,
                         )
     limitable_model = model_container.limitable_model
     model = model_container.model
@@ -384,17 +272,17 @@ function add_limitables!(model_container::EnergyMarketModel, network::Networks.N
                         target_timepoints,
                         scenarios,
                         get_uncertainties(uncertainties_at_ech, gen_id),
-                        # get_power_level_firmness(firmness, gen_id),
-                        # get_sub_schedule(reference_schedule, gen_id)
-                        force_limitables
+                        force_limitables,
                         )
     end
 
-    for ts in target_timepoints
-        for s in scenarios
-            name =  @sprintf("P_capping[%s,%s]", ts, s)
-            limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
-            @constraint(model, limitable_model.p_capping[ts, s] <= sum_injections(limitable_model, ts, s))
+    if has_global_capping_vars
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("P_capping[%s,%s]", ts, s)
+                limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
+                @constraint(model, limitable_model.p_capping[ts, s] <= sum_injections(limitable_model, ts, s))
+            end
         end
     end
 
