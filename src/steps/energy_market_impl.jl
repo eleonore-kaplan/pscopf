@@ -130,7 +130,7 @@ function energy_market(network::Networks.Network,
     return model_container_l
 end
 
-function add_objective!(model_container, network, gratis_starts, cut_conso_cost)
+function add_objective!(model_container::EnergyMarketModel, network, gratis_starts, cut_conso_cost)
     # No cost for starting limitables
 
     # cost for starting imposables

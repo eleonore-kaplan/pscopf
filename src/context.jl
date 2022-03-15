@@ -111,6 +111,10 @@ function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
 end
 
+function get_tso_actions(context::PSCOPFContext)
+    return context.tso_actions
+end
+
 function get_tso_schedule(context_p::PSCOPFContext)
     return context_p.tso_schedule
 end

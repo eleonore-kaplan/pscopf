@@ -1,9 +1,9 @@
 using PSCOPF
 
 using Test
+using JuMP
 using Dates
 using DataStructures
-using JuMP
 
 @testset verbose=true "test_energy_market_start_cost" begin
 
