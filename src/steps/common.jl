@@ -178,24 +178,39 @@ end
 function add_commitment_firmness_constraints!(model::Model,
                                             generator::Networks.Generator,
                                             b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                            b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             target_timepoints::Vector{Dates.DateTime},
                                             scenarios::Vector{String},
+                                            generator_initial_state::GeneratorState,
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                                             generator_reference_schedule::GeneratorSchedule
                                             )
     gen_id = Networks.get_id(generator)
+    preceding_ts = nothing
     for ts in target_timepoints
         if commitment_firmness[ts] in [DECIDED, TO_DECIDE]
             link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
+            link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
         end
 
         if commitment_firmness[ts] == DECIDED
-            val = float(safeget_commitment_value(generator_reference_schedule, ts))
-            for s in scenarios
-                @assert( !has_upper_bound(b_on_vars[gen_id, ts, s]) || (val <= upper_bound(b_on_vars[gen_id, ts, s])) )
-                @constraint(model, b_on_vars[gen_id, ts, s] == val)
+            reference_start_val = get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
+            if reference_start_val == 0
+                for s in scenarios
+                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
+                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
+                end
+            end
+
+            reference_on_val = float(safeget_commitment_value(generator_reference_schedule, ts))
+            if reference_on_val < 1e-09
+                for s in scenarios
+                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
+                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
+                end
             end
         end
+        preceding_ts = ts
     end
 
     return model

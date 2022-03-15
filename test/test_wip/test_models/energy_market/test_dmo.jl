@@ -53,11 +53,14 @@ using Dates
     PSCOPF.add_uncertainty!(uncertainties, DateTime("2015-01-01T07:00:00"), "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
     PSCOPF.add_uncertainty!(uncertainties, DateTime("2015-01-01T09:00:00"), "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 20.)
     PSCOPF.add_uncertainty!(uncertainties, DateTime("2015-01-01T09:00:00"), "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
+    PSCOPF.add_uncertainty!(uncertainties, DateTime("2015-01-01T10:35:00"), "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 20.)
+    PSCOPF.add_uncertainty!(uncertainties, DateTime("2015-01-01T10:35:00"), "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
     # initial generators state : need to pay starting cost at TS[1]
     generators_init_state = SortedDict(
         "prod_1_1" => PSCOPF.OFF,
         "prod_1_2" => PSCOPF.OFF
     )
+    mode = PSCOPF.ManagementMode("mode_5mins", Dates.Minute(5))
 
     # before DMO + still have an ech to decide on => commitment firmness is FREE
     @testset "energy_market_can_start_unit_when_commitment_firmness_is_FREE" begin
@@ -96,7 +99,7 @@ using Dates
                             "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
                 )
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
                                         generators_init_state,
                                         uncertainties, nothing)
 
@@ -127,7 +130,7 @@ using Dates
     end
 
     # after DMO => commitment firmness is DECIDED
-    @testset "energy_market_cannot_start_unit_when_commitment_firmness_is_DECIDED" begin
+    @testset "energy_market_cannot_start_unit_after_DMO" begin
         ech = DateTime("2015-01-01T09:00:00")
 
         #For some reason, Initial schedule starts prod_1_2 (prod_1_1 is off) : decisions are not definitive
@@ -164,7 +167,7 @@ using Dates
                 )
 
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
                                         generators_init_state,
                                         uncertainties, nothing)
 
@@ -186,12 +189,79 @@ using Dates
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
-        # we could not start prod_1_1 due to DMO
+        # we could not start prod_1_1 due to DMO even if it is cheaper
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
         # we use prod_1_2
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
         @test 35. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
+    end
+
+    # after DMO => commitment firmness is DECIDED
+    @testset "energy_market_can_shutdown_unit_after_DMO" begin
+        ech = DateTime("2015-01-01T10:35:00")
+
+        #For some reason, Initial schedule starts prod_1_2 (prod_1_1 is off) : decisions are not definitive
+        initial_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
+            "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
+                SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
+                # SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                #                                                                         SortedDict("S1"=>PSCOPF.ON))),
+                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                        SortedDict("S1"=>20.)))
+                ),
+            "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
+                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                        SortedDict("S1"=>PSCOPF.ON))),
+                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                        SortedDict("S1"=>15.)))
+                ),
+            "prod_1_2" => PSCOPF.GeneratorSchedule("prod_1_2",
+                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                        SortedDict("S1"=>PSCOPF.ON))),
+                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                        SortedDict("S1"=>20.)))
+                )
+            )
+        )
+
+        # firmness : prod_1_1 is already decided (DMO > ECH)
+        expected_firmness = PSCOPF.Firmness(
+                SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.DECIDED),
+                            "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.DECIDED), ),
+                SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                            "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                            "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
+                )
+
+        context = PSCOPF.PSCOPFContext(network, TS, mode,
+                                        generators_init_state,
+                                        uncertainties, nothing)
+
+        # prod_1_1 is OFF (but value is not definitive)
+        context.market_schedule = initial_schedule
+
+        market = PSCOPF.EnergyMarket()
+
+        firmness = PSCOPF.compute_firmness(market, ech, #10h35 after the DMOs
+                                            DateTime("2015-01-01T10:45:00"),
+                                            TS, context)
+        @test firmness == expected_firmness
+
+        result = PSCOPF.run(market, ech, firmness,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
+
+        # Solution is optimal
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+        @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
+        # we use prod_1_1, it was already started, we can change production before DP
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        @test 35. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        # we can shutdown prod_1_2 after the DMO
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
+        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1") < 1e-09
     end
 
 end

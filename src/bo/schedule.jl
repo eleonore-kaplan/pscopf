@@ -168,7 +168,7 @@ function is_definitive(uncertain_value::UncertainValue{T})::Bool where T
     return !ismissing(existing_value)
 end
 
-function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
+function safeset_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
         existing_value = get_value(uncertain_value)
         if existing_value != value
@@ -181,6 +181,22 @@ function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Un
         for (scenario, _) in uncertain_value.anticipated_value
             uncertain_value.anticipated_value[scenario] = value
         end
+    end
+    return uncertain_value.definitive_value
+end
+function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
+    if is_definitive(uncertain_value)
+        existing_value = get_value(uncertain_value)
+        if existing_value != value
+            msg = @sprintf("changed value to %s : The definitive value was already set to `%s` for the UncertainValue.",
+                    value, existing_value)
+            @debug msg
+        end
+    end
+
+    uncertain_value.definitive_value = value
+    for (scenario, _) in uncertain_value.anticipated_value
+        uncertain_value.anticipated_value[scenario] = value
     end
     return uncertain_value.definitive_value
 end
@@ -417,7 +433,7 @@ function set_prod_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.D
                         sub_schedule.gen_id, ts)
         throw( error(msg) )
     end
-    set_definitive_value!(uncertain_value, value)
+    safeset_definitive_value!(uncertain_value, value)
 end
 function set_prod_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::Float64)
     return set_prod_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
@@ -454,4 +470,20 @@ end
 function Base.show(io::IO, schedule::Schedule)
     @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
     pretty_print(io, schedule.generator_schedules)
+end
+
+
+#######################
+# Helpers
+########################
+
+function get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
+    current_state = safeget_commitment_value(generator_reference_schedule, ts)
+    preceding_state = ( isnothing(preceding_ts) ? generator_initial_state :
+                            safeget_commitment_value(generator_reference_schedule, preceding_ts) )
+    if preceding_state==OFF && current_state==ON
+        return 1
+    else
+        return 0
+    end
 end

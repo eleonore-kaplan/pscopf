@@ -86,9 +86,6 @@ function update_market_schedule!(context::AbstractContext, ech,
 
     for ((gen_id, ts, _), p_injected_var) in result.limitable_model.p_injected
         set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
-        if get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) == get_prod_value(market_schedule, gen_id, ts) )
-        end
     end
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
@@ -100,9 +97,6 @@ function update_market_schedule!(context::AbstractContext, ech,
     for ((gen_id, ts, _), b_on_var) in result.imposable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
-        if get_commitment_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( gen_state_value == get_commitment_value(market_schedule, gen_id, ts) )
-        end
     end
 
     return market_schedule
