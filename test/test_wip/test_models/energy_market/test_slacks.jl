@@ -119,7 +119,7 @@ using JuMP
                                         generators_init_state,
                                         uncertainties, nothing)
         market = PSCOPF.EnergyMarket()
-        market.configs.force_limitables_to_uncertainty = false
+        market.configs.force_limitables = false
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
@@ -336,5 +336,8 @@ using JuMP
         @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])
         @test value(result.slack_model.p_cut_conso[TS[1], "S2"]) < 1e-09
     end
+
+
+    #TODO : illustrate slack effect
 
 end

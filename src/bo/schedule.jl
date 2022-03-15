@@ -317,6 +317,17 @@ function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime):
     return get_prod_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Float64
+    prod = get_prod_value(sub_schedule, ts)
+    if ismissing(prod)
+        msg = @sprintf("Missing production value for ts=%s in schedule %s",
+                        ts, sub_schedule.gen_id)
+        throw( error(msg) )
+    else
+        return prod
+    end
+end
+
 function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{GeneratorState, Missing}
     uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
@@ -328,6 +339,16 @@ function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.Date
     return get_commitment_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::GeneratorState
+    commitment = get_commitment_value(sub_schedule, ts)
+    if ismissing(commitment)
+        msg = @sprintf("Missing commitment value for ts=%s in schedule %s",
+                        ts, sub_schedule.gen_id)
+        throw( error(msg) )
+    else
+        return commitment
+    end
+end
 
 function get_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
