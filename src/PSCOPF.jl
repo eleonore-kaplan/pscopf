@@ -25,6 +25,8 @@ module PSCOPF
     include("steps/energy_market_impl.jl")
     include("steps/energy_market.jl")
     include("steps/energy_market_at_fo.jl")
+    include("steps/tso_impl.jl")
+    include("steps/tso.jl")
     include("steps/steps.jl")
 
     include("sequence_launcher.jl")

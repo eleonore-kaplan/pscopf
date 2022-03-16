@@ -7,21 +7,6 @@ using Dates
 ################################################################################
 
 """
-utilisé dans les trois modes
-Prend des décisions en se référençant à une situation équilibrée par le marché
-N'utilise pas la reserve ?
-"""
-struct TSOOutFO <: AbstractTSO
-end
-function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).decider_type, ",", get_market_schedule(context).decision_time)
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
-    return #result
-end
-
-"""
 utilisé pour le mode 3:
 Prend des décisions fermes vu que c'est la dernière execution du TSO
 Décide de la reserve

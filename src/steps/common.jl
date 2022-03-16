@@ -1,3 +1,5 @@
+using .Networks
+
 using JuMP
 using Dates
 
@@ -123,6 +125,55 @@ function sum_injections(generator_model::AbstractGeneratorModel,
     return sum_l
 end
 
+# AbstractLimitableModel
+############################
+
+function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
+                        gen_id::String, ts::Dates.DateTime,
+                        scenarios::Vector{String},
+                        pmax,
+                        inject_uncertainties::InjectionUncertainties,
+                        decision_firmness::DecisionFirmness, #by ts
+                        preceding_limit::Union{Float64, Missing}
+                        )
+    b_is_limited = limitable_model.b_is_limited
+    p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
+
+    name =  @sprintf("P_limit[%s,%s]", gen_id, ts)
+    limitable_model.p_limit[gen_id, ts] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
+    limit_var = limitable_model.p_limit[gen_id, ts]
+    for s in scenarios
+        injection_var = limitable_model.p_injected[gen_id, ts, s]
+
+        name =  @sprintf("B_is_limited[%s,%s,%s]", gen_id, ts, s)
+        b_is_limited[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
+
+        name =  @sprintf("P_limit_x_is_limited[%s,%s,%s]", gen_id, ts, s)
+        p_limit_x_is_limited[gen_id, ts, s] = add_prod_vars!(model,
+                                                            limit_var,
+                                                            b_is_limited[gen_id, ts, s],
+                                                            pmax,
+                                                            name
+                                                            )
+
+        #inj[g,ts,s] = min{p_limit[g,ts], uncertainties(g,ts,s), pmax(g)}
+        @constraint(model, injection_var <= limit_var)
+        p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
+        @constraint(model, injection_var ==
+                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
+                        )
+    end
+
+    if decision_firmness==DECIDED
+        # Limit cannot bechanged once it was fixed
+        # FIXME : maybe allow decreasing ? limit_var <= preceding_limit
+        @assert !ismissing(preceding_limit)
+        @constraint(model, limit_var == preceding_limit)
+    end
+
+    return limitable_model, model
+end
+
 # AbstractImposableModel
 ############################
 
@@ -241,3 +292,35 @@ function add_power_level_firmness_constraints!(model::Model,
 
     return model
 end
+
+
+"""
+    add_prod_vars!
+adds to the model and returns a variable that represents the product expression (noted var_a_x_b):
+   var_a * var_b where var_b is a binary variable, and var_a is a positive real variable bound by M
+The following constraints are added to the model :
+    var_a_x_b <= var_a
+    var_a_x_b <= M * var_b
+    M*(1 - var_b) + var_a_x_b >= var_a
+"""
+function add_prod_vars!(model::Model,
+                        var_a::VariableRef,
+                        var_binary::VariableRef,
+                        M,
+                        name
+                        )
+    if !is_binary(var_binary)
+        throw(error("variable var_binary needs to be binary to express the product!"))
+    end
+    if lower_bound(var_a) < 0
+        throw(error("variable var_a needs to be positive to express the product!"))
+    end
+
+    var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
+    @constraint(model, var_a_x_b <= var_a)
+    @constraint(model, var_a_x_b <= M * var_binary)
+    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a)
+
+    return var_a_x_b
+end
+
