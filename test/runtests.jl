@@ -35,6 +35,12 @@ using PSCOPF
     include("test_wip/test_models/energy_market/test_slacks.jl")
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
 
+    include("test_wip/test_models/tso_out_fo/test_tso.jl")
+    include("test_wip/test_models/tso_out_fo/test_dp_imposable.jl")
+    include("test_wip/test_models/tso_out_fo/test_dp_limitable.jl")
+    include("test_wip/test_models/tso_out_fo/test_dmo.jl")
+    include("test_wip/test_models/tso_out_fo/test_constraints.jl")
+
     # include("test_wip/test_seq_launch.jl")
     include("test_wip/example_usecase.jl")
     include("test_wip/example_usecase_from_folder.jl")
