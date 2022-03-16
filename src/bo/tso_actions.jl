@@ -8,10 +8,15 @@ using DataStructures
 
 @with_kw struct TSOActions
     #gen_id, ts => Float (values are firm)
+    # Max allowed P of a limitable for a given ts
     limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
         SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    # Imposed P of a imposable for a given ts
     impositions::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
         SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    # Imposed commitment of a generator (with Pmin>0) for a given ts
+    commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState} =
+        SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 end
 
 ## Limitations
@@ -66,7 +71,48 @@ function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateT
     end
 end
 
+function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::GeneratorState
+    imposition = get_imposition(tso_actions, gen_id, ts)
+    if ismissing(imposition)
+        msg = @sprintf("No imposition entry in TSOActions for (gen_id=%s,ts=%s).", gen_id, ts)
+        throw(error(msg))
+    else
+        return imposition
+    end
+end
+
 function set_imposition_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value::Float64)
     impositions = get_impositions(tso_actions)
     impositions[gen_id, ts] = value
+end
+
+## Commitment
+#--------------
+
+function get_commitments(tso_actions)
+    return tso_actions.commitments
+end
+
+function get_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{GeneratorState, Missing}
+    commitment = get_commitments(tso_actions)
+    if !haskey(commitment, (gen_id, ts))
+        return missing
+    else
+        return commitment[gen_id, ts]
+    end
+end
+
+function safeget_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::GeneratorState
+    commitment = get_commitment(tso_actions, gen_id, ts)
+    if ismissing(commitment)
+        msg = @sprintf("No commitment entry in TSOActions for (gen_id=%s,ts=%s).", gen_id, ts)
+        throw(error(msg))
+    else
+        return commitment
+    end
+end
+
+function set_commitment_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
+    commitment = get_commitments(tso_actions)
+    commitment[gen_id, ts] = value
 end

@@ -17,7 +17,7 @@ Such structure might need to overload the following functions :
 - `affects_tso_schedule(runnable::AbstractRunnable)`
 - `update_tso_schedule!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable)`
 - `affects_tso_actions(runnable::AbstractRunnable)`
-- `update_tso_actions!(tso_actions, ech, result, firmness, context::AbstractContext, runnable::AbstractRunnable)`
+- `update_tso_actions!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable)`
 """
 abstract type  AbstractRunnable end
 """
@@ -51,7 +51,7 @@ function affects_tso_actions(runnable::AbstractRunnable) return false end
 """
 Updates the TSO actions using the result of run()
 """
-function update_tso_actions!(tso_actions, ech, result, firmness, context::AbstractContext, runnable::AbstractRunnable) end
+function update_tso_actions!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable) end
 #FIXME are these compatible with the Assessment step ?
 
 abstract type  AbstractTSO <: AbstractRunnable  end

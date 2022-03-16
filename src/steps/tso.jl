@@ -79,7 +79,35 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
     return tso_schedule
 end
 
-function update_tso_actions!(tso_actions, ech, result, firmness,
-                            context::AbstractContext, runnable::TSOOutFO)
+function update_tso_actions!(context::AbstractContext, ech, result, firmness,
+                            runnable::TSOOutFO)
+    tso_actions = get_tso_actions(context)
     println("\tJe mets à jour les actions TSO (limitations, impositions) à prendre en compte par le marché")
+
+    # Limitations
+    for ((gen_id, ts), p_limit_var) in result.limitable_model.p_limit
+        if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
+            set_limitation_value!(tso_actions, gen_id, ts, value(p_limit_var))
+        end
+    end
+
+    # Impositions
+    impositions = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
+    for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
+        if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
+            @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE
+            set_imposition_value!(tso_actions, gen_id, ts, value(p_injected_var))
+        end
+    end
+
+    # Commitments
+    commitments = SortedDict{Tuple{String,DateTime}, GeneratorState}() #TODELETE
+    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
+        if get_commitment_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
+            gen_state_value = parse(GeneratorState, value(b_on_var))
+            @assert( gen_state_value == get!(commitments, (gen_id, ts), gen_state_value) ) #TODELETE
+            set_commitment_value!(tso_actions, gen_id, ts, gen_state_value)
+        end
+    end
+
 end

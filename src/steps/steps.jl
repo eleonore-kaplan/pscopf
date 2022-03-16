@@ -64,8 +64,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
             " en me basant sur les résultats d'optimisation.")
     println("\tet je ne touche pas au planning du marché")
 end
-function update_tso_actions!(tso_actions, ech, result, firmness,
-                            context::AbstractContext, runnable::AbstractTSO)
+function update_tso_actions!(context::AbstractContext, ech, result, firmness,
+                            runnable::AbstractTSO)
     println("\tJe mets à jour les actions TSO (limitations, impositions) à prendre en compte par le marché")
 end
 
