@@ -96,7 +96,7 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         # Limit was changed since we are before DP
         @test value(result.limitable_model.p_limit["wind_1_1",TS[1]]) > 55. == OLD_LIMIT
-        @test 60. <= value(result.limitable_model.p_limit["wind_1_1",TS[1]]) <= 100.
+        @test 60. - 1e-09 <= value(result.limitable_model.p_limit["wind_1_1",TS[1]]) <= 100. + 1e-09
         #But this is not an active limit
         @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
         @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
