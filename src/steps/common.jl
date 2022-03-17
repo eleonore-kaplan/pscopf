@@ -81,6 +81,20 @@ function solve!(model::Model,
     redirect_to_file(log_file_l) do
         optimize!(model)
     end
+
+    return model
+end
+
+function solve!(model_container::AbstractModelContainer, problem_name, out_path)
+    model_l = get_model(model_container)
+
+    @info problem_name
+    solve!(model_l, problem_name, out_path)
+    @info "pscopf model status: $(get_status(model_container))"
+    @info "Termination status : $(termination_status(model_l))"
+    @info "Objective value : $(objective_value(model_l))"
+
+    return model_container
 end
 
 
@@ -210,6 +224,59 @@ function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
     end
 
     return imposable_model, model
+end
+
+# Objective
+##################
+
+function add_imposable_start_cost!(obj_component::AffExpr,
+                                b_start::AbstractDict{T,V}, network, gratis_starts) where T <: Tuple where V <: VariableRef
+    for ((gen_id,ts,_), b_start_var) in b_start
+        if (gen_id,ts) in gratis_starts
+            @debug(@sprintf("ignore starting cost of %s at %s", gen_id, ts))
+            continue
+        end
+        generator = Networks.get_generator(network, gen_id)
+        gen_start_cost = Networks.get_start_cost(generator)
+        add_to_expression!(obj_component,
+                            b_start_var * gen_start_cost)
+    end
+
+    return obj_component
+end
+
+function add_limitable_prop_cost!(obj_component::AffExpr,
+                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
+    for ((gen_id,_,_), p_injected_var) in p_injected
+        generator = Networks.get_generator(network, gen_id)
+        gen_prop_cost = Networks.get_prop_cost(generator)
+        add_to_expression!(obj_component,
+                            p_injected_var * gen_prop_cost)
+    end
+
+    return obj_component
+end
+
+function add_imposable_prop_cost!(obj_component::AffExpr,
+                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
+    for ((gen_id,_,_), p_injected_var) in p_injected
+        generator = Networks.get_generator(network, gen_id)
+        gen_prop_cost = Networks.get_prop_cost(generator)
+        add_to_expression!(obj_component,
+                            p_injected_var * gen_prop_cost)
+    end
+
+    return obj_component
+end
+
+function add_cut_conso_cost!(obj_component::AffExpr,
+                            p_cut_conso::AbstractDict{T,V}, cut_conso_cost::Float64)  where T <: Tuple where V <: VariableRef
+    for (_, p_cut_conso_var) in p_cut_conso
+        add_to_expression!(obj_component,
+                            cut_conso_cost * p_cut_conso_var)
+    end
+
+    return obj_component
 end
 
 # Utils

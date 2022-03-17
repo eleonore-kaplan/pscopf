@@ -119,49 +119,27 @@ function energy_market(network::Networks.Network,
 
     add_objective!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
 
-    solve!(get_model(model_container_l), configs.problem_name, configs.out_path)
-
-    status_l = get_status(model_container_l)
-
-    @info "pscopf model status: $status_l"
-    @info "Termination status : $(termination_status(model_container_l.model))"
-    @info "Objective value : $(objective_value(model_container_l.model))"
+    solve!(model_container_l, configs.problem_name, configs.out_path)
 
     return model_container_l
 end
 
 function add_objective!(model_container::EnergyMarketModel, network, gratis_starts, cut_conso_cost)
-    # No cost for starting limitables
-
     # cost for starting imposables
-    for ((gen_id,ts,_), b_start_var) in model_container.imposable_model.b_start
-        if (gen_id,ts) in gratis_starts
-            @info(@sprintf("ignore starting cost of %s at %s", gen_id, ts))
-            continue
-        end
-        generator = Networks.get_generator(network, gen_id)
-        gen_start_cost = Networks.get_start_cost(generator)
-        model_container.objective_model.start_cost += b_start_var * gen_start_cost
-    end
+    add_imposable_start_cost!(model_container.objective_model.start_cost,
+                            model_container.imposable_model.b_start, network, gratis_starts)
 
     # cost for using limitables : but most of the times these are fixed
-    for ((gen_id,_,_), p_injected_var) in model_container.limitable_model.p_injected
-        generator = Networks.get_generator(network, gen_id)
-        gen_prop_cost = Networks.get_prop_cost(generator)
-        model_container.objective_model.prop_cost += p_injected_var * gen_prop_cost
-    end
+    add_limitable_prop_cost!(model_container.objective_model.prop_cost,
+                            model_container.limitable_model.p_injected, network)
 
     # cost for using imposables
-    for ((gen_id,_,_), p_injected_var) in model_container.imposable_model.p_injected
-        generator = Networks.get_generator(network, gen_id)
-        gen_prop_cost = Networks.get_prop_cost(generator)
-        model_container.objective_model.prop_cost += p_injected_var * gen_prop_cost
-    end
+    add_imposable_prop_cost!(model_container.objective_model.prop_cost,
+                            model_container.imposable_model.p_injected, network)
 
     # cost for cutting load/consumption
-    for ((_,_), p_cut_conso) in model_container.slack_model.p_cut_conso
-        model_container.objective_model.penalty += cut_conso_cost * p_cut_conso
-    end
+    add_cut_conso_cost!(model_container.objective_model.penalty,
+                        model_container.slack_model.p_cut_conso, cut_conso_cost)
 
     model_container.objective_model.full_obj = ( model_container.objective_model.start_cost +
                                                 model_container.objective_model.prop_cost +
