@@ -301,8 +301,8 @@ function get_prod_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.Dat
     if haskey(sub_schedule.production, ts)
         return sub_schedule.production[ts]
     else
-        throw( error("power level schedule is not defined for generator ", sub_schedule.gen_id))
-        #return missing
+        @warn("power level schedule is not defined for generator ", sub_schedule.gen_id)
+        return missing
     end
 end
 function get_prod_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{Float64},Missing}

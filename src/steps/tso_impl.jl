@@ -112,8 +112,9 @@ function add_limitable!(limitable_model::TSOLimitableModel, model::Model,
         for s in scenarios
             p_enr = min(gen_pmax, inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
             add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
-            add_p_delta!(limitable_model, model, gen_id, ts, s,
-                        get_prod_value(preceding_market_subschedule, ts, s))
+            p_ref = get_prod_value(preceding_market_subschedule, ts, s)
+            p_ref = ismissing(p_ref) ? 0. : p_ref
+            add_p_delta!(limitable_model, model, gen_id, ts, s, p_ref)
         end
 
         add_p_limit!(limitable_model, model, gen_id, ts, scenarios, gen_pmax,
@@ -169,8 +170,9 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
     for ts in target_timepoints
         for s in scenarios
             add_p_injected!(imposable_model, model, gen_id, ts, s, p_max, false)
-            add_p_delta!(imposable_model, model, gen_id, ts, s,
-                        get_prod_value(preceding_market_subschedule, ts, s))
+            p_ref = get_prod_value(preceding_market_subschedule, ts, s)
+            p_ref = ismissing(p_ref) ? 0. : p_ref
+            add_p_delta!(imposable_model, model, gen_id, ts, s, p_ref)
         end
     end
 
