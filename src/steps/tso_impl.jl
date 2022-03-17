@@ -319,33 +319,56 @@ function add_flows!(model_container::TSOModel,
     return model_container
 end
 
-function create_objective!(model_container::TSOModel, network, gratis_starts, cut_conso_cost)
+function create_objectives!(model_container::TSOModel, network, gratis_starts, cut_conso_cost)
+
     # cost for cutting load/consumption
-    for ((_,_), p_cut_conso) in model_container.slack_model.p_cut_conso
-        model_container.objective_model.penalty += cut_conso_cost * p_cut_conso
-    end
+    add_cut_conso_cost!(model_container.objective_model.penalty,
+                        model_container.slack_model.p_cut_conso, cut_conso_cost)
+
     # avoid limiting when not necessary
     for (_, var_is_limited) in model_container.limitable_model.b_is_limited
         model_container.objective_model.penalty += 1e-03 * var_is_limited
     end
+
+    ## Objective 1 :
 
     # cost for deviating from market schedule
     for (_, var_delta) in model_container.imposable_model.delta_p
         model_container.objective_model.deltas += var_delta
     end
 
+    ## Objective 2 :
+
+    # cost for starting imposables
+    add_imposable_start_cost!(model_container.objective_model.start_cost,
+                            model_container.imposable_model.b_start, network, gratis_starts)
+
+    # cost for using limitables : but most of the times these are fixed
+    add_limitable_prop_cost!(model_container.objective_model.prop_cost,
+                            model_container.limitable_model.p_injected, network)
+
+    # cost for using imposables
+    add_imposable_prop_cost!(model_container.objective_model.prop_cost,
+                            model_container.imposable_model.p_injected, network)
+
+    # Objective 1 :
     model_container.objective_model.full_obj_1 = ( model_container.objective_model.deltas +
+                                                model_container.objective_model.penalty )
+    # Objective 2 :
+    model_container.objective_model.full_obj_2 = ( model_container.objective_model.start_cost +
+                                                model_container.objective_model.prop_cost +
                                                 model_container.objective_model.penalty )
 
     return model_container
 end
 
-function solve!(model_container::TSOModel, problem_name, out_path)
-    model = get_model(model_container)
+function bound_sum_p_deltas(model_container::TSOModel)
+    model_l = get_model(model_container)
+    deltas_expr = model_container.objective_model.deltas
+    value_sum_deltas = value(deltas_expr)
 
-    @objective(model, Min, model_container.objective_model.full_obj_1)
-
-    solve!(model, problem_name, out_path)
+    @constraint(model_l, deltas_expr<=value_sum_deltas)
+    return model_container
 end
 
 function tso_out_fo(network::Networks.Network,
@@ -395,15 +418,21 @@ function tso_out_fo(network::Networks.Network,
                         uncertainties_at_ech
                         )
 
-    create_objective!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
+    create_objectives!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
 
-    solve!(model_container_l, configs.problem_name, configs.out_path)
+    obj = model_container_l.objective_model.full_obj_1
+    @objective(get_model(model_container_l), Min, obj)
+    solve!(model_container_l, configs.problem_name*"_step1", configs.out_path)
+    @info "step2 objective current value : $(value(model_container_l.objective_model.full_obj_2))"
 
-    status_l = get_status(model_container_l)
+    if (get_status(model_container_l)!=pscopf_INFEASIBLE
+        && value(model_container_l.objective_model.deltas)>0 )
+        bound_sum_p_deltas(model_container_l)
 
-    @info "pscopf model status: $status_l"
-    @info "Termination status : $(termination_status(model_container_l.model))"
-    @info "Objective value : $(objective_value(model_container_l.model))"
+        obj = model_container_l.objective_model.full_obj_2
+        @objective(get_model(model_container_l), Min, obj)
+        solve!(model_container_l, configs.problem_name*"_step2", configs.out_path)
+    end
 
     return model_container_l
 end

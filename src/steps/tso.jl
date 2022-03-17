@@ -84,7 +84,7 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     tso_actions = get_tso_actions(context)
     println("\tJe mets à jour les actions TSO (limitations, impositions) à prendre en compte par le marché")
 
-    # Limitations
+    # Limitations : FIXME ; limit only if there is a limitation needed !
     for ((gen_id, ts), p_limit_var) in result.limitable_model.p_limit
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             set_limitation_value!(tso_actions, gen_id, ts, value(p_limit_var))
