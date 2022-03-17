@@ -164,7 +164,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
         injection_var = limitable_model.p_injected[gen_id, ts, s]
 
         name =  @sprintf("B_is_limited[%s,%s,%s]", gen_id, ts, s)
-        b_is_limited[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
+        b_is_limited_var = b_is_limited[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
 
         name =  @sprintf("P_limit_x_is_limited[%s,%s,%s]", gen_id, ts, s)
         p_limit_x_is_limited[gen_id, ts, s] = add_prod_vars!(model,
@@ -174,12 +174,17 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                                                             name
                                                             )
 
+        p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
+
         #inj[g,ts,s] = min{p_limit[g,ts], uncertainties(g,ts,s), pmax(g)}
         @constraint(model, injection_var <= limit_var)
-        p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
-        @constraint(model, injection_var ==
+        @constraint(model, injection_var <=
                         (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
                         )
+
+        #b_is_limited_var==0 <=> Plim >= uncertainty
+        @constraint(model, limit_var <= p_enr*b_is_limited_var + pmax*(1-b_is_limited_var) )
+        @constraint(model, limit_var >= p_enr*(1-b_is_limited_var) )
     end
 
     if decision_firmness==DECIDED
