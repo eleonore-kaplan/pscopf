@@ -41,6 +41,8 @@ using PSCOPF
     include("test_wip/test_models/tso_out_fo/test_dmo.jl")
     include("test_wip/test_models/tso_out_fo/test_constraints.jl")
     include("test_wip/test_models/tso_out_fo/test_slacks.jl")
+    include("test_wip/test_models/tso_out_fo/test_start_cost.jl")
+    include("test_wip/test_models/tso_out_fo/test_unit_priority.jl")
 
     # include("test_wip/test_seq_launch.jl")
     include("test_wip/example_usecase.jl")

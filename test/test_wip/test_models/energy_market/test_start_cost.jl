@@ -58,7 +58,7 @@ using DataStructures
     prod_1_1 is ON, prod_1_2 is ON
     We only use prod_1_1 cause its prop cost is lower
     =#
-    @testset "energy_market_no_starting_cost_if_units_already_started" begin
+    @testset "energy_market_no_starting_cost_if_units_initially_started" begin
         # initial generators state
         generators_init_state = SortedDict(
             "prod_1_1" => PSCOPF.ON,
@@ -358,10 +358,7 @@ using DataStructures
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 65.)
     end
 
-    #=
-    For now, we simply impose previous decided values (reference is the preceding market_schedule)
-     (=> gratis starts are not used properly)
-    =#
+    # gratis starts may be not used due to a Decided commitment
     @testset "energy_market_test_gratis_start_not_used_for_decided_values" begin
         #bus2, S2, TS:11h15 : high demand
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 165.)
@@ -387,7 +384,7 @@ using DataStructures
                                         generators_init_state,
                                         uncertainties, nothing)
 
-        # For market, prod_1_2 is decided, it is OFF in ts1, ON in ts2 => automatically fixed in the next step
+        # For market, prod_1_2 is decided : for ts1  it is OFF, for ts2 it can be ON
         context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
                                         "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
                                             SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
