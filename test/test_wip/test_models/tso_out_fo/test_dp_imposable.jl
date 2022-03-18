@@ -224,7 +224,7 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # Solution is optimal but has slack due to infeasibility
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # prod_1_1 is OFF cause it already was OFF:
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
@@ -302,7 +302,7 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # Solution is optimal but has slack due to infeasibility
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # prod_1_1 is OFF cause it already was OFF:
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09

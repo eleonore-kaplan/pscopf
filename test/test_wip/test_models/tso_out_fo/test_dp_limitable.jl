@@ -162,7 +162,7 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # Solution has slacks
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # Limit cannot be changed after DP : Ideally we would have 60. to use all available limitable power
         @test 55. == OLD_LIMIT ≈ value(result.limitable_model.p_limit["wind_1_1",TS[1]])
 
@@ -230,14 +230,16 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # Solution has slacks
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         # Limit cannot be changed after DP : Ideally we would have 60. to use all available limitable power
         @test 70. == OLD_LIMIT ≈ value(result.limitable_model.p_limit["wind_1_1",TS[1]])
 
         @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
         @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
+        @test 55. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
         @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"]) < 1e-09
         @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"]) < 1e-09
+        @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
         @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
         @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
     end

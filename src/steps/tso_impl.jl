@@ -72,6 +72,9 @@ end
     status::PSCOPFStatus = pscopf_UNSOLVED
 end
 
+function has_positive_slack(model_container::TSOModel)::Bool
+    return has_positive_value(model_container.slack_model.p_cut_conso)
+end
 
 function get_p_injected(model_container::TSOModel, type::Networks.GeneratorType)
     if type == Networks.LIMITABLE
