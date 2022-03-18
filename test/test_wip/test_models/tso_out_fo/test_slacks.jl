@@ -164,7 +164,7 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # TODO a status to indicate using slacks for feasibility
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S1")
         @test 50. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
@@ -253,8 +253,8 @@ using DataStructures
                     context)
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
-        # TODO a status to indicate using slacks for feasibility because of scenario S1
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        # indicates using slacks for feasibility (because of scenario S1)
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
         # In S1 : Load=15, wind provides 10 => still missing 5 but pmin=20
         # => we want to reduce consumption by 5

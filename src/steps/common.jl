@@ -36,6 +36,7 @@ Possible status values for a pscopf model container
     pscopf_OPTIMAL
     pscopf_INFEASIBLE
     pscopf_FEASIBLE
+    pscopf_HAS_SLACK
     pscopf_UNSOLVED
 end
 
@@ -55,7 +56,12 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
         @error "model status is infeasible!"
         return pscopf_INFEASIBLE
     elseif solver_status_l == OPTIMAL
-        return pscopf_OPTIMAL
+        if has_positive_slack(model_container_p)
+            @warn "model solved optimally but slack variables were used!"
+            return pscopf_HAS_SLACK
+        else
+            return pscopf_OPTIMAL
+        end
     else
         @warn "solver termination status was not optimal : $(solver_status_l)"
         return pscopf_FEASIBLE
@@ -287,6 +293,20 @@ function add_cut_conso_cost!(obj_component::AffExpr,
 
     return obj_component
 end
+
+
+# AbstractSlackModel
+############################
+
+function has_positive_slack(model_container_p::AbstractModelContainer)::Bool
+    error("unimplemented")
+end
+
+function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: VariableRef
+    return any(e -> value(e[2]) > 1e-09, dict_vars)
+    #e.g. 1e-15 is supposed to be 0.
+end
+
 
 # Utils
 ##################

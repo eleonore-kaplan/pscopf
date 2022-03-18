@@ -188,7 +188,7 @@ using DataStructures
         PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # TODO a status to indicate using slacks for feasibility
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
         @test 50. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
@@ -217,6 +217,12 @@ using DataStructures
     (imposable) prod_1_1 |    load_1
     Pmin=20, Pmax=100    |  S1: 25
     Csta=100k, Cprop=1   |
+
+    Desired solution :
+        prod_1_1 at 25MW
+    Retrieved solution with low penalization (1e3):
+        prod_1_1 at 0
+        cut_conso : 25MW
     =#
     @testset "energy_market_careful_for_cuts_consumption_penalty" begin
         penalty = 1e3
@@ -250,15 +256,15 @@ using DataStructures
                     PSCOPF.get_target_timepoints(context),
                     context)
         PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
-        
+
         # Desired Solution
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test_broken PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         @test_broken 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
         @test_broken value(result.slack_model.p_cut_conso[TS[1], "S1"]) < 1e-09
         @test_broken value(result.objective_model.penalty) < 1e-09
 
         # retrieved solution
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
         @test 25. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
         @test (25. * 1e3) ≈ value(result.objective_model.penalty)
@@ -321,7 +327,7 @@ using DataStructures
         PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # TODO a status to indicate using slacks for feasibility because of scenario S1
-        @test_broken PSCOPF.get_status(result) != PSCOPF.pscopf_OPTIMAL
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
         # In S1 : Load=15, wind provides 10 => still missing 5 but pmin=20
         # => reduce consumption by 5

@@ -58,6 +58,10 @@ end
     status::PSCOPFStatus = pscopf_UNSOLVED
 end
 
+function has_positive_slack(model_container::EnergyMarketModel)::Bool
+    return has_positive_value(model_container.slack_model.p_cut_conso)
+end
+
 """
     energy_market
 # Arguments
