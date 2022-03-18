@@ -292,7 +292,7 @@ function get_sub_schedule(schedule::Schedule, gen_id::String)::Union{GeneratorSc
     if haskey(schedule.generator_schedules, gen_id)
         return schedule.generator_schedules[gen_id]
     else
-        throw( error("no generator schedule was initialized for generator ", sub_schedule.gen_id))
+        throw( error("no generator schedule was initialized for generator ", gen_id))
         #return missing
     end
 end

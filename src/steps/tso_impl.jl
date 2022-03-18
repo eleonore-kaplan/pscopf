@@ -212,6 +212,7 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
     for imposable_gen in imposable_generators
         gen_id = Networks.get_id(imposable_gen)
         gen_initial_state = get_initial_state(generators_initial_state, imposable_gen)
+        println("IMPOSABLE: ", gen_id)
         add_imposable!(model_container.imposable_model, model_container.model,
                         imposable_gen,
                         target_timepoints,
@@ -336,6 +337,9 @@ function create_objectives!(model_container::TSOModel, network, gratis_starts, c
 
     # cost for deviating from market schedule
     for (_, var_delta) in model_container.imposable_model.delta_p
+        model_container.objective_model.deltas += var_delta
+    end
+    for (_, var_delta) in model_container.limitable_model.delta_p
         model_container.objective_model.deltas += var_delta
     end
 
