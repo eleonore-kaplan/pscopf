@@ -9,28 +9,28 @@ using DataStructures
 
     #=
     Currently
-    Pinj = min(Plim, uncertainties)
-    so Pinj cannot be fixed to a level lower than uncertainties
+    If available power for a limitable exceeds consumption,
+      the TSO can choose a production level lower than the available
+      simply by choosing the injection.
+
                     S1   S2
     Load            15    25
     prod            20    25
-    we would like to have :
+    we have :
     Plim         =     25
     Pinj         = [15 , 25]
-    B_islim      = [0  , 0]
-    Pislim_x_lim = [0  , 0]
+    B_islim      = [1  , 0]
     cut_conso    = [0  , 0]
-    But now, we have :
+
+    Should we consider ?
+        Pinj = min(Plim, uncertainties)
+    so Pinj cannot be fixed to a level lower than uncertainties
+
     Plim         =     15
     Pinj         = [15 , 15]
     B_islim      = [0  , 1]
     Pislim_x_lim = [0  , 15]
     cut_conso    = [0  , 10]
-
-    FIXME ?
-    If available power for a limitable exceeds consumption,
-      the TSO can choose a production level lower than the available
-      simply by choosing the injection.
 
     TS: [11h]
     S: [S1]
@@ -100,7 +100,7 @@ using DataStructures
                 PSCOPF.get_uncertainties(uncertainties[ech], "wind_1_1", TS[1], "S2") )
         # We do not pay for capped power
         #If it was due to TSO constraints, we would have paid for the generator used instead of limitables
-        @test value(result.objective_model.penalty) < 1e-09
+        @test value(result.objective_model.penalty) < 0.5 # > 0 cause we have a limitation
         @test value(result.objective_model.start_cost) < 1e-09
         @test (15. + 25. ) ≈ value(result.objective_model.prop_cost)
     end
@@ -163,7 +163,7 @@ using DataStructures
                     context)
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
-        # TODO a status to indicate using slacks for feasibility
+        # indicates using slacks for feasibility
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S1")
@@ -183,8 +183,6 @@ using DataStructures
 
 
     #=
-    #FIXME c.f. tso_cant_cap_limitable_power_by_choosing_prod_level
-
     TS: [11h]
     S: [S1]
                         bus 1

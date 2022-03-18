@@ -20,10 +20,6 @@ end
     delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts
     p_limit = SortedDict{Tuple{String,DateTime},VariableRef}();
-    #gen,ts,s
-    b_is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts,s
-    p_limit_x_is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
 end
 
 @with_kw struct TSOImposableModel <: AbstractImposableModel
@@ -113,7 +109,7 @@ function add_limitable!(limitable_model::TSOLimitableModel, model::Model,
     gen_pmax = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
-            p_enr = min(gen_pmax, inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
+            p_enr = min(gen_pmax, inject_uncertainties[ts][s])
             add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
             p_ref = get_prod_value(preceding_market_subschedule, ts, s)
             p_ref = ismissing(p_ref) ? 0. : p_ref
@@ -215,7 +211,6 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
     for imposable_gen in imposable_generators
         gen_id = Networks.get_id(imposable_gen)
         gen_initial_state = get_initial_state(generators_initial_state, imposable_gen)
-        println("IMPOSABLE: ", gen_id)
         add_imposable!(model_container.imposable_model, model_container.model,
                         imposable_gen,
                         target_timepoints,
@@ -331,9 +326,9 @@ function create_objectives!(model_container::TSOModel, network, gratis_starts, c
     add_cut_conso_cost!(model_container.objective_model.penalty,
                         model_container.slack_model.p_cut_conso, cut_conso_cost)
 
-    # avoid limiting when not necessary
-    for (_, var_is_limited) in model_container.limitable_model.b_is_limited
-        model_container.objective_model.penalty += 1e-03 * var_is_limited
+    # to force Plim = max(Pinj)
+    for (_, var_limit) in model_container.limitable_model.p_limit
+        model_container.objective_model.penalty += 1e-03 * var_limit
     end
 
     ## Objective 1 :
