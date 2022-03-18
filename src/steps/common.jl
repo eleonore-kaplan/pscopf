@@ -147,11 +147,6 @@ end
 
 # AbstractLimitableModel
 ############################
-#FIXME
-# maybe just have P_injected[g,ts,s] <= P_limit[g,ts] and add +0.001*Plimit in Min objective
-# is_limited(g,ts,s) will be computed outside the model by checking if uncertainty[g,ts,s] > Plimit[g,ts]
-# which will reduce the number of discrte variables
-# + it will allow Pinjected to be less than the uncertainty (c.f. )
 function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         gen_id::String, ts::Dates.DateTime,
                         scenarios::Vector{String},
@@ -160,37 +155,13 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         decision_firmness::DecisionFirmness, #by ts
                         preceding_limit::Union{Float64, Missing}
                         )
-    b_is_limited = limitable_model.b_is_limited
-    p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
-
+    #NOTE : need to add p_limit in Min objective
     name =  @sprintf("P_limit[%s,%s]", gen_id, ts)
     limitable_model.p_limit[gen_id, ts] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
     limit_var = limitable_model.p_limit[gen_id, ts]
     for s in scenarios
         injection_var = limitable_model.p_injected[gen_id, ts, s]
-
-        name =  @sprintf("B_is_limited[%s,%s,%s]", gen_id, ts, s)
-        b_is_limited_var = b_is_limited[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-
-        name =  @sprintf("P_limit_x_is_limited[%s,%s,%s]", gen_id, ts, s)
-        p_limit_x_is_limited[gen_id, ts, s] = add_prod_vars!(model,
-                                                            limit_var,
-                                                            b_is_limited[gen_id, ts, s],
-                                                            pmax,
-                                                            name
-                                                            )
-
-        p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
-
-        #inj[g,ts,s] = min{p_limit[g,ts], uncertainties(g,ts,s), pmax(g)}
         @constraint(model, injection_var <= limit_var)
-        @constraint(model, injection_var <=
-                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
-                        )
-
-        #b_is_limited_var==0 <=> Plim >= uncertainty
-        @constraint(model, limit_var <= p_enr*b_is_limited_var + pmax*(1-b_is_limited_var) )
-        @constraint(model, limit_var >= p_enr*(1-b_is_limited_var) )
     end
 
     if decision_firmness==DECIDED
@@ -201,6 +172,12 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
     end
 
     return limitable_model, model
+end
+
+function is_limited(gen_id, ts, s, limitable_model, uncertainties_at_ech)
+    injected = value(limitable_model.p_injected[gen_id, ts, s])
+    available = get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
+    return ( injected < available-1e-09 )
 end
 
 # AbstractImposableModel
