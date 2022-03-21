@@ -147,11 +147,6 @@ end
 
 # AbstractLimitableModel
 ############################
-#FIXME
-# maybe just have P_injected[g,ts,s] <= P_limit[g,ts] and add +0.001*Plimit in Min objective
-# is_limited(g,ts,s) will be computed outside the model by checking if uncertainty[g,ts,s] > Plimit[g,ts]
-# which will reduce the number of discrte variables
-# + it will allow Pinjected to be less than the uncertainty (c.f. )
 function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         gen_id::String, ts::Dates.DateTime,
                         scenarios::Vector{String},
