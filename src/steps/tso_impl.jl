@@ -190,7 +190,6 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                                             imposable_model.b_on,
                                             imposable_model.b_start,
                                             target_timepoints, scenarios,
-                                            generator_initial_state,
                                             commitment_firmness,
                                             preceding_tso_subschedule
                                             )
