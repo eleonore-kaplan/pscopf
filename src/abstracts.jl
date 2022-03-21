@@ -35,7 +35,7 @@ function affects_market_schedule(runnable::AbstractRunnable) return false end
 """
 Updates the market schedule using the result of run()
 """
-function update_market_schedule!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable) end
+function update_market_schedule!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable) error("unimplemented") end
 """
 If returns True, will launch the tso_schedule related updates during sequence execution
 """
@@ -43,7 +43,7 @@ function affects_tso_schedule(runnable::AbstractRunnable) return false end
 """
 Updates the TSO schedule using the result of run()
 """
-function update_tso_schedule!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable) end
+function update_tso_schedule!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable) error("unimplemented") end
 """
 If returns True, will launch the tso actions related updates during sequence execution
 """
