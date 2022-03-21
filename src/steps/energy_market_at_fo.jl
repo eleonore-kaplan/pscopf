@@ -99,5 +99,12 @@ function update_market_schedule!(context::AbstractContext, ech,
         set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
     end
 
+    # TODO : may need to adapt cause result handles only one scenario
+    # Capping
+    update_schedule_capping!(market_schedule, context, ech, result.limitable_model)
+
+    # cut_conso (load-shedding)
+    update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
+
     return market_schedule
 end

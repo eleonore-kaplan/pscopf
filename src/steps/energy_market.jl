@@ -44,11 +44,10 @@ function update_market_schedule!(context::AbstractContext, ech,
                                 firmness,
                                 runnable::EnergyMarket)
     market_schedule = get_market_schedule(context)
-
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-
+    # Production level
     for ((gen_id, ts, s), p_injected_var) in result.limitable_model.p_injected
         set_prod_value!(market_schedule, gen_id, ts, s, value(p_injected_var))
     end
@@ -62,6 +61,7 @@ function update_market_schedule!(context::AbstractContext, ech,
         end
     end
 
+    # Commitment
     for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
@@ -70,6 +70,12 @@ function update_market_schedule!(context::AbstractContext, ech,
             set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
         end
     end
+
+    # Capping
+    update_schedule_capping!(market_schedule, context, ech, result.limitable_model)
+
+    # cut_conso (load-shedding)
+    update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
 
     return market_schedule
 end
