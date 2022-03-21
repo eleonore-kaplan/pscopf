@@ -27,7 +27,7 @@ mutable struct PSCOPFContext <: AbstractContext
     market_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
     tso_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
 
-    out_dir
+    out_dir::Union{String,Nothing}
 end
 
 function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},

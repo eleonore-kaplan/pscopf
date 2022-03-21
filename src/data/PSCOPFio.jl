@@ -8,6 +8,8 @@ using Dates
 using Printf
 using DataStructures
 
+OUTPUT_PREFIX = "pscopf_out_"
+
 ##########################
 #   Readers
 ##########################
@@ -284,7 +286,7 @@ end
 
 function write_commitment_schedule(dir_path::String, schedule::PSCOPF.Schedule, prefix="")
     ech = schedule.decision_time
-    commitment_filename_l = joinpath(dir_path, prefix*"commitment_schedule.txt")
+    commitment_filename_l = joinpath(dir_path, OUTPUT_PREFIX*prefix*"commitment_schedule.txt")
     open(commitment_filename_l, "a") do commitment_file_l
         if filesize(commitment_file_l) == 0
             Base.write(commitment_file_l, @sprintf("#%19s%10s%25s%20s%10s%6s%10s\n", "ech", "decider", "name", "ts", "scenario", "value", "firmness"))
@@ -312,7 +314,7 @@ end
 
 function write_production_schedule(dir_path::String, schedule::PSCOPF.Schedule, prefix="")
     ech = schedule.decision_time
-    schedule_filename_l = joinpath(dir_path, prefix*"schedule.txt")
+    schedule_filename_l = joinpath(dir_path, OUTPUT_PREFIX*prefix*"schedule.txt")
     open(schedule_filename_l, "a") do schedule_file_l
         if filesize(schedule_file_l) == 0
             Base.write(schedule_file_l, @sprintf("#%19s%10s%25s%20s%10s%16s%10s\n", "ech", "decider", "name", "ts", "scenario", "value", "firmness"))
@@ -341,7 +343,7 @@ end
 
 function write_flows(dir_path::String, context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefix="")
     ech = schedule.decision_time
-    flows_filename_l = joinpath(dir_path, prefix*"flows.txt")
+    flows_filename_l = joinpath(dir_path, OUTPUT_PREFIX*prefix*"flows.txt")
 
     flows = PSCOPF.compute_flows(context, schedule)
     open(flows_filename_l, "a") do flows_file_l
