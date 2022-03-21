@@ -80,13 +80,21 @@ function pretty_print(io::IO, d::AbstractDict; spacing=1, sort_p::Bool=false)
     nothing
 end
 
-function rm_non_prefixed(dir::String, prefix::String)
+function rm_files(dir::String, f)
     if isdir(dir)
-        non_prefixed = filter(!startswith(prefix), readdir(dir))
-        paths = joinpath.(dir, non_prefixed)
+        matches = filter(f, readdir(dir))
+        paths = joinpath.(dir, matches)
         files_to_rm = filter(isfile, paths)
         foreach(rm, files_to_rm)
     end
+end
+
+function rm_non_prefixed(dir::String, prefix::String)
+    rm_files(dir, !startswith(prefix))
+end
+
+function rm_prefixed(dir::String, prefix::String)
+    rm_files(dir, startswith(prefix))
 end
 
 function split_with_space(str::String)

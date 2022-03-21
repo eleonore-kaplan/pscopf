@@ -59,6 +59,11 @@ end
 ###############################################
 
 function init!(context_p::AbstractContext, sequence_p::Sequence, check_context::Bool)
+    if !isnothing(context_p.out_dir)
+        @warn("removing files that start with $(PSCOPFio.OUTPUT_PREFIX) in $(context_p.out_dir)")
+        rm_prefixed(context_p.out_dir, PSCOPFio.OUTPUT_PREFIX)
+    end
+
     println("Lancement du mode : ", context_p.management_mode.name)
     println("Dates d'interet : ", get_target_timepoints(context_p))
     set_horizon_timepoints(context_p, get_timepoints(sequence_p))
