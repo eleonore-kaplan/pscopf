@@ -91,6 +91,7 @@ function energy_market(network::Networks.Network,
                     uncertainties_at_ech::UncertaintiesAtEch,
                     firmness::Firmness,
                     reference_schedule::Schedule,
+                    tso_actions::TSOActions,
                     gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::EnergyMarketConfigs
                     )
@@ -101,6 +102,7 @@ function energy_market(network::Networks.Network,
                     network, target_timepoints,
                     scenarios,
                     uncertainties_at_ech,
+                    tso_actions,
                     force_limitables=configs.force_limitables,
                     has_global_capping_vars=true,
                     )
@@ -109,7 +111,7 @@ function energy_market(network::Networks.Network,
                     network, target_timepoints,
                     scenarios,
                     generators_initial_state,
-                    firmness, reference_schedule)
+                    firmness, reference_schedule, tso_actions)
 
     add_slacks!(model_container_l,
                 network, target_timepoints, scenarios,
@@ -159,7 +161,8 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                         generator_initial_state::GeneratorState,
                         commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
                         power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        generator_reference_schedule::GeneratorSchedule
+                        generator_reference_schedule::GeneratorSchedule,
+                        tso_actions::TSOActions
                         )
     gen_id = Networks.get_id(generator)
     p_min = Networks.get_p_min(generator)
@@ -174,7 +177,8 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
-                                        generator_reference_schedule
+                                        generator_reference_schedule,
+                                        tso_actions
                                         )
 
     if p_min > 0
@@ -185,9 +189,9 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                             imposable_model.b_on,
                                             imposable_model.b_start,
                                             target_timepoints, scenarios,
-                                            generator_initial_state,
                                             commitment_firmness,
-                                            generator_reference_schedule
+                                            generator_reference_schedule,
+                                            tso_actions
                                             )
     end
 
@@ -199,13 +203,15 @@ function add_limitable!(limitable_model::EnergyMarketLimitableModel, model::Mode
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         inject_uncertainties::InjectionUncertainties,
+                        tso_actions::TSOActions,
                         force_limitables::Bool,
                         )
     gen_id = Networks.get_id(generator)
     gen_pmax = Networks.get_p_max(generator)
     for ts in target_timepoints
+        p_limit = ismissing(get_limitation(tso_actions, gen_id, ts)) ? gen_pmax : get_limitation(tso_actions, gen_id, ts)
         for s in scenarios
-            p_enr = min(gen_pmax, inject_uncertainties[ts][s]) #FIXME and limit induced by the TSO, potentially (for other markets, this for now does not look at the TSO constraints)
+            p_enr = min(inject_uncertainties[ts][s], p_limit)
             add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, force_limitables)
         end
     end
@@ -218,7 +224,8 @@ function add_imposables!(model_container::EnergyMarketModel, network::Networks.N
                         scenarios::Vector{String},
                         generators_initial_state::SortedDict{String,GeneratorState},
                         firmness::Firmness,
-                        reference_schedule::Schedule
+                        reference_schedule::Schedule,
+                        tso_actions::TSOActions
                         )
     imposable_generators = Networks.get_generators_of_type(network, Networks.IMPOSABLE)
     for imposable_gen in imposable_generators
@@ -232,7 +239,8 @@ function add_imposables!(model_container::EnergyMarketModel, network::Networks.N
                         gen_initial_state,
                         get_commitment_firmness(firmness, gen_id),
                         get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(reference_schedule, gen_id)
+                        get_sub_schedule(reference_schedule, gen_id),
+                        tso_actions
                         )
     end
     return model_container.imposable_model
@@ -241,7 +249,8 @@ end
 function add_limitables!(model_container::EnergyMarketModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
-                        uncertainties_at_ech::UncertaintiesAtEch;
+                        uncertainties_at_ech::UncertaintiesAtEch,
+                        tso_actions::TSOActions;
                         force_limitables::Bool=false,
                         has_global_capping_vars::Bool=false,
                         )
@@ -256,6 +265,7 @@ function add_limitables!(model_container::EnergyMarketModel, network::Networks.N
                         target_timepoints,
                         scenarios,
                         get_uncertainties(uncertainties_at_ech, gen_id),
+                        tso_actions,
                         force_limitables,
                         )
     end

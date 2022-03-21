@@ -299,45 +299,55 @@ function link_scenarios!(model::Model, vars::AbstractDict{Tuple{String,DateTime,
     return model
 end
 
+function add_non_start_constraint(model::Model, b_on_vars, b_start_vars,
+                                gen_id, ts, scenarios)
+    for s in scenarios
+        @constraint(model, b_on_vars[gen_id, ts, s] == 0)
+        @constraint(model, b_start_vars[gen_id, ts, s] == 0)
+    end
+    return model
+end
+
 function add_commitment_firmness_constraints!(model::Model,
                                             generator::Networks.Generator,
                                             b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             target_timepoints::Vector{Dates.DateTime},
                                             scenarios::Vector{String},
-                                            generator_initial_state::GeneratorState,
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                            generator_reference_schedule::GeneratorSchedule
+                                            generator_reference_schedule::GeneratorSchedule,
+                                            tso_actions::TSOActions=TSOActions()
                                             )
     gen_id = Networks.get_id(generator)
-    preceding_ts = nothing
     for ts in target_timepoints
         if commitment_firmness[ts] in [DECIDED, TO_DECIDE]
             link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
             link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
         end
 
-        if commitment_firmness[ts] == DECIDED
-            reference_start_val = get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
-            if reference_start_val == 0
-                for s in scenarios
-                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
-                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
-                end
+        tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
+        if !ismissing(tso_action_commitment)
+            if tso_action_commitment == OFF
+                add_non_start_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
-
-            reference_on_val = float(safeget_commitment_value(generator_reference_schedule, ts))
-            if reference_on_val < 1e-09
-                for s in scenarios
-                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
-                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
-                end
+        elseif commitment_firmness[ts] == DECIDED
+            reference_on_val = safeget_commitment_value(generator_reference_schedule, ts)
+            if reference_on_val == OFF
+                add_non_start_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         end
-        preceding_ts = ts
     end
 
     return model
+end
+
+function freeze_injections(model, p_injected_vars,
+                        gen_id, ts, scenarios,
+                        imposed_value::Float64)
+    for s in scenarios
+        @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value <= upper_bound(p_injected_vars[gen_id, ts, s])) )
+        @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
+    end
 end
 
 function add_power_level_firmness_constraints!(model::Model,
@@ -346,7 +356,8 @@ function add_power_level_firmness_constraints!(model::Model,
                                                 target_timepoints::Vector{Dates.DateTime},
                                                 scenarios::Vector{String},
                                                 power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                generator_reference_schedule::GeneratorSchedule
+                                                generator_reference_schedule::GeneratorSchedule,
+                                                tso_actions::TSOActions=TSOActions()
                                                 )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
@@ -354,12 +365,15 @@ function add_power_level_firmness_constraints!(model::Model,
             link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
         end
 
-        if power_level_firmness[ts] == DECIDED
-            val = safeget_prod_value(generator_reference_schedule,ts)
-            for s in scenarios
-                @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (val <= upper_bound(p_injected_vars[gen_id, ts, s])) )
-                @constraint(model, p_injected_vars[gen_id, ts, s] == val)
-            end
+        imposition_level = get_imposition(tso_actions, gen_id, ts)
+        tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
+        if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
+            imposition_level = 0.
+        elseif ( power_level_firmness[ts]==DECIDED && ismissing(imposition_level) )
+            imposition_level = safeget_prod_value(generator_reference_schedule,ts)
+        end
+        if !ismissing(imposition_level)
+            freeze_injections(model, p_injected_vars, gen_id, ts, scenarios, imposition_level)
         end
     end
 

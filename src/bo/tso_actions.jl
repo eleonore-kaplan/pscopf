@@ -116,3 +116,28 @@ function set_commitment_value!(tso_actions, gen_id::String, ts::Dates.DateTime, 
     commitment = get_commitments(tso_actions)
     commitment[gen_id, ts] = value
 end
+
+function get_commitments(tso_actions, gen_id::String)
+    gen_commitments = SortedDict{Dates.DateTime, GeneratorState}
+    for ((gen_id_l,ts),commitment_val) in get_commitments(tso_actions)
+        if gen_id_l == gen_id
+            gen_commitments[ts] = commitment_val
+        end
+    end
+    return gen_commitments
+end
+
+"""
+Performs a partial shallow copy of the input TSOActions
+Modifying the returned tso_actions' kept attributes will modify the original one's.
+"""
+function filter_tso_actions(tso_actions::TSOActions;
+                        keep_limitations::Bool=false,
+                        keep_impositions::Bool=false,
+                        keep_commitments::Bool=false)::TSOActions
+    limitations_l = keep_limitations ? tso_actions.limitations : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    impositions_l = keep_impositions ? tso_actions.impositions : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    commitments_l = keep_commitments ? tso_actions.commitments : SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
+
+    return TSOActions(limitations_l, impositions_l, commitments_l)
+end
