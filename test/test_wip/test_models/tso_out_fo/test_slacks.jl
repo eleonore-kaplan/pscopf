@@ -270,6 +270,159 @@ using DataStructures
     end
 
 
+    #=
+    Capped power is the difference between the available power in a limitable
+     and the decided production allowed for that limitable unit.
+
+    TS: [11h]
+    S: [S1]
+                      bus 1
+                        |
+    (limitable) wind_1_1|
+    Pmin=0, Pmax=100    |
+    Csta=0, Cprop=1     |     load_1
+      S1: 50            | S1: 15
+                        |
+    (limitable) wind_1_2|
+    Pmin=0, Pmax=100    |
+    Csta=0, Cprop=2     |
+      S1: 10            |
+                        |
+    (limitable) wind_1_3|
+    Pmin=0, Pmax=100    |
+    Csta=0, Cprop=1     |
+      S1: 0             |
+    =#
+    @testset "tso_capping_in_schedule" begin
+        TS = [DateTime("2015-01-01T11:00:00")]
+        ech = DateTime("2015-01-01T07:00:00")
+        network = PSCOPF.Networks.Network()
+        PSCOPF.Networks.add_new_bus!(network, "bus_1")
+        # Limitables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
+                                                0., 100.,
+                                                0., 1.,
+                                                Dates.Second(0), Dates.Second(0))
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_2", PSCOPF.Networks.LIMITABLE,
+                                                0., 100.,
+                                                0., 2.,
+                                                Dates.Second(0), Dates.Second(0))
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_3", PSCOPF.Networks.LIMITABLE,
+                                                0., 100.,
+                                                0., 1.,
+                                                Dates.Second(0), Dates.Second(0))
+        # Uncertainties
+        uncertainties = PSCOPF.Uncertainties()
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 50.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_2", DateTime("2015-01-01T11:00:00"), "S1", 10.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_3", DateTime("2015-01-01T11:00:00"), "S1", 0.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 15.)
+        # firmness
+        firmness = PSCOPF.Firmness(
+                    SortedDict{String, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness} }(),
+                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                                "wind_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                                "wind_1_3" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE)),
+                    )
+        # initial generators state : No need because all pmin=0 => ON by default
+        generators_init_state = SortedDict{String, PSCOPF.GeneratorState}()
+
+        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+                                        generators_init_state,
+                                        uncertainties, nothing)
+        tso = PSCOPF.TSOOutFO()
+        result = PSCOPF.run(tso, ech, firmness,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+        PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
+
+        # Solution is optimal
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
+        # Limitable injections
+        @test 15. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
+        @test PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1") <= 1e-09
+        @test PSCOPF.get_prod_value(context.tso_schedule, "wind_1_3", TS[1], "S1") <= 1e-09
+
+        # Capped power
+        @test (50. - 15) ≈ context.tso_schedule.capping["wind_1_1", TS[1], "S1"]
+        @test (10. - 0)  ≈ context.tso_schedule.capping["wind_1_2", TS[1], "S1"]
+        @test (0.  - 0)  ≈ context.tso_schedule.capping["wind_1_3", TS[1], "S1"]
+    end
+
+    #=
+    TS: [11h, 11h15]
+    S: [S1,S2]
+                        bus 1                   bus 2
+                        |                      |
+    (limitable) wind_1_1|       "1_2"          |
+    Pmin=0, Pmax=200    |                      |
+    Csta=0, Cprop=1     |                      |
+      S1: 160           |----------------------|
+                        |        5             |
+                        |                      |
+    load                |                      |load
+      S1: 180           |                      |  S1: 20
+
+    available prod : 160
+    total load : 200
+    => need to cut 40
+    optimization decides on how much load to shed on each bus:
+        bus1: cuts at least 15 (cause branch is limited to 5 : 20-5 = 15)
+        bus2: cuts at most 40-15=25
+        bus1+bus2 = 40
+    =#
+    @testset "tso_cutting_load_by_bus_in_schedule" begin
+        TS = [DateTime("2015-01-01T11:00:00")]
+        ech = DateTime("2015-01-01T07:00:00")
+        network = PSCOPF.Networks.Network()
+        # Buses
+        PSCOPF.Networks.add_new_bus!(network, "bus_1")
+        PSCOPF.Networks.add_new_bus!(network, "bus_2")
+        # Branches
+        PSCOPF.Networks.add_new_branch!(network, "branch_1_2", 5.);
+        # PTDF
+        PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_1", 0.5)
+        PSCOPF.Networks.add_ptdf_elt!(network, "branch_1_2", "bus_2", -0.5)
+        # Limitables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
+                                                0., 200.,
+                                                0., 1.,
+                                                Dates.Second(0), Dates.Second(0))
+        # Uncertainties
+        uncertainties = PSCOPF.Uncertainties()
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 160.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 180.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:00:00"), "S1", 20.)
+        # firmness
+        firmness = PSCOPF.Firmness(
+                    SortedDict{String, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness} }(),
+                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE)),
+                    )
+        # initial generators state : No need because all pmin=0 => ON by default
+        generators_init_state = SortedDict{String, PSCOPF.GeneratorState}()
+
+        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+                                        generators_init_state,
+                                        uncertainties, nothing)
+        tso = PSCOPF.TSOOutFO()
+        result = PSCOPF.run(tso, ech, firmness,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+        PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
+
+        # Solution is optimal
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
+
+        # possible production is 160 but load is 200
+        @test 160. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
+        @test 40. ≈ (context.tso_schedule.cut_conso_by_bus["bus_1", TS[1], "S1"]
+                    + context.tso_schedule.cut_conso_by_bus["bus_2", TS[1], "S1"])
+        # cut conso by bus
+        @test context.tso_schedule.cut_conso_by_bus["bus_1", TS[1], "S1"] <= 25
+        @test context.tso_schedule.cut_conso_by_bus["bus_2", TS[1], "S1"] >= 15
+    end
+
     #TODO : illustrate ptdf effect
 
 end

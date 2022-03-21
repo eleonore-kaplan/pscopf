@@ -67,8 +67,30 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
         end
     end
 
+    # Capping
+    update_schedule_capping!(tso_schedule, context, ech, result.limitable_model)
+
+    # cut_conso (load-shedding)
+    update_schedule_cut_conso!(tso_schedule, context, ech, result.slack_model)
+
     return tso_schedule
 end
+
+function update_schedule_capping!(tso_schedule, context, ech,
+                                    limitable_model::TSOLimitableModel)
+    for ((gen_id,ts, s), p_injected_var) in limitable_model.p_injected
+        available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
+        injected_prod = value(p_injected_var)
+        tso_schedule.capping[gen_id, ts, s] = available_prod - injected_prod
+    end
+end
+
+function update_schedule_cut_conso!(tso_schedule, context, ech, slack_model::TSOSlackModel)
+    for ((bus_id, ts, s), p_cut_conso_var) in slack_model.p_cut_conso
+        tso_schedule.cut_conso_by_bus[bus_id, ts, s] = value(p_cut_conso_var)
+    end
+end
+
 
 function update_tso_actions!(context::AbstractContext, ech, result, firmness,
                             ::TSOOutFO)

@@ -264,10 +264,24 @@ mutable struct Schedule <: AbstractSchedule
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
     generator_schedules::SortedDict{String, GeneratorSchedule }
+
+    #bus,ts,s
+    cut_conso_by_bus::SortedDict{Tuple{String,DateTime,String}, Float64 }
+    #limitable_gen_id,ts,s
+    capping::SortedDict{Tuple{String,DateTime,String}, Float64 }
 end
-function Schedule(decider_type::DeciderType, ech::Dates.DateTime)
+function Schedule(decider_type, ech)
     return Schedule(decider_type, ech,
-                    SortedDict{String, GeneratorSchedule}() )
+                    SortedDict{String, GeneratorSchedule}(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }()
+                    )
+end
+function Schedule(decider_type, ech, generator_schedules)
+    return Schedule(decider_type, ech, generator_schedules,
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }()
+                    )
 end
 
 function init!(schedule::Schedule, network::Networks.Network,
@@ -398,6 +412,43 @@ function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.Date
     return get_commitment_value(schedule.generator_schedules[gen_id], ts, scenario)
 end
 
+function get_capping(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
+    key_l = (gen_id, ts, scenario)
+    if !haskey(schedule.capping, key_l)
+        return missing
+    else
+        return schedule.capping[key_l]
+    end
+end
+function safeget_capping(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario)::Float64
+    capping = get_capping(schedule, gen_id, ts, scenario)
+    if ismissing(capping)
+        msg = @sprintf("Missing capping value for (gen_id=%s,ts=%s,s=%s) in schedule",
+                        gen_id, ts, scenario)
+        throw( error(msg) )
+    else
+        return capping
+    end
+end
+
+function get_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
+    key_l = (bus_id, ts, scenario)
+    if !haskey(schedule.cut_conso_by_bus, key_l)
+        return missing
+    else
+        return schedule.cut_conso_by_bus[key_l]
+    end
+end
+function safeget_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Float64
+    cut_conso = get_cut_conso(schedule, bus_id, ts, scenario)
+    if ismissing(cut_conso)
+        msg = @sprintf("Missing cut_conso value for (gen_id=%s,ts=%s,s=%s) in schedule",
+                        bus_id, ts, scenario)
+        throw( error(msg) )
+    else
+        return cut_conso
+    end
+end
 
 function set_prod_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
@@ -476,6 +527,10 @@ end
 #######################
 # Helpers
 ########################
+
+function get_target_timepoints(gen_schedule::GeneratorSchedule)
+    return union(keys(gen_schedule.commitment), keys(gen_schedule.production))
+end
 
 function get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
     current_state = safeget_commitment_value(generator_reference_schedule, ts)

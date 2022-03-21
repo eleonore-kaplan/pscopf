@@ -310,3 +310,41 @@ function add_eod_constraint!(model_container::EnergyMarketModel,
         end
     end
 end
+
+###########################
+# Context-update
+###########################
+
+function update_schedule_capping!(market_schedule, context, ech, limitable_model::EnergyMarketLimitableModel)
+    for ((ts, s), p_capping_var) in limitable_model.p_capping
+        capped_lim_prod = value(p_capping_var)
+        if capped_lim_prod > 1e-09
+        #distribute the capped power on limitables
+            available_lim_prod = compute_prod(get_uncertainties(context, ech), get_network(context), ts, s)
+            capped_ratio = capped_lim_prod / available_lim_prod
+            for lim_gen in Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE)
+                gen_id = Networks.get_id(lim_gen)
+                available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
+                capped_value = capped_ratio * available_prod
+                market_schedule.capping[gen_id, ts, s] = capped_value
+            end
+        end
+    end
+end
+
+function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::EnergyMarketSlackModel)
+    for ((ts, s), p_cut_conso_var) in slack_model.p_cut_conso
+        total_cut_conso = value(p_cut_conso_var)
+        if total_cut_conso > 1e-09
+        #distribute the cut conso on buses
+            total_load = compute_load(get_uncertainties(context, ech), get_network(context), ts, s)
+            cut_ratio = total_cut_conso / total_load
+            for bus in Networks.get_buses(get_network(context))
+                bus_id = Networks.get_id(bus)
+                bus_load = get_uncertainties(get_uncertainties(context, ech), bus_id, ts, s)
+                cut_load_on_bus = cut_ratio * bus_load
+                market_schedule.cut_conso_by_bus[bus_id, ts, s] = cut_load_on_bus
+            end
+        end
+    end
+end
