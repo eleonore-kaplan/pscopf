@@ -36,7 +36,6 @@ function compute_flow(branch_id::String,
                 network::Networks.Network,
                 ts, scenario)
     #FIXME only works in balanced scenarios
-    @warn("TODO: compute_flow does not account for slacks (load cutting)")
     flow = 0.
     for bus in Networks.get_buses(network)
         bus_id = Networks.get_id(bus)
@@ -88,6 +87,7 @@ end
 
 function compute_flows(context::PSCOPFContext,
                         schedule::Schedule)
+    @warn("TODO: compute_flow does not account for slacks (load cutting)")
     ech = schedule.decision_time
     return compute_flows(get_uncertainties(context, ech), schedule, get_network(context),
                         get_target_timepoints(context), get_scenarios(context))

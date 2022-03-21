@@ -10,11 +10,6 @@ using Parameters
 end
 
 function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me référencie au précédent planning du marché pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).decider_type, ",", get_market_schedule(context).decision_time)
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
-
     fo_start_time = TS[1] - get_fo_length(get_management_mode(context))
     if fo_start_time <= ech
         msg = @sprintf("invalid step at ech=%s : TSOOutFO needs to be launched before FO start (ie %s)", ech, fo_start_time)
@@ -49,10 +44,6 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
     tso_schedule = get_tso_schedule(context)
     tso_schedule.decider_type = DeciderType(runnable)
     tso_schedule.decision_time = ech
-    println("\tJe mets à jour le planning tso: ",
-    tso_schedule.decider_type, ",",tso_schedule.decision_time,
-    " en me basant sur les résultats d'optimisation.")
-    println("\tet je ne touche pas au planning du marché")
 
     for ((gen_id, ts, s), p_injected_var) in result.limitable_model.p_injected
         set_prod_value!(tso_schedule, gen_id, ts, s, value(p_injected_var))
@@ -80,9 +71,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
 end
 
 function update_tso_actions!(context::AbstractContext, ech, result, firmness,
-                            runnable::TSOOutFO)
+                            ::TSOOutFO)
     tso_actions = get_tso_actions(context)
-    println("\tJe mets à jour les actions TSO (limitations, impositions) à prendre en compte par le marché")
 
     # Limitations : FIXME ; limit only if there is a limitation needed !
     for ((gen_id, ts), p_limit_var) in result.limitable_model.p_limit
@@ -95,7 +85,7 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     impositions = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
-            @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE
+            @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios
             set_imposition_value!(tso_actions, gen_id, ts, value(p_injected_var))
         end
     end
@@ -105,7 +95,7 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
         if get_commitment_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             gen_state_value = parse(GeneratorState, value(b_on_var))
-            @assert( gen_state_value == get!(commitments, (gen_id, ts), gen_state_value) ) #TODELETE
+            @assert( gen_state_value == get!(commitments, (gen_id, ts), gen_state_value) ) #TODELETE : checks that all values are the same across scenarios
             set_commitment_value!(tso_actions, gen_id, ts, gen_state_value)
         end
     end

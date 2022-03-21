@@ -75,6 +75,7 @@ function init!(context_p::AbstractContext, sequence_p::Sequence, check_context::
 end
 
 function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next_ech)
+    println("-"^20)
     println(typeof(step), " à l'échéance ", ech)
     firmness = compute_firmness(step, ech, next_ech,
                             get_target_timepoints(context_p), context_p)
