@@ -94,6 +94,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         verify_firmness(firmness, context_p.market_schedule,
                         excluded_ids=get_limitables_ids(context_p))
         PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), "market_")
+        PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), get_uncertainties(context_p), "market_")
         update_market_flows!(context_p)
         trace_flows(get_market_flows(context_p), get_network(context_p))
     end
@@ -108,6 +109,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         verify_firmness(firmness, context_p.tso_schedule,
                         excluded_ids=get_limitables_ids(context_p))
         PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
+        PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), get_uncertainties(context_p), "tso_")
         update_tso_flows!(context_p) #FIXME compute_flows does not account for slacks
         trace_flows(get_tso_flows(context_p), get_network(context_p))
     end

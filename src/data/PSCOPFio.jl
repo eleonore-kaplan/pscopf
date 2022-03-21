@@ -374,6 +374,69 @@ function write(context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, prefi
     end
 end
 
+function write(context::PSCOPF.AbstractContext, schedule::PSCOPF.Schedule, uncertainties::PSCOPF.Uncertainties, prefix="")
+    dir_path = context.out_dir
+    if !isnothing(dir_path)
+        mkpath(dir_path)
+        _write(dir_path, schedule, uncertainties, prefix)
+    end
+end
+
+function _write(dir_path::String, schedule::PSCOPF.Schedule, uncertainties::PSCOPF.Uncertainties, prefix="")
+    #FIXME refactor to better reflect the if-else (dependence on busVSgen, limVSimposable, pmin>0 or not)
+
+    ech = schedule.decision_time
+    decider = schedule.decider_type
+    schedule_filename_l = joinpath(dir_path, OUTPUT_PREFIX*prefix*"full_schedule.txt")
+    open(schedule_filename_l, "a") do schedule_file_l
+        if filesize(schedule_file_l) == 0
+            Base.write(schedule_file_l, @sprintf("#%19s%10s%25s%10s%20s%10s%16s%16s%16s%15s%8s%15s\n",
+                                            "ech", "decider", "unit/bus", "PROD/LOAD", "ts", "scenario",
+                                            "power_value", "load_shed", "power_capped", "DP_firmness",
+                                            "ON/OFF", "DMO_firmness",
+                                            ))
+        end
+
+        for (gen_id, gen_schedule) in schedule.generator_schedules
+            for ts in PSCOPF.get_target_timepoints(gen_schedule)
+                power_uncertain_value = PSCOPF.get_prod_uncertain_value(gen_schedule, ts)
+                power_firmness = PSCOPF.is_definitive(power_uncertain_value) ? "FIRM" : "FREE"
+                commitment_uncertain_value = PSCOPF.get_commitment_uncertain_value(gen_schedule, ts)
+                if !ismissing(commitment_uncertain_value)
+                    commitment_firmness = PSCOPF.is_definitive(commitment_uncertain_value) ? "FIRM" : "FREE"
+                else
+                    # generators with pmin=0 are not concerned with commitment
+                    commitment_firmness = "X"
+                end
+                for scenario in PSCOPF.get_scenarios(power_uncertain_value)
+                    power_value = PSCOPF.get_prod_value(gen_schedule, ts, scenario)
+                    load_shed = 0. #this is for buses only
+                    power_capped = PSCOPF.get_capping(schedule, gen_id, ts, scenario)
+                    power_capped = ismissing(power_capped) ? 0. : power_capped #this is limitables only
+                    commitment_value = PSCOPF.get_commitment_value(gen_schedule, ts, scenario)
+                    commitment_value = ismissing(commitment_value) ? "X" : commitment_value
+
+                    Base.write(schedule_file_l, @sprintf("%20s%8s%25s%10s%20s%10s%16.8E%16.8E%16.8E%15s%8s%15s\n",
+                                                    ech, decider, gen_id, "PROD", ts, scenario,
+                                                    power_value, load_shed, power_capped, power_firmness,
+                                                    commitment_value, commitment_firmness)
+                                )
+                end
+            end
+        end
+
+        for ((bus_id,ts,scenario), load_shed) in schedule.cut_conso_by_bus
+            original_load_value = PSCOPF.get_uncertainties(uncertainties, ech, bus_id, ts, scenario)
+            power_value = original_load_value - load_shed
+
+            Base.write(schedule_file_l, @sprintf("%20s%8s%25s%8s%20s%10s%16.8E%16.8E%16.8E%8s%6s%8s\n",
+                                                ech, decider, bus_id, "LOAD", ts, scenario,
+                                                power_value, load_shed, 0., "X",
+                                                "X", "X")
+                        )
+        end
+    end
+end
 
 function write(dir_path::String, context::PSCOPF.AbstractContext;
                 tso_schedule::Bool=true,
