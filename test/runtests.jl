@@ -19,6 +19,7 @@ using PSCOPF
     include("test_wip/test_coherence_checks/test_check_initial_state.jl")
     include("test_wip/test_coherence_checks/test_check_timesteps.jl")
 
+    include("test_wip/test_starts.jl")
     include("test_wip/test_verify_firmness.jl")
     include("test_wip/test_verify_firmness_on_schedule.jl")
     include("test_wip/test_compute_firmness.jl")

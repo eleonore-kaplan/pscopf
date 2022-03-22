@@ -20,8 +20,7 @@ function run(runnable::EnergyMarket,
     problem_name_l = @sprintf("energy_market_%s", ech)
 
     tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
-
-    gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
 
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
