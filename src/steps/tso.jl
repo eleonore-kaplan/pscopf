@@ -18,8 +18,8 @@ function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates
 
     problem_name_l = @sprintf("tso_out_fo_%s", ech)
 
-    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
-    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
+    tso_starts = get_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    market_starts = get_starts(get_market_schedule(context), get_generators_initial_state(context))
     gratis_starts = union(tso_starts, market_starts)
 
     runnable.configs.out_path = context.out_dir
