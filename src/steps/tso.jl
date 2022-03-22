@@ -96,9 +96,12 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
                             ::TSOOutFO)
     tso_actions = get_tso_actions(context)
 
-    # Limitations : FIXME ; limit only if there is a limitation needed !
-    for ((gen_id, ts), p_limit_var) in result.limitable_model.p_limit
+    # Limitations :
+    # FIXME ; limit only if there is a limitation needed !?
+    limitations = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
+    for ((gen_id, ts, s), p_limit_var) in result.limitable_model.p_limit
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
+            @assert( value(p_limit_var) ≈ get!(limitations, (gen_id, ts), value(p_limit_var)) ) #TODELETE : checks that all values are the same across scenarios
             set_limitation_value!(tso_actions, gen_id, ts, value(p_limit_var))
         end
     end

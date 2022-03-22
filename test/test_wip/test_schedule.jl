@@ -7,7 +7,6 @@ using DataStructures
 @testset verbose=true "test_schedule" begin
 
     @testset "test_market_empty_schedule" begin
-        println("\n\n\n")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus");
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus", "lim", PSCOPF.Networks.LIMITABLE, 0., 10., 0., 10., Dates.Second(0), Dates.Second(0))

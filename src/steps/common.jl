@@ -43,6 +43,28 @@ end
 
 abstract type AbstractModelContainer end
 
+abstract type AbstractGeneratorModel end
+abstract type AbstractImposableModel <: AbstractGeneratorModel end
+abstract type AbstractLimitableModel <: AbstractGeneratorModel end
+
+abstract type AbstractSlackModel end
+
+abstract type AbstractObjectiveModel end
+
+# TODO : use a proper struct for by scenario variables
+# eg: UncertainValue{VariableRef}
+# or maybe a similar other struct cause depending on "ech"
+#    we either will need by scenario vars (eg. injection/commitment before DP/DMO for imposables)
+#    or we will need one variable (eg. injection at or after DP for imposables)
+# if need a firm value (at/after DP or DMO) call a link_scenarios(::Model, ::)
+# which adds @constraint(model, by_scenario_vars[s] == firm_variable)
+# and have proper getters too get_var(::, s) -> scenario's var or missing
+# and have proper getters too get_var(::) -> firm var or error
+
+
+# AbstractModelContainer
+###########################
+
 function get_model(model_container::AbstractModelContainer)::Model
     return model_container.model
 end
@@ -103,16 +125,6 @@ function solve!(model_container::AbstractModelContainer, problem_name, out_path)
     return model_container
 end
 
-
-abstract type AbstractGeneratorModel end
-abstract type AbstractImposableModel <: AbstractGeneratorModel end
-abstract type AbstractLimitableModel <: AbstractGeneratorModel end
-
-abstract type AbstractSlackModel end
-
-abstract type AbstractObjectiveModel end
-
-
 # AbstractGeneratorModel
 ############################
 
@@ -157,11 +169,12 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         )
     b_is_limited = limitable_model.b_is_limited
     p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
+    p_limit = limitable_model.p_limit
 
-    name =  @sprintf("P_limit[%s,%s]", gen_id, ts)
-    limitable_model.p_limit[gen_id, ts] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
-    limit_var = limitable_model.p_limit[gen_id, ts]
     for s in scenarios
+        name =  @sprintf("P_limit[%s,%s,%s]", gen_id, ts, s)
+        p_limit[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
+
         injection_var = limitable_model.p_injected[gen_id, ts, s]
 
         name =  @sprintf("B_is_limited[%s,%s,%s]", gen_id, ts, s)
@@ -169,18 +182,25 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
 
         name =  @sprintf("P_limit_x_is_limited[%s,%s,%s]", gen_id, ts, s)
         p_limit_x_is_limited[gen_id, ts, s] = add_prod_vars!(model,
-                                                            limit_var,
+                                                            p_limit[gen_id, ts, s],
                                                             b_is_limited[gen_id, ts, s],
                                                             pmax,
                                                             name
                                                             )
 
-        #inj[g,ts,s] = min{p_limit[g,ts], uncertainties(g,ts,s), pmax(g)}
-        @constraint(model, injection_var <= limit_var)
+        #inj[g,ts,s] = min{p_limit[g,ts,s], uncertainties(g,ts,s), pmax(g)}
+        @constraint(model, injection_var <= p_limit[gen_id, ts, s])
         p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
         @constraint(model, injection_var ==
                         (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
                         )
+    end
+
+    # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
+    #       p_limit can always be changed in the future horizons (it is not really decided)
+    #DECIDED indicates that we are past the limitable's DP => need a common decision for all scenarios
+    if decision_firmness in [DECIDED, TO_DECIDE]
+        link_scenarios!(model, p_limit, gen_id, ts, scenarios)
     end
 
     return limitable_model, model

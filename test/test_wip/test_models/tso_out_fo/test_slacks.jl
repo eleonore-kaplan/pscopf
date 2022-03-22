@@ -34,20 +34,21 @@ using DataStructures
     (limitable) wind_1_1|
     Pmin=0, Pmax=100    |
     Csta=0, Cprop=1     |     load_1
+    DP=>9h30            |
       S1: 20            | S1: 15
       S2: 25            | S2: 25
                         |
     =#
-    @testset "tso_cant_cap_limitable_power_by_choosing_prod_level" begin
+    @testset "tso_cant_cap_limitable_power_by_choosing_prod_level_after_dp" begin
         TS = [DateTime("2015-01-01T11:00:00")]
-        ech = DateTime("2015-01-01T07:00:00")
+        ech = DateTime("2015-01-01T09:30:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
         # Limitables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
                                                 0., 1.,
-                                                Dates.Second(0), Dates.Second(0))
+                                                Dates.Second(90*60), Dates.Second(90*60))
         # Uncertainties
         uncertainties = PSCOPF.Uncertainties()
         PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 20.)
@@ -57,7 +58,7 @@ using DataStructures
         # firmness
         firmness = PSCOPF.Firmness(
                     SortedDict{String, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness} }(),
-                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE))
+                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE))
                     )
         # initial generators state : No need because all pmin=0 => ON by default
         generators_init_state = SortedDict{String, PSCOPF.GeneratorState}()
@@ -185,6 +186,7 @@ using DataStructures
     (limitable) wind_1_1 |    load_1
     Pmin=0, Pmax=100     |  S1: 15
     Csta=0, Cprop=0.     |  S2: 25
+    DP => 9h30           |
          S1 : 10         |
          S1 : 10         |
                          |
@@ -194,14 +196,14 @@ using DataStructures
     =#
     @testset "tso_capping_limitables_due_to_imposable_pmin" begin
         TS = [DateTime("2015-01-01T11:00:00")]
-        ech = DateTime("2015-01-01T07:00:00")
+        ech = DateTime("2015-01-01T09:30:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
         # Imposables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
                                                 0., 1.,
-                                                Dates.Second(0), Dates.Second(0))
+                                                Dates.Second(90*60), Dates.Second(90*60))
         # Imposables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
                                                 20., 100.,
@@ -216,7 +218,7 @@ using DataStructures
         # firmness
         firmness = PSCOPF.Firmness(
                     SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),),
-                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
+                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE),
                                "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE))
                     )
         # initial generators state :
