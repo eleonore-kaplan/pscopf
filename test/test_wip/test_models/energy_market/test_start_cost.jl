@@ -278,12 +278,13 @@ using DataStructures
 
     #=
     definitive starting decisions made in
-     the tso_schedule and the reference market schedule are gratis for the EnergyMarket
+     the tso_schedule are gratis for the EnergyMarket
     Here, in tso_schedule, we :
         - consider starting prod_1_1  (non-definitive decision) => it is not gratis for market
         - start prod_1_2 (definitive decision) => prod_1_2 has no start cost for market
+    => market uses the gratis option => prod_1_2 even if its prop cost is higher
     =#
-    @testset "energy_market_test_gratis_start" begin
+    @testset "energy_market_test_gratis_start_from_tso" begin
         #bus2, S2, TS:11h15 : high demand
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 165.)
 
@@ -324,7 +325,7 @@ using DataStructures
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
-        @test (45000) ≈ value(result.objective_model.start_cost)  # prod1 started in 2 scenarios, prod2 in S2
+        @test (45000) ≈ value(result.objective_model.start_cost)  # prod_1_1 needed in S2 (paid), prod_1_2 started in 2 scenarios (gratis)
         @test( value(result.objective_model.prop_cost) ≈
               (   (0.   *10. + 30. * 15) #TS1, S1
                 + (0.   *10. + 50. * 15) #TS2, S1
@@ -352,6 +353,111 @@ using DataStructures
         @test 15. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S2")
         @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[2], "S2")
+        @test 65. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[2], "S2")
+
+        #reset original value
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 65.)
+    end
+
+    #=
+    definitive starting decisions made in
+     the reference market schedule are not gratis for the EnergyMarket
+     (the reference for commitment is the TSO)
+    Here, in market_schedule, we :
+        - consider starting prod_1_1  (non-definitive decision)
+        - start prod_1_2 (definitive decision)
+    We still need to pay for both options cause it is the TSO who validates commitments.
+    and TSO schedule (here, empty) does not indicate that we started prod_1_2 (nor prod_1_1)
+    => market pays for both units
+    =#
+    @testset "energy_market_does_not_consider_gratis_starts_from_preceding_market" begin
+        #bus2, S2, TS:11h15 : high demand
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 165.)
+
+        # initial generators state
+        generators_init_state = SortedDict(
+            "prod_1_1" => PSCOPF.OFF,
+            "prod_1_2" => PSCOPF.OFF
+        )
+        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
+                                        generators_init_state,
+                                        uncertainties, nothing)
+
+        firmness_l = PSCOPF.Firmness(
+            SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE),
+                        "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE) ),
+            SortedDict( "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE),
+                        "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE,
+                                                Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.FREE), )
+            )
+
+        context.market_schedule = PSCOPF.Schedule(PSCOPF.TSO(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
+                                        "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                                                    SortedDict("S1"=>15.,"S2"=>15.)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                                                    SortedDict("S1"=>25.,"S2"=>100.)),
+                                                        ),
+                                            ),
+                                        "prod_1_2" => PSCOPF.GeneratorSchedule("prod_1_2",
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
+                                                        ),
+                                            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                                                    SortedDict("S1"=>15.,"S2"=>10.)),
+                                                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{Float64}(missing,
+                                                                                                                    SortedDict("S1"=>25.,"S2"=>65.)),
+                                                        ),
+                                            )
+                                        )
+                                )
+
+        market = PSCOPF.EnergyMarket()
+        result = PSCOPF.run(market, ech, firmness_l,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+        PSCOPF.update_market_schedule!(context, ech, result, firmness_l, market)
+
+        # Solution is optimal
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
+        # S2 requires two units, prod_1_2 must be firm => used in both scenarios
+        @test (45000 + 2 * 80000) ≈ value(result.objective_model.start_cost)
+        @test( value(result.objective_model.prop_cost) ≈
+              (   (0.   *10. + 30. * 15) #TS1, S1
+                + (0.   *10. + 50. * 15) #TS2, S1
+                + (15.  *10. + 10.  * 15) #TS1, S2
+                + (100. *10. + 65. * 15) #TS2, S2
+              )
+        )
+
+        #S1 : need one generator, prod_1_1 is cheaper
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[2], "S1")
+        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
+        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[2], "S1") < 1e-09
+        @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
+        @test 50. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[2], "S1")
+        #S2 : need both generators at TS2, prod_1_2 is expensive => only started when needed
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[2], "S2")
+        @test 15. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
+        @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[2], "S2")
+        @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S2")
         @test 65. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[2], "S2")
 
         #reset original value
@@ -434,6 +540,9 @@ using DataStructures
                                         )
                                 )
 
+        #Normally, there should be TSOActions related to commitment validation by the TSO,
+        # that will review the market's decision. We omit this in his testcase.
+
         market = PSCOPF.EnergyMarket()
         result = PSCOPF.run(market, ech, firmness_test,
                     PSCOPF.get_target_timepoints(context),
@@ -443,14 +552,20 @@ using DataStructures
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
+        #These were already decided :
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S2")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[2], "S1")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[2], "S2")
-        @test value(result.objective_model.start_cost)  ≈ 2*45000
-            # prod1 started in 2 scenarios at TS1
-            # prod2 started in both scenarios at TS2, this decision was already decided/definitive/firm in the input market schedule
-            # => the cost was already paid by the market in the preceding ech
+        #These were optimised :
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[2], "S2")
+
+        @test value(result.objective_model.start_cost)  ≈ (2*45000 + 2*80000)
+            # prod1 started in 2 scenarios at TS1 (paid cause the TSO hasn't decided yet)
+            # prod2 started in both scenarios at TS2 (paid cause TSO started them at TS1, starts are defined at specific timepoints)
 
         #reset original value
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 65.)

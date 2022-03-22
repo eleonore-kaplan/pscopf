@@ -51,10 +51,7 @@ function run(runnable::EnergyMarketAtFO,
 
     tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
 
-    #FIXME : gratis starts are only the tso starts
-    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
-    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
-    gratis_starts = union(tso_starts, market_starts)
+    gratis_starts =  definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 

@@ -21,10 +21,7 @@ function run(runnable::EnergyMarket,
 
     tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
 
-    #FIXME : gratis starts are only the tso starts
-    tso_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
-    market_starts = definitive_starts(get_market_schedule(context), get_generators_initial_state(context))
-    gratis_starts = union(tso_starts, market_starts)
+    gratis_starts = definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
 
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
