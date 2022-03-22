@@ -112,11 +112,11 @@ using DataStructures
     10h                      10h40             10h45                 11h
                              <--------------------DP(wind1)----------->
     =#
-    @testset "tso_out_fo_cannot_increase_the_limit_after_dp" begin
+    @testset "tso_out_fo_can_increase_the_limit_after_dp" begin
         ech = DateTime("2015-01-01T10:45:00")
         PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 60.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 65.)
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S2", 60.)
 
         # firmness
@@ -162,16 +162,18 @@ using DataStructures
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
         # Solution has slacks
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
-        # Limit cannot be changed after DP : Ideally we would have 60. to use all available limitable power
-        @test 55. == OLD_LIMIT ≈ value(result.limitable_model.p_limit["wind_1_1",TS[1]])
+        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+        # Limit can be changed after DP :
+        @test 55. == OLD_LIMIT < value(result.limitable_model.p_limit["wind_1_1",TS[1]]) ≈ 60
 
         @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
         @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
-        @test 1 ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
-        @test 55. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
+        @test 55. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
+        @test 1. ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
+        @test 60. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
+        @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
         @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
-        @test 5 ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"])
+        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
     end
 
     #=
@@ -180,11 +182,11 @@ using DataStructures
     10h                      10h40             10h45                 11h
                              <--------------------DP(wind1)----------->
     =#
-    @testset "tso_out_fo_cannot_decrease_the_limit_after_dp" begin
+    @testset "tso_out_fo_can_decrease_the_limit_after_dp" begin
         ech = DateTime("2015-01-01T10:45:00")
         PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 55.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 60.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 65.)
         PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S2", 60.)
 
         # firmness
@@ -232,13 +234,13 @@ using DataStructures
         # Solution has slacks
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         # Limit cannot be changed after DP : Ideally we would have 60. to use all available limitable power
-        @test 70. == OLD_LIMIT ≈ value(result.limitable_model.p_limit["wind_1_1",TS[1]])
+        @test 70. == OLD_LIMIT > value(result.limitable_model.p_limit["wind_1_1",TS[1]]) ≈ 60
 
         @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
         @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S1"]) < 1e-09
         @test 55. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
-        @test value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"]) < 1e-09
-        @test value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"]) < 1e-09
+        @test 1. ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
+        @test 60. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
         @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
         @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09

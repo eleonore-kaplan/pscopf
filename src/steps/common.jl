@@ -183,13 +183,6 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         )
     end
 
-    if decision_firmness==DECIDED
-        # Limit cannot bechanged once it was fixed
-        # FIXME : maybe allow decreasing ? limit_var <= preceding_limit
-        @assert !ismissing(preceding_limit)
-        @constraint(model, limit_var == preceding_limit)
-    end
-
     return limitable_model, model
 end
 
