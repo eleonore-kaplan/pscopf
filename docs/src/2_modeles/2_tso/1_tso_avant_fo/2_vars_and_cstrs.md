@@ -1,21 +1,15 @@
 # Variables et Contraintes
 
 
-## Couper la production (non implémenté)
-
-La variable $P_{cut\_production}[ts,s]$ précise la puissance produite mais qui ne peut etre utilisée à l'instant $ts$ et dans le scénario $s$.
-Cette variable pourra servir dans le cas où les unités présentent des $pmin$ induisant des productions excessive. (Aussi, si on impose que les unités limitables soient exploitées à leurs capacités de production disponibles).
-
-Question : localiser par générateur ?
-
-## Couper la consommation (non implémenté)
-
-La variable $P_{cut\_consumption}[ts,s]$ précise la demande qui n'a pas pu être satisfaite à l'instant $ts$ et dans le scénario $s$.
-
-Il faudra faire attention à ce que la penalisation de cette variable soit plus importante que la variable qui coupe la production.
-
-Question : localiser par bus ? (pas intéréssant pour le marché car les contraintes bloquantes sont globales ie EOD)
-
+## Couper la production ?
+par générateur pour pouvoir résoudre des infaisabilité RSO ?
+$P_{cut\_production}[ts,s]$ ?
+$P_{cut\_production}[gen, ts,s]$ ?
+$P_{cut\_production}[bus, ts,s]$ ?
+## Couper la consommation ?
+par bus pour pouvoir résoudre des infaisabilité RSO ?
+$P_{cut\_consumption}[ts,s]$ ?
+$P_{cut\_consumption}[bus, ts,s]$ ?
 ## Unités Limitables
 
 ```math
@@ -26,12 +20,6 @@ est la puissance injectée sur le réseau par l'unité limitable à l'instant $t
 ```math
 \forall gen \in LIMITABLES, \forall ts \in TS, \forall s \in S\\
 0 \le P_{injected}[gen, ts, s] \le min(pmax(gen), uncertainties(gen,ts,s))
-```
-
-Les unités limitables sont supposées fatales. Elles produisent à la capacité disponible :
-```math
-\forall gen \in LIMITABLES, \forall ts \in TS, \forall s \in S\\
-P_{injected}[gen, ts, s] = min(pmax(gen), uncertainties(gen,ts,s))
 ```
 
 
@@ -53,7 +41,6 @@ B_{on}(gen, ts, s) \forall gen \in IMPOSABLES_+, \forall ts \in TS, \forall s \i
 est une variable binaire indiquant si l'unité imposable $gen$ est démarré à l'instant $ts$ dans le scénario $s$.
 
 Note: Les variables $B_{on}$ et $B_{start}$ ne concerne que les unités ayant une capacité de production minimale non nulle (i.e. $pmin(gen) > 0$) car, pour les autres unités, nous pouvons supposer que l'unité est tout le temps démarré à un niveau de production nul.
-
 #### Contraintes de commitment
 
 ```math
@@ -100,14 +87,67 @@ pmin(gen) B_{on}[gen,ts,s] \le P_{injected}[gen, ts, s] \le pmax(gen) B_{on}[gen
 \end{aligned}
 ```
 
+## Différence des injections par rapport aux consignes du marché
+
+```math
+\Delta P^{+}[gen, ts, s] \forall gen \in GENERATORS, \forall ts \in TS, \forall s \in S\\
+```
+est l'augmentation de la puissance injectée sur le réseau par l'unité $gen$ à l'instant $ts$ dans le scénario $s$ par rapport à la consigne du marché.
+
+```math
+\Delta P^{-}[gen, ts, s] \forall gen \in GENERATORS, \forall ts \in TS, \forall s \in S\\
+```
+est la diminution de la puissance injectée sur le réseau par l'unité $gen$ à l'instant $ts$ dans le scénario $s$ par rapport à la consigne du marché.
+
+```math
+\forall gen \in GENERATORS, \forall ts \in TS, \forall s \in S \\
+\Delta P^{+}[gen, ts, s]  - \Delta P^{-}[gen, ts, s]
+=
+P_{injected}[gen, ts, s] - p_market(gen,ts,s)
+```
+
+
 ## Contrainte EOD
-$P_{cut\_production}(ts,s)$
 
 
 ```math
 \forall ts \in TS, \forall s \in S, \\
 
-\sum_{bus \in BUSES} uncertainties(bus,ts,s) - P_{cut\_consumption}[(]ts,s]
-=
-\sum_{gen \in GENERATORS} P_injected[gen,ts,s] - P_{cut\_production}[(]ts,s]
+\sum_{bus \in BUSES} uncertainties(bus,ts,s) - \sum_{bus \in BUSES} P_{cut\_consumption}[bus, ts,s]
+\\ = \\
+\sum_{gen \in GENERATORS} P_{injected}[gen,ts,s] - \sum_{gen \in GENERATORS} P_{cut\_production}[gen,ts,s]
 ```
+
+ou bien :
+
+```math
+\forall ts \in TS, \forall s \in S, \\
+
+\sum_{gen \in GENERATORS} \Delta P^{+}[gen,ts,s]
+- \sum_{gen \in GENERATORS} \Delta P^{-}[gen,ts,s] \\
++ p\_market_{cut\_production}[ts,s]
+- p\_market_{cut\_consumption}[ts,s]
+\\ = \\
+\sum_{gen \in GENERATORS} P_{cut\_production}[gen,ts,s]
+- \sum_{bus \in BUSES} P_{cut\_consumption}[bus, ts,s]
+```
+
+
+
+
+## Contraintes RSO
+
+```math
+\forall ts \in TS, \forall s \in S, \forall branch \in BRANCHES \\ \quad \\
+\begin{aligned}
+&- limit(branch,ts,s) \\
+&\le \\
+& \qquad \sum_{gen \in GENERATORS} P_{injected}(gen,ts,s) ptdf(branch, bus(gen)) \\
+- & \qquad \sum_{gen \in GENERATORS} P_{cut\_production}[gen, ts,s] ptdf(branch, bus(gen)) \\
+- & \qquad \sum_{bus \in BUSES} uncertainties(bus,ts,s) ptdf(branch, bus) \\
++ & \qquad \sum_{bus \in BUSES} P_{cut\_consumption}[bus, ts,s] ptdf(branch, bus) \\
+&\le \\
+&limit(branch,ts,s) \\
+\end{aligned}
+```
+

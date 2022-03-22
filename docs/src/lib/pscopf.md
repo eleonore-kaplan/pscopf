@@ -3,9 +3,9 @@
 For autodoc
 
 ```@index
-Modules = [PSCOPF]
+Modules = [PSCOPF.Data, PSCOPF.Networks, PSCOPF.PSCOPFio, PSCOPF, PTDF]
 ```
 
 ```@autodocs
-Modules = [PSCOPF]
+Modules = [PSCOPF.Data, PSCOPF.Networks, PSCOPF.PSCOPFio, PSCOPF, PTDF]
 ```

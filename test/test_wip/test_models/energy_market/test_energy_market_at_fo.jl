@@ -1,8 +1,9 @@
 using PSCOPF
 
 using Test
+using JuMP
 using Dates
-using Printf
+using DataStructures
 
 @testset verbose=true "test_energy_market_at_fo" begin
 

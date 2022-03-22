@@ -23,10 +23,19 @@ include(joinpath(root_path, "src", "PTDF.jl"));
 
 input_path = ( length(ARGS) > 0 ? ARGS[1] :
                     joinpath(@__DIR__, "..", "data", "ptdf") )
-
+output_path = joinpath(input_path, "pscopf_ptdf.txt")
+ref_bus_num = 1
+distributed = true
 
 #########################
 # EXECUTION
 #########################
-ref_bus_num = 1
-PTDF.compute_ptdf(input_path, ref_bus_num)
+network = PTDF.read_network(input_path)
+ptdf = PTDF.compute_ptdf(network, ref_bus_num)
+if distributed
+    ptdf = PTDF.distribute_slack(ptdf);
+    # coeffs = Dict([ "poste_1_0" => .2,
+    #                 "poste_2_0" => .8])
+    # ptdf = PTDF.distribute_slack(ptdf, coeffs, network);
+end
+PTDF.write_PTDF(output_path, network, ptdf, distributed, ref_bus_num)

@@ -27,7 +27,7 @@ mutable struct PSCOPFContext <: AbstractContext
     market_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
     tso_flows::SortedDict{Tuple{String, DateTime, String}, Float64}
 
-    out_dir
+    out_dir::Union{String,Nothing}
 end
 
 function PSCOPFContext(network::Networks.Network, target_timepoints::Vector{Dates.DateTime},
@@ -111,6 +111,10 @@ function set_current_ech!(context_p::PSCOPFContext, ech::Dates.DateTime)
     context_p.current_ech = ech
 end
 
+function get_tso_actions(context::PSCOPFContext)
+    return context.tso_actions
+end
+
 function get_tso_schedule(context_p::PSCOPFContext)
     return context_p.tso_schedule
 end
@@ -158,7 +162,7 @@ function definitive_starts(schedule::Schedule, initial_state::SortedDict{String,
             if !is_definitive(current_state)
                 break #if current state is not definitive the following are not neither
 
-            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) )
+            elseif ( (prev_state==OFF) && (get_value(current_state)==ON) ) # unit was started for ts
                 push!(result, (gen_id,ts) )
                 prev_state = get_value(current_state)
                 prev_ts = ts

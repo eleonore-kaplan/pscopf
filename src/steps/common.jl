@@ -1,3 +1,8 @@
+using .Networks
+
+using JuMP
+using Dates
+
 try
     using Xpress;
     global OPTIMIZER = Xpress.Optimizer
@@ -31,6 +36,7 @@ Possible status values for a pscopf model container
     pscopf_OPTIMAL
     pscopf_INFEASIBLE
     pscopf_FEASIBLE
+    pscopf_HAS_SLACK
     pscopf_UNSOLVED
 end
 
@@ -50,24 +56,28 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
         @error "model status is infeasible!"
         return pscopf_INFEASIBLE
     elseif solver_status_l == OPTIMAL
-        return pscopf_OPTIMAL
+        if has_positive_slack(model_container_p)
+            @warn "model solved optimally but slack variables were used!"
+            return pscopf_HAS_SLACK
+        else
+            return pscopf_OPTIMAL
+        end
     else
         @warn "solver termination status was not optimal : $(solver_status_l)"
         return pscopf_FEASIBLE
     end
 end
 
-function solve!(model_container::AbstractModelContainer,
+function solve!(model::Model,
                 problem_name="problem", out_folder=nothing,
                 optimizer=OPTIMIZER)
     problem_name_l = replace(problem_name, ":"=>"_")
-    model_l = get_model(model_container)
-    set_optimizer(model_l, optimizer);
+    set_optimizer(model, optimizer);
 
     if !isnothing(out_folder)
         mkpath(out_folder)
         model_file_l = joinpath(out_folder, problem_name_l*".lp")
-        write_to_file(model_l, model_file_l)
+        write_to_file(model, model_file_l)
 
         log_file_l = joinpath(out_folder, problem_name_l*".log")
     else
@@ -75,17 +85,315 @@ function solve!(model_container::AbstractModelContainer,
     end
 
     redirect_to_file(log_file_l) do
-        optimize!(model_l)
+        optimize!(model)
     end
+
+    return model
 end
 
+function solve!(model_container::AbstractModelContainer, problem_name, out_path)
+    model_l = get_model(model_container)
 
+    @info problem_name
+    solve!(model_l, problem_name, out_path)
+    @info "pscopf model status: $(get_status(model_container))"
+    @info "Termination status : $(termination_status(model_l))"
+    @info "Objective value : $(objective_value(model_l))"
 
-
+    return model_container
+end
 
 
 abstract type AbstractGeneratorModel end
 abstract type AbstractImposableModel <: AbstractGeneratorModel end
 abstract type AbstractLimitableModel <: AbstractGeneratorModel end
 
+abstract type AbstractSlackModel end
+
 abstract type AbstractObjectiveModel end
+
+
+# AbstractGeneratorModel
+############################
+
+function add_p_injected!(generator_model::AbstractGeneratorModel, model::Model,
+                        gen_id::String, ts::DateTime, s::String,
+                        p_max::Float64,
+                        force_to_max::Bool
+                        )
+    name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
+
+    if force_to_max
+        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
+                                                        lower_bound=p_max, upper_bound=p_max)
+    else
+        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
+                                                        lower_bound=0., upper_bound=p_max)
+    end
+
+    return generator_model.p_injected[gen_id, ts, s]
+end
+
+function sum_injections(generator_model::AbstractGeneratorModel,
+                        ts::Dates.DateTime, s::String)::AffExpr
+    sum_l = AffExpr(0)
+    for ((_,ts_l,s_l), var_l) in generator_model.p_injected
+        if (ts_l,s_l) == (ts, s)
+            sum_l += var_l
+        end
+    end
+    return sum_l
+end
+
+# AbstractLimitableModel
+############################
+function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
+                        gen_id::String, ts::Dates.DateTime,
+                        scenarios::Vector{String},
+                        pmax,
+                        inject_uncertainties::InjectionUncertainties,
+                        decision_firmness::DecisionFirmness, #by ts
+                        preceding_limit::Union{Float64, Missing}
+                        )
+    #NOTE : need to add p_limit in Min objective
+    name =  @sprintf("P_limit[%s,%s]", gen_id, ts)
+    limitable_model.p_limit[gen_id, ts] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
+    limit_var = limitable_model.p_limit[gen_id, ts]
+    for s in scenarios
+        injection_var = limitable_model.p_injected[gen_id, ts, s]
+        @constraint(model, injection_var <= limit_var)
+    end
+
+    if decision_firmness==DECIDED
+        # Limit cannot bechanged once it was fixed
+        # FIXME : maybe allow decreasing ? limit_var <= preceding_limit
+        @assert !ismissing(preceding_limit)
+        @constraint(model, limit_var == preceding_limit)
+    end
+
+    return limitable_model, model
+end
+
+function is_limited(gen_id, ts, s, limitable_model, uncertainties_at_ech)
+    injected = value(limitable_model.p_injected[gen_id, ts, s])
+    available = get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
+    return ( injected < available-1e-09 )
+end
+
+# AbstractImposableModel
+############################
+
+function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
+                        generator::Networks.Generator,
+                        target_timepoints::Vector{Dates.DateTime},
+                        scenarios::Vector{String},
+                        generator_initial_state::GeneratorState
+                        )
+    p_injected_vars = imposable_model.p_injected
+    b_on_vars = imposable_model.b_on
+    b_start_vars = imposable_model.b_start
+
+    gen_id = Networks.get_id(generator)
+    p_max = Networks.get_p_max(generator)
+    p_min = Networks.get_p_min(generator)
+    for s in scenarios
+        for (ts_index, ts) in enumerate(target_timepoints)
+            name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
+            b_on_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
+            name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
+            b_start_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
+
+            # pmin < P_injected < pmax OR = 0
+            @constraint(model, p_injected_vars[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s]);
+            @constraint(model, p_injected_vars[gen_id, ts, s] >= p_min * b_on_vars[gen_id, ts, s]);
+
+            #commitment_constraints
+            preceding_on = (ts_index > 1) ? b_on_vars[gen_id, target_timepoints[ts_index-1], s] : float(generator_initial_state)
+            @constraint(model, b_start_vars[gen_id, ts, s] <= b_on_vars[gen_id, ts, s])
+            @constraint(model, b_start_vars[gen_id, ts, s] <= 1 - preceding_on)
+            @constraint(model, b_start_vars[gen_id, ts, s] >= b_on_vars[gen_id, ts, s] - preceding_on)
+        end
+    end
+
+    return imposable_model, model
+end
+
+# Objective
+##################
+
+function add_imposable_start_cost!(obj_component::AffExpr,
+                                b_start::AbstractDict{T,V}, network, gratis_starts) where T <: Tuple where V <: VariableRef
+    for ((gen_id,ts,_), b_start_var) in b_start
+        if (gen_id,ts) in gratis_starts
+            @debug(@sprintf("ignore starting cost of %s at %s", gen_id, ts))
+            continue
+        end
+        generator = Networks.get_generator(network, gen_id)
+        gen_start_cost = Networks.get_start_cost(generator)
+        add_to_expression!(obj_component,
+                            b_start_var * gen_start_cost)
+    end
+
+    return obj_component
+end
+
+function add_limitable_prop_cost!(obj_component::AffExpr,
+                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
+    for ((gen_id,_,_), p_injected_var) in p_injected
+        generator = Networks.get_generator(network, gen_id)
+        gen_prop_cost = Networks.get_prop_cost(generator)
+        add_to_expression!(obj_component,
+                            p_injected_var * gen_prop_cost)
+    end
+
+    return obj_component
+end
+
+function add_imposable_prop_cost!(obj_component::AffExpr,
+                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
+    for ((gen_id,_,_), p_injected_var) in p_injected
+        generator = Networks.get_generator(network, gen_id)
+        gen_prop_cost = Networks.get_prop_cost(generator)
+        add_to_expression!(obj_component,
+                            p_injected_var * gen_prop_cost)
+    end
+
+    return obj_component
+end
+
+function add_cut_conso_cost!(obj_component::AffExpr,
+                            p_cut_conso::AbstractDict{T,V}, cut_conso_cost::Float64)  where T <: Tuple where V <: VariableRef
+    for (_, p_cut_conso_var) in p_cut_conso
+        add_to_expression!(obj_component,
+                            cut_conso_cost * p_cut_conso_var)
+    end
+
+    return obj_component
+end
+
+
+# AbstractSlackModel
+############################
+
+function has_positive_slack(model_container_p::AbstractModelContainer)::Bool
+    error("unimplemented")
+end
+
+function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: VariableRef
+    return any(e -> value(e[2]) > 1e-09, dict_vars)
+    #e.g. 1e-15 is supposed to be 0.
+end
+
+
+# Utils
+##################
+
+function link_scenarios!(model::Model, vars::AbstractDict{Tuple{String,DateTime,String},VariableRef},
+                        gen_id::String, ts::DateTime, scenarios::Vector{String})
+    s1 = scenarios[1]
+    for (s_index, s) in enumerate(scenarios)
+        if s_index > 1
+            @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
+        end
+    end
+    return model
+end
+
+function add_commitment_firmness_constraints!(model::Model,
+                                            generator::Networks.Generator,
+                                            b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                            b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                            target_timepoints::Vector{Dates.DateTime},
+                                            scenarios::Vector{String},
+                                            generator_initial_state::GeneratorState,
+                                            commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                            generator_reference_schedule::GeneratorSchedule
+                                            )
+    gen_id = Networks.get_id(generator)
+    preceding_ts = nothing
+    for ts in target_timepoints
+        if commitment_firmness[ts] in [DECIDED, TO_DECIDE]
+            link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
+            link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
+        end
+
+        if commitment_firmness[ts] == DECIDED
+            reference_start_val = get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
+            if reference_start_val == 0
+                for s in scenarios
+                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
+                    @constraint(model, b_start_vars[gen_id, ts, s] == 0)
+                end
+            end
+
+            reference_on_val = float(safeget_commitment_value(generator_reference_schedule, ts))
+            if reference_on_val < 1e-09
+                for s in scenarios
+                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
+                    @constraint(model, b_on_vars[gen_id, ts, s] == 0)
+                end
+            end
+        end
+        preceding_ts = ts
+    end
+
+    return model
+end
+
+function add_power_level_firmness_constraints!(model::Model,
+                                                generator::Networks.Generator,
+                                                p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                                target_timepoints::Vector{Dates.DateTime},
+                                                scenarios::Vector{String},
+                                                power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                                generator_reference_schedule::GeneratorSchedule
+                                                )
+    gen_id = Networks.get_id(generator)
+    for ts in target_timepoints
+        if power_level_firmness[ts] in [DECIDED, TO_DECIDE]
+            link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
+        end
+
+        if power_level_firmness[ts] == DECIDED
+            val = safeget_prod_value(generator_reference_schedule,ts)
+            for s in scenarios
+                @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (val <= upper_bound(p_injected_vars[gen_id, ts, s])) )
+                @constraint(model, p_injected_vars[gen_id, ts, s] == val)
+            end
+        end
+    end
+
+    return model
+end
+
+
+"""
+    add_prod_vars!
+adds to the model and returns a variable that represents the product expression (noted var_a_x_b):
+   var_a * var_b where var_b is a binary variable, and var_a is a positive real variable bound by M
+The following constraints are added to the model :
+    var_a_x_b <= var_a
+    var_a_x_b <= M * var_b
+    M*(1 - var_b) + var_a_x_b >= var_a
+"""
+function add_prod_vars!(model::Model,
+                        var_a::VariableRef,
+                        var_binary::VariableRef,
+                        M,
+                        name
+                        )
+    if !is_binary(var_binary)
+        throw(error("variable var_binary needs to be binary to express the product!"))
+    end
+    if lower_bound(var_a) < 0
+        throw(error("variable var_a needs to be positive to express the product!"))
+    end
+
+    var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
+    @constraint(model, var_a_x_b <= var_a)
+    @constraint(model, var_a_x_b <= M * var_binary)
+    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a)
+
+    return var_a_x_b
+end
+

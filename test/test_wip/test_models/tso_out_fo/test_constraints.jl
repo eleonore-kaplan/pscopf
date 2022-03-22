@@ -6,7 +6,7 @@ using Dates
 using DataStructures
 using Printf
 
-@testset verbose=true "test_energy_market_constraints" begin
+@testset verbose=true "test_tso_constraints" begin
 
     #=
     TS: [11h, 11h15]
@@ -93,31 +93,68 @@ using Printf
     context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                     generators_init_state,
                                     uncertainties, nothing)
-    market = PSCOPF.EnergyMarket()
-    result = PSCOPF.run(market, ech, firmness,
+
+    context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), ech, SortedDict(
+        "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
+            SortedDict(),
+            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>20., "S2"=>30.)),
+                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>15., "S2"=>30.)),
+                        ),
+            ),
+        "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
+            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                        ),
+            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>30., "S2"=>35.)),
+                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>40., "S2"=>35.)),
+                        ),
+            ),
+        "prod_2_1" => PSCOPF.GeneratorSchedule("prod_2_1",
+            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                    SortedDict("S1"=>PSCOPF.OFF, "S2"=>PSCOPF.OFF)),
+                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                                                    SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
+                        ),
+            SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>0., "S2"=>0.)),
+                        Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                                                    SortedDict("S1"=>0., "S2"=>0.)),
+                        ),
+            ),
+        )
+    )
+    
+    tso = PSCOPF.TSOOutFO()
+    result = PSCOPF.run(tso, ech, firmness,
                 PSCOPF.get_target_timepoints(context),
                 context)
-    PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
+    PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
-    @testset "energy_market_successful_launch" begin
+    @testset "tso_successful_launch" begin
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
     end
 
-    @testset "energy_market_updated_schedule_respects_the_input_firmness" begin
-        @test context.market_schedule.decision_time == ech
-        @test PSCOPF.verify_firmness(firmness, context.market_schedule,
+    @testset "tso_updated_schedule_respects_the_input_firmness" begin
+        @test context.tso_schedule.decision_time == ech
+        @test PSCOPF.verify_firmness(firmness, context.tso_schedule,
                         excluded_ids=PSCOPF.get_limitables_ids(context))
     end
 
-    @testset "energy_market_respects_EOD" begin
-        @test context.market_schedule.decision_time == ech
-        @test PSCOPF.verify_firmness(firmness, context.market_schedule,
+    @testset "tso_respects_EOD" begin
+        @test context.tso_schedule.decision_time == ech
+        @test PSCOPF.verify_firmness(firmness, context.tso_schedule,
                         excluded_ids=PSCOPF.get_limitables_ids(context))
         for ts in TS
             for s in ["S1", "S2"]
                 @test ( abs( PSCOPF.compute_eod(PSCOPF.get_uncertainties(context),
-                                        PSCOPF.get_market_schedule(context),
+                                        PSCOPF.get_tso_schedule(context),
                                         PSCOPF.get_network(context),
                                         ech, ts, s) )
                         < 1e-09 )
@@ -125,21 +162,27 @@ using Printf
         end
     end
 
-    @testset "energy_market_does_not_consider_RSO_constraints" begin
+    @testset "tso_respects_RSO_constraints" begin
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-        # But, RSO constraints are not satisfied:
+        #prod_2_1 is used for RSO constraints
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_2_1", TS[1], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_2_1", TS[2], "S1")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_2_1", TS[1], "S2")
+        @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_2_1", TS[2], "S2")
+        #prod_1_1 might be used to deviate the least from market schedule
+
         # Note : compute_flow does not consider cut_conso (valid here cause cut_conso=0, proven by pscopf_OPTIMAL)
         for ts in TS
             for s in ["S1", "S2"]
                 flow = PSCOPF.compute_flow("branch_1_2",
                                         PSCOPF.get_uncertainties(context),
-                                        PSCOPF.get_market_schedule(context),
+                                        PSCOPF.get_tso_schedule(context),
                                         PSCOPF.get_network(context),
                                         ech, ts, s)
                 @printf("ts:%s, s:%s : %f\n", ts, s, flow)
-                @test !( -35. <= flow <= 35. ) #flow exceeds branch limit
+                @test ( -35. <= flow <= 35. ) #flow exceeds branch limit
             end
         end
     end
