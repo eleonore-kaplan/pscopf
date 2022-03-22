@@ -503,6 +503,13 @@ function set_commitment_definitive_value!(schedule, gen_id::String, ts::Dates.Da
     return set_commitment_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
 end
 
+function set_capping_value!(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
+    schedule.capping[gen_id, ts, scenario] = value
+end
+function set_cut_conso_value!(schedule::Schedule, bus_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
+    schedule.cut_conso_by_bus[bus_id, ts, scenario] = value
+end
+
 function get_commitment_sub_schedule(schedule::Schedule, gen_id::String)
     return get_commitment(get_sub_schedule(schedule, gen_id))
 end
