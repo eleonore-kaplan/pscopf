@@ -20,6 +20,7 @@ using PSCOPF
     include("test_wip/test_coherence_checks/test_check_timesteps.jl")
 
     include("test_wip/test_starts.jl")
+    include("test_wip/test_flows.jl")
     include("test_wip/test_verify_firmness.jl")
     include("test_wip/test_verify_firmness_on_schedule.jl")
     include("test_wip/test_compute_firmness.jl")
@@ -36,7 +37,6 @@ using PSCOPF
     include("test_wip/test_models/energy_market/test_slacks.jl")
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
 
-    include("test_wip/test_models/tso_out_fo/test_tso.jl")
     include("test_wip/test_models/tso_out_fo/test_dp_imposable.jl")
     include("test_wip/test_models/tso_out_fo/test_dp_limitable.jl")
     include("test_wip/test_models/tso_out_fo/test_dmo.jl")

@@ -35,19 +35,28 @@ function compute_flow(branch_id::String,
                 schedule::Schedule,
                 network::Networks.Network,
                 ts, scenario)
-    #FIXME only works in balanced scenarios
+    #NOTE : this is not the function called in the models
     flow = 0.
     for bus in Networks.get_buses(network)
         bus_id = Networks.get_id(bus)
         ptdf = Networks.get_ptdf(network, branch_id, bus_id)
 
-        flow -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, scenario)
+        load = get_uncertainties(uncertainties_at_ech, bus_id, ts, scenario)
+        cut_load = get_cut_conso(schedule, bus_id, ts, scenario)
+        load = ismissing(cut_load) ? load : ( load - cut_load )
 
+        prod = 0.
         for generator in Networks.get_generators(bus)
             gen_id = Networks.get_id(generator)
-            flow += ptdf * safeget_prod_value(schedule, gen_id, ts, scenario)
+            prod_l = safeget_prod_value(schedule, gen_id, ts, scenario)
+            capped_prod = get_capping(schedule, gen_id, ts, scenario)
+            prod_l = ismissing(capped_prod) ? prod_l : ( prod_l - capped_prod )
+
+            prod += prod_l
         end
 
+        flow -= ptdf * load
+        flow += ptdf * prod
     end
     return flow
 end
@@ -87,7 +96,6 @@ end
 
 function compute_flows(context::PSCOPFContext,
                         schedule::Schedule)
-    @warn("TODO: compute_flow does not account for slacks (load cutting)")
     ech = schedule.decision_time
     return compute_flows(get_uncertainties(context, ech), schedule, get_network(context),
                         get_target_timepoints(context), get_scenarios(context))
