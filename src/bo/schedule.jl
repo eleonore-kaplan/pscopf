@@ -532,13 +532,17 @@ function get_target_timepoints(gen_schedule::GeneratorSchedule)
     return union(keys(gen_schedule.commitment), keys(gen_schedule.production))
 end
 
-function get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
-    current_state = safeget_commitment_value(generator_reference_schedule, ts)
-    preceding_state = ( isnothing(preceding_ts) ? generator_initial_state :
-                            safeget_commitment_value(generator_reference_schedule, preceding_ts) )
+function get_start_value(preceding_state, current_state)
     if preceding_state==OFF && current_state==ON
         return 1
     else
         return 0
     end
+end
+
+function get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
+    current_state = safeget_commitment_value(generator_reference_schedule, ts)
+    preceding_state = ( isnothing(preceding_ts) ? generator_initial_state :
+                            safeget_commitment_value(generator_reference_schedule, preceding_ts) )
+    return get_start_value(preceding_state, current_state)
 end

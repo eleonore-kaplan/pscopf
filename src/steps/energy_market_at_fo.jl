@@ -50,8 +50,7 @@ function run(runnable::EnergyMarketAtFO,
     problem_name_l = @sprintf("energy_market_at_FO_%s", ech)
 
     tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
-
-    gratis_starts =  definitive_starts(get_tso_schedule(context), get_generators_initial_state(context))
+    gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 

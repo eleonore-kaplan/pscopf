@@ -127,6 +127,10 @@ function get_commitments(tso_actions, gen_id::String)
     return gen_commitments
 end
 
+#######################
+# Helpers
+########################
+
 """
 Performs a partial shallow copy of the input TSOActions
 Modifying the returned tso_actions' kept attributes will modify the original one's.
@@ -140,4 +144,27 @@ function filter_tso_actions(tso_actions::TSOActions;
     commitments_l = keep_commitments ? tso_actions.commitments : SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 
     return TSOActions(limitations_l, impositions_l, commitments_l)
+end
+
+function get_starts(tso_acions::TSOActions, initial_state::SortedDict{String, GeneratorState})
+    return get_starts(get_commitments(tso_acions), initial_state)
+end
+function get_starts(commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}, initial_state::SortedDict{String, GeneratorState})
+    result = Set{Tuple{String,Dates.DateTime}}()
+
+    preceding_id, preceding_state = nothing, nothing
+    for ((gen_id,ts), gen_state) in commitments
+        if ( isnothing(preceding_id) || gen_id!=preceding_id )
+            preceding_state = initial_state[gen_id]
+        end
+
+        if get_start_value(preceding_state, gen_state) > 1e-09
+            push!(result, (gen_id,ts) )
+        end
+
+        preceding_id = gen_id
+        preceding_state = gen_state
+    end
+
+    return result
 end
