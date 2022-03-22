@@ -101,13 +101,11 @@ pmin(gen) B_{on}[gen,ts,s] \le P_{injected}[gen, ts, s] \le pmax(gen) B_{on}[gen
 ```
 
 ## Contrainte EOD
-$P_{cut\_production}(ts,s)$
-
 
 ```math
 \forall ts \in TS, \forall s \in S, \\
 
-\sum_{bus \in BUSES} uncertainties(bus,ts,s) - P_{cut\_consumption}[(]ts,s]
+\sum_{bus \in BUSES} uncertainties(bus,ts,s) - P_{cut\_consumption}[ts,s]
 =
-\sum_{gen \in GENERATORS} P_injected[gen,ts,s] - P_{cut\_production}[(]ts,s]
+\sum_{gen \in GENERATORS} P_injected[gen,ts,s] - P_{cut\_production}[ts,s]
 ```

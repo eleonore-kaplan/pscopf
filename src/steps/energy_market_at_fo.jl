@@ -5,7 +5,8 @@ using JuMP
 using Statistics
 using Printf
 
-struct EnergyMarketAtFO <: AbstractMarket
+@with_kw mutable struct EnergyMarketAtFO <: AbstractMarket
+    configs = EnergyMarketConfigs()
 end
 
 SCENARIOS_DELIMITER = "_+_"
@@ -59,6 +60,9 @@ function run(runnable::EnergyMarketAtFO,
     @assert check_uncertainties(Uncertainties(ech=>agg_uncertainties), get_network(context))
     @assert check_uncertainties_contain_ts(Uncertainties(ech=>agg_uncertainties), get_target_timepoints(context))
 
+    runnable.configs.out_path = context.out_dir
+    runnable.configs.problem_name = problem_name_l
+
     return energy_market(get_network(context),
                         TS,
                         get_generators_initial_state(context),
@@ -67,8 +71,7 @@ function run(runnable::EnergyMarketAtFO,
                         firmness,
                         get_market_schedule(context), #this uses original scenario names
                         gratis_starts,
-                        out_path=context.out_dir,
-                        problem_name=problem_name_l,
+                        runnable.configs
                         )
 end
 
@@ -81,42 +84,27 @@ function update_market_schedule!(context::AbstractContext, ech,
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-
-    for ((gen_id, ts, s), p_injected_var) in result.limitable_model.p_injected
-        for scenario in split(s, SCENARIOS_DELIMITER)
-            if get_power_level_firmness(firmness, gen_id, ts) == FREE
-                set_prod_value!(market_schedule, gen_id, ts, scenario, value(p_injected_var))
-            elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
-                set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
-            elseif get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-                @assert( value(p_injected_var) == get_prod_value(market_schedule, gen_id, ts) )
-            end
-        end
+    for ((gen_id, ts, _), p_injected_var) in result.limitable_model.p_injected
+        set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
     end
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
-        for scenario in split(s, SCENARIOS_DELIMITER)
-            if get_power_level_firmness(firmness, gen_id, ts) == FREE
-                set_prod_value!(market_schedule, gen_id, ts, scenario, value(p_injected_var))
-            elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
-                set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
-            elseif get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-                @assert( value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
-            end
+        set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
+        if get_power_level_firmness(firmness, gen_id, ts) == DECIDED
+            @assert( value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
         end
     end
 
-    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
+    for ((gen_id, ts, _), b_on_var) in result.imposable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
-        for scenario in split(s, SCENARIOS_DELIMITER)
-            if get_commitment_firmness(firmness, gen_id, ts) == FREE
-                set_commitment_value!(market_schedule, gen_id, ts, scenario, gen_state_value)
-            elseif get_commitment_firmness(firmness, gen_id, ts) == TO_DECIDE
-                set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
-            elseif get_commitment_firmness(firmness, gen_id, ts) == DECIDED
-                @assert( gen_state_value == get_commitment_value(market_schedule, gen_id, ts) )
-            end
-        end
+        set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
     end
+
+    # TODO : may need to adapt cause result handles only one scenario
+    # Capping
+    update_schedule_capping!(market_schedule, context, ech, result.limitable_model)
+
+    # cut_conso (load-shedding)
+    update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
 
     return market_schedule
 end

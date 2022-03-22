@@ -48,7 +48,7 @@ using DataStructures
             push!(schedule_history, deepcopy(tso_schedule))
         end
         #affects_tso_actions_schedule default to true cause <:AbstractTSO
-        function PSCOPF.update_tso_actions!(tso_actions, ech, result, firmness, runnable::MockTSO)
+        function PSCOPF.update_tso_actions!(context::PSCOPF.AbstractContext, ech, result, firmness, runnable::MockTSO)
             nothing
         end
 

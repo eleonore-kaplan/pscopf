@@ -56,6 +56,8 @@ end
         SortedDict{String, SortedDict{Dates.DateTime, DecisionFirmness} }()
 end
 
+Base.:(==)(a::Firmness, b::Firmness) = a.commitment==b.commitment && a.power_level==b.power_level
+
 function get_commitment_firmness(firmness::Firmness)
     return firmness.commitment
 end
@@ -166,7 +168,7 @@ function is_definitive(uncertain_value::UncertainValue{T})::Bool where T
     return !ismissing(existing_value)
 end
 
-function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
+function safeset_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
         existing_value = get_value(uncertain_value)
         if existing_value != value
@@ -179,6 +181,22 @@ function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Un
         for (scenario, _) in uncertain_value.anticipated_value
             uncertain_value.anticipated_value[scenario] = value
         end
+    end
+    return uncertain_value.definitive_value
+end
+function set_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
+    if is_definitive(uncertain_value)
+        existing_value = get_value(uncertain_value)
+        if existing_value != value
+            msg = @sprintf("changed value to %s : The definitive value was already set to `%s` for the UncertainValue.",
+                    value, existing_value)
+            @debug msg
+        end
+    end
+
+    uncertain_value.definitive_value = value
+    for (scenario, _) in uncertain_value.anticipated_value
+        uncertain_value.anticipated_value[scenario] = value
     end
     return uncertain_value.definitive_value
 end
@@ -246,10 +264,24 @@ mutable struct Schedule <: AbstractSchedule
     decision_time::Dates.DateTime
     #gen_id => ts => uncertainValue(s)
     generator_schedules::SortedDict{String, GeneratorSchedule }
+
+    #bus,ts,s
+    cut_conso_by_bus::SortedDict{Tuple{String,DateTime,String}, Float64 }
+    #limitable_gen_id,ts,s
+    capping::SortedDict{Tuple{String,DateTime,String}, Float64 }
 end
-function Schedule(decider_type::DeciderType, ech::Dates.DateTime)
+function Schedule(decider_type, ech)
     return Schedule(decider_type, ech,
-                    SortedDict{String, GeneratorSchedule}() )
+                    SortedDict{String, GeneratorSchedule}(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }()
+                    )
+end
+function Schedule(decider_type, ech, generator_schedules)
+    return Schedule(decider_type, ech, generator_schedules,
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }(),
+                    SortedDict{Tuple{String,DateTime,String}, Float64 }()
+                    )
 end
 
 function init!(schedule::Schedule, network::Networks.Network,
@@ -274,7 +306,7 @@ function get_sub_schedule(schedule::Schedule, gen_id::String)::Union{GeneratorSc
     if haskey(schedule.generator_schedules, gen_id)
         return schedule.generator_schedules[gen_id]
     else
-        throw( error("no generator schedule was initialized for generator ", sub_schedule.gen_id))
+        throw( error("no generator schedule was initialized for generator ", gen_id))
         #return missing
     end
 end
@@ -283,8 +315,8 @@ function get_prod_uncertain_value(sub_schedule::GeneratorSchedule, ts::Dates.Dat
     if haskey(sub_schedule.production, ts)
         return sub_schedule.production[ts]
     else
-        throw( error("power level schedule is not defined for generator ", sub_schedule.gen_id))
-        #return missing
+        @warn("power level schedule is not defined for generator ", sub_schedule.gen_id)
+        return missing
     end
 end
 function get_prod_uncertain_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{Float64},Missing}
@@ -315,6 +347,17 @@ function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime):
     return get_prod_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Float64
+    prod = get_prod_value(sub_schedule, ts)
+    if ismissing(prod)
+        msg = @sprintf("Missing production value for ts=%s in schedule %s",
+                        ts, sub_schedule.gen_id)
+        throw( error(msg) )
+    else
+        return prod
+    end
+end
+
 function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Union{GeneratorState, Missing}
     uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
     if ismissing(uncertain_value)
@@ -326,6 +369,16 @@ function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.Date
     return get_commitment_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::GeneratorState
+    commitment = get_commitment_value(sub_schedule, ts)
+    if ismissing(commitment)
+        msg = @sprintf("Missing commitment value for ts=%s in schedule %s",
+                        ts, sub_schedule.gen_id)
+        throw( error(msg) )
+    else
+        return commitment
+    end
+end
 
 function get_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
@@ -359,6 +412,43 @@ function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.Date
     return get_commitment_value(schedule.generator_schedules[gen_id], ts, scenario)
 end
 
+function get_capping(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
+    key_l = (gen_id, ts, scenario)
+    if !haskey(schedule.capping, key_l)
+        return missing
+    else
+        return schedule.capping[key_l]
+    end
+end
+function safeget_capping(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario)::Float64
+    capping = get_capping(schedule, gen_id, ts, scenario)
+    if ismissing(capping)
+        msg = @sprintf("Missing capping value for (gen_id=%s,ts=%s,s=%s) in schedule",
+                        gen_id, ts, scenario)
+        throw( error(msg) )
+    else
+        return capping
+    end
+end
+
+function get_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
+    key_l = (bus_id, ts, scenario)
+    if !haskey(schedule.cut_conso_by_bus, key_l)
+        return missing
+    else
+        return schedule.cut_conso_by_bus[key_l]
+    end
+end
+function safeget_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Float64
+    cut_conso = get_cut_conso(schedule, bus_id, ts, scenario)
+    if ismissing(cut_conso)
+        msg = @sprintf("Missing cut_conso value for (gen_id=%s,ts=%s,s=%s) in schedule",
+                        bus_id, ts, scenario)
+        throw( error(msg) )
+    else
+        return cut_conso
+    end
+end
 
 function set_prod_value!(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String, value::Float64)
     uncertain_value = get_prod_uncertain_value(sub_schedule, ts)
@@ -394,7 +484,7 @@ function set_prod_definitive_value!(sub_schedule::GeneratorSchedule, ts::Dates.D
                         sub_schedule.gen_id, ts)
         throw( error(msg) )
     end
-    set_definitive_value!(uncertain_value, value)
+    safeset_definitive_value!(uncertain_value, value)
 end
 function set_prod_definitive_value!(schedule, gen_id::String, ts::Dates.DateTime, value::Float64)
     return set_prod_definitive_value!(schedule.generator_schedules[gen_id], ts, value)
@@ -431,4 +521,24 @@ end
 function Base.show(io::IO, schedule::Schedule)
     @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
     pretty_print(io, schedule.generator_schedules)
+end
+
+
+#######################
+# Helpers
+########################
+
+function get_target_timepoints(gen_schedule::GeneratorSchedule)
+    return union(keys(gen_schedule.commitment), keys(gen_schedule.production))
+end
+
+function get_start_value(generator_reference_schedule, ts, preceding_ts, generator_initial_state)
+    current_state = safeget_commitment_value(generator_reference_schedule, ts)
+    preceding_state = ( isnothing(preceding_ts) ? generator_initial_state :
+                            safeget_commitment_value(generator_reference_schedule, preceding_ts) )
+    if preceding_state==OFF && current_state==ON
+        return 1
+    else
+        return 0
+    end
 end

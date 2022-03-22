@@ -2,6 +2,7 @@ using PSCOPF
 
 using Test
 using Dates
+using DataStructures
 
 @testset "test_check_initial_state" begin
 

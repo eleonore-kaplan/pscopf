@@ -79,6 +79,17 @@ function get_dp(gen::Generator)
     return gen.dp
 end
 
+################
+##  HELPERS   ##
+################
+
+function is_limitable(generator::Generator)::Bool
+    return get_type(generator) == LIMITABLE
+end
+
+function is_imposable(generator::Generator)::Bool
+    return get_type(generator) == IMPOSABLE
+end
 
 ################
 ## INFO / LOG ##
