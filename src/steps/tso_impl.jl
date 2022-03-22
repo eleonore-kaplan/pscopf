@@ -18,8 +18,8 @@ end
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts
-    p_limit = SortedDict{Tuple{String,DateTime},VariableRef}();
+    #gen,ts,s
+    p_limit = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     b_is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -214,7 +214,6 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
     for imposable_gen in imposable_generators
         gen_id = Networks.get_id(imposable_gen)
         gen_initial_state = get_initial_state(generators_initial_state, imposable_gen)
-        println("IMPOSABLE: ", gen_id)
         add_imposable!(model_container.imposable_model, model_container.model,
                         imposable_gen,
                         target_timepoints,

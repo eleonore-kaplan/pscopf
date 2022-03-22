@@ -9,7 +9,6 @@ using DataStructures
 @testset verbose=true "test_custom_sequence" begin
 
     @testset "test_custom_sequence" begin
-        println("\n\n\n")
         network = PSCOPF.Networks.Network()
         TS = PSCOPF.create_target_timepoints(DateTime("2015-01-01T11:00:00"))
         ECH = [DateTime("2015-01-01T07:00:00"),
