@@ -49,6 +49,39 @@ using DataStructures
             @test result == expected
         end
 
+        @testset "test_starts_from_schedule" begin
+            schedule = PSCOPF.Schedule(PSCOPF.Utilitary(), DateTime("2015-01-01T06:00:00"), SortedDict(
+                    "gen1" => PSCOPF.GeneratorSchedule("gen1",
+                        SortedDict(TS[1]=> PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[3] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF, SortedDict()),
+                                    TS[4] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    ),
+                        SortedDict(),
+                        ),
+                    "gen2" => PSCOPF.GeneratorSchedule("gen2",
+                        SortedDict(TS[1]=> PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[3] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[4] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    ),
+                        SortedDict(),
+                        ),
+                    "gen3" => PSCOPF.GeneratorSchedule("gen3",
+                        SortedDict(TS[1]=> PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF, SortedDict()),
+                                    TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    TS[3] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF, SortedDict()),
+                                    TS[4] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()),
+                                    ),
+                        SortedDict(),
+                        )
+                    )
+            )
+
+            result = PSCOPF.get_starts(schedule, initial_state)
+            @test result == expected
+        end
+
     end
 
 
@@ -82,6 +115,56 @@ using DataStructures
         ])
 
         result = PSCOPF.get_starts(commitments, initial_state)
+        @test result == expected
+    end
+
+    @testset "test_starts_from_schedule_ignores_non_definitive_starts" begin
+        initial_state = SortedDict{String, PSCOPF.GeneratorState}(
+            "unit_1" => PSCOPF.OFF,
+        )
+
+        schedule = PSCOPF.Schedule(PSCOPF.Utilitary(), DateTime("2015-01-01T06:00:00"), SortedDict(
+                "unit_1" => PSCOPF.GeneratorSchedule("unit_1",
+                    SortedDict(TS[1]=> PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing, SortedDict("S1"=>PSCOPF.ON)), # non definitive start
+                                TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing, SortedDict("S1"=>PSCOPF.ON)),
+                                TS[3] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing, SortedDict("S1"=>PSCOPF.ON)),
+                                TS[4] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing, SortedDict("S1"=>PSCOPF.ON)),
+                                ),
+                    SortedDict(),
+                    )
+                )
+        )
+
+        result = PSCOPF.get_starts(schedule, initial_state)
+        @test isempty(result)
+    end
+
+    @testset "test_starts_from_schedule_breaks_at_first_non_definitive_value" begin
+        initial_state = SortedDict{String, PSCOPF.GeneratorState}(
+            "unit_1" => PSCOPF.OFF,
+        )
+
+        schedule = PSCOPF.Schedule(PSCOPF.Utilitary(), DateTime("2015-01-01T06:00:00"), SortedDict(
+                "unit_1" => PSCOPF.GeneratorSchedule("unit_1",
+                    SortedDict(TS[1]=> PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()), # definitive start
+                                TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing, SortedDict()), # Non-definitive value => later values will be ignored
+                                TS[3] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.OFF, SortedDict()),
+                                TS[4] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON, SortedDict()), # ignored start
+                                ),
+                    SortedDict(),
+                    ),
+                )
+        )
+
+        # ("unit_1", TS[4]) is not reported
+        #  because it is preceded by non-definitive commitment at TS[2]
+        #  even if TS[3] is definitive
+        #  This should not happen in PSCOPF launches
+        expected = Set{Tuple{String,Dates.DateTime}}([
+            ("unit_1", TS[1])
+        ])
+
+        result = PSCOPF.get_starts(schedule, initial_state)
         @test result == expected
     end
 
