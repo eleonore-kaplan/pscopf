@@ -250,43 +250,6 @@ using DataStructures
         @test !PSCOPF.check_uncertainties_values(uncertainties, network)
     end
 
-    # This allows to directly suppose that we can use all the availble limitable production
-    # without violating the EOD with over-production
-    @testset "limitable_production_must_be_<=_load" begin
-        uncertainties = PSCOPF.Uncertainties(
-                        DateTime("2015-01-01T07:00:00") => SortedDict(
-                            "bus_1" => SortedDict(
-                                DateTime("2015-01-01T14:00:00") => SortedDict(
-                                                                "S1" => 15.,
-                                                                "S2" => 20.
-                                                                )
-                                ),
-                            "limitable_1" =>SortedDict(
-                                DateTime("2015-01-01T14:00:00") => SortedDict(
-                                                                "S1" => 20., # High production
-                                                                "S2" => 16.
-                                                                )
-                                ) ,
-                            ),
-                        DateTime("2015-01-01T11:00:00") => SortedDict(
-                            "bus_1" => SortedDict(
-                                DateTime("2015-01-01T14:00:00") => SortedDict(
-                                                                "S1" => 15.,
-                                                                "S2" => 20.
-                                                                )
-                                ),
-                            "limitable_1" =>SortedDict(
-                                DateTime("2015-01-01T14:00:00") => SortedDict(
-                                                                "S1" => 10.,
-                                                                "S2" => 16.
-                                                                )
-                                ) ,
-                            ),
-                        )
-
-        @test !PSCOPF.check_uncertainties_underprod(uncertainties, network)
-    end
-
     @testset "all_limitable_generators_are_listed_for_all_ech" begin
         uncertainties = PSCOPF.Uncertainties(
                         DateTime("2015-01-01T07:00:00") => SortedDict(

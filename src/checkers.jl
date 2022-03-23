@@ -176,7 +176,6 @@ function check_uncertainties(uncertainties::Uncertainties, network)
     return ( check_uncertainties_same_scenarios(uncertainties)
             && check_uncertainties_same_timesteps(uncertainties)
             && check_uncertainties_values(uncertainties, network)
-            && check_uncertainties_underprod(uncertainties, network)
             && check_uncertainties_limitables(uncertainties, network)
             && check_uncertainties_buses(uncertainties, network)
     )
@@ -245,36 +244,6 @@ function check_uncertainties_values(uncertainties::Uncertainties, network::Netwo
                         @error(msg)
                         checks = false
                     end
-                end
-            end
-        end
-    end
-    return checks
-end
-
-"""
-    check that for each ech, ts, s:
-        prod < load
-    To be sure that we can automatically set limitables to the available production levels
-    without exceeding demand
-    and then compliment missing demand with imposables
-"""
-function check_uncertainties_underprod(uncertainties::Uncertainties, network)
-    checks = true
-    target_timepoints = get_target_timepoints(uncertainties)
-    scenarios = get_scenarios(uncertainties)
-
-    for (ech,uncertainties_at_ech) in uncertainties
-        for ts in target_timepoints
-            for scenario in scenarios
-                load = compute_load(uncertainties_at_ech, network, ts, scenario)
-                prod = compute_prod(uncertainties_at_ech, network, ts, scenario)
-                if prod > load
-                    msg = @sprintf("Invalid injections at (ech=%s, ts=%s, s=%s) : \
-                                    renewables injections (%f) must not be greater than load (%f) !",
-                                    ech, ts, scenario, prod, load)
-                    @error(msg)
-                    checks = false
                 end
             end
         end
