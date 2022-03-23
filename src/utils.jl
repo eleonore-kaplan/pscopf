@@ -97,6 +97,13 @@ function rm_prefixed(dir::String, prefix::String)
     rm_files(dir, startswith(prefix))
 end
 
+"""
+Like Base.split() but returns a vector of String instead of a vector of SubString{String}
+"""
+function split_str(str::AbstractString, dlm; keepempty::Bool=true)
+    return String.(split(str, dlm, keepempty=keepempty))
+end
+
 function split_with_space(str::String)
     result = String[];
     if length(str) > 0
