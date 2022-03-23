@@ -127,3 +127,11 @@ function split_with_space(str::String)
     end
     return result;
 end
+
+function is_different(a, b)
+    return a != b
+end
+function is_different(a::Number, b::Number)
+    return abs(a-b) >= 1e-09
+end
+

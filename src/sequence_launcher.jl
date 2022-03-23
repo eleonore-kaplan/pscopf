@@ -207,7 +207,7 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
             @assert(haskey(old_schedule_component, ts))
             old_uncertain = old_schedule_component[ts]
             if is_definitive(new_uncertain) && is_definitive(old_uncertain)
-                if get_value(new_uncertain) != get_value(old_uncertain)
+                if is_different(get_value(new_uncertain), get_value(old_uncertain))
                     @printf("firm value for generator %s at timestep %s changed from %s to %s\n",
                             gen_id, ts, get_value(old_uncertain), get_value(new_uncertain))
                 end
@@ -224,7 +224,7 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
                     old_val = get_value(old_uncertain, scenario)
                     new_val = get_value(new_uncertain, scenario)
                     if ( (ismissing(new_val) != ismissing(old_val))
-                        || ( !ismissing(old_val) && !ismissing(new_val) && (new_val != old_val) )
+                        || ( !ismissing(old_val) && !ismissing(new_val) && is_different(new_val, old_val) )
                         )
                         @printf("gen_id=%s, ts=%s, scenario=%s \
                                 old_value=%s, new_value=%s\n",
