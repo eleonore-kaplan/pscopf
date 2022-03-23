@@ -9,16 +9,6 @@ using Printf
     configs = EnergyMarketConfigs()
 end
 
-SCENARIOS_DELIMITER = "_+_"
-
-function aggregate_scenario_name(scenarios::Vector{String})
-    return join(scenarios, SCENARIOS_DELIMITER)
-end
-function aggregate_scenario_name(context::AbstractContext, ech::Dates.DateTime)
-    scenarios = get_scenarios(context, ech)
-    return aggregate_scenario_name(scenarios)
-end
-
 function aggregate_scenarios(context::AbstractContext, ech::Dates.DateTime)
     agg_scenario_name = aggregate_scenario_name(context, ech)
 

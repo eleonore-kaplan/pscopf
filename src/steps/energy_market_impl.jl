@@ -58,6 +58,16 @@ end
     status::PSCOPFStatus = pscopf_UNSOLVED
 end
 
+SCENARIOS_DELIMITER = "_+_"
+
+function aggregate_scenario_name(scenarios::Vector{String})
+    return join(scenarios, SCENARIOS_DELIMITER)
+end
+function aggregate_scenario_name(context::AbstractContext, ech::Dates.DateTime)
+    scenarios = get_scenarios(context, ech)
+    return aggregate_scenario_name(scenarios)
+end
+
 function has_positive_slack(model_container::EnergyMarketModel)::Bool
     return has_positive_value(model_container.slack_model.p_cut_conso)
 end
@@ -343,17 +353,26 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
 end
 
 function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::EnergyMarketSlackModel)
-    for ((ts, s), p_cut_conso_var) in slack_model.p_cut_conso
+    for ((ts, scenario), p_cut_conso_var) in slack_model.p_cut_conso
         total_cut_conso = value(p_cut_conso_var)
-        if total_cut_conso > 1e-09
-        #distribute the cut conso on buses
-            total_load = compute_load(get_uncertainties(context, ech), get_network(context), ts, s)
-            cut_ratio = total_cut_conso / total_load
-            for bus in Networks.get_buses(get_network(context))
-                bus_id = Networks.get_id(bus)
-                bus_load = get_uncertainties(get_uncertainties(context, ech), bus_id, ts, s)
-                cut_load_on_bus = cut_ratio * bus_load
-                market_schedule.cut_conso_by_bus[bus_id, ts, s] = cut_load_on_bus
+        for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
+        #for EnergyMarket, s==scenario
+        #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
+            if total_cut_conso > 1e-09
+            #distribute the cut conso on buses
+                total_load = compute_load(get_uncertainties(context, ech), get_network(context), ts, s)
+                cut_ratio = total_cut_conso / total_load
+                for bus in Networks.get_buses(get_network(context))
+                    bus_id = Networks.get_id(bus)
+                    bus_load = get_uncertainties(get_uncertainties(context, ech), bus_id, ts, s)
+                    cut_load_on_bus = cut_ratio * bus_load
+                    market_schedule.cut_conso_by_bus[bus_id, ts, s] = cut_load_on_bus
+                end
+            else
+                for bus in Networks.get_buses(get_network(context))
+                    bus_id = Networks.get_id(bus)
+                    market_schedule.cut_conso_by_bus[bus_id, ts, s] = 0.
+                end
             end
         end
     end
