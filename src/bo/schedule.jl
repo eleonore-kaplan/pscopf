@@ -171,7 +171,7 @@ end
 function safeset_definitive_value!(uncertain_value::UncertainValue{T}, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
         existing_value = get_value(uncertain_value)
-        if existing_value != value
+        if is_different(existing_value, value)
             msg = @sprintf("Unable to set definitive value to %s : The definitive value `%s` was already set to the UncertainValue.",
                             value, existing_value)
             throw( error(msg) )
