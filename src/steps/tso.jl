@@ -9,13 +9,9 @@ using Parameters
     configs::TSOConfigs = TSOConfigs()
 end
 
-function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    fo_start_time = TS[1] - get_fo_length(get_management_mode(context))
-    if fo_start_time <= ech
-        msg = @sprintf("invalid step at ech=%s : TSOOutFO needs to be launched before FO start (ie %s)", ech, fo_start_time)
-        throw( error(msg) )
-    end
+TSOInFO = TSOOutFO
 
+function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     problem_name_l = @sprintf("tso_out_fo_%s", ech)
 
     tso_starts = get_starts(get_tso_schedule(context), get_generators_initial_state(context))

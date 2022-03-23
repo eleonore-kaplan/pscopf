@@ -51,36 +51,6 @@ using DataStructures
     mode = PSCOPF.ManagementMode("test_mode", Dates.Minute(5))
 
     #=
-            ECH   TS
-    |        |    |
-            10h   11h
-             <---->
-               FO
-    =#
-    @testset "tso_cannot_be_launched_after_or_at_FO" begin
-        ech = DateTime("2015-01-01T10:00:00")
-        mode1 = PSCOPF.PSCOPF_MODE_1 # FO == 10h
-
-        # firmness : wrong firmness % ech/DMO/DP but doesn't matter
-        firmness = PSCOPF.Firmness(
-                SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
-                            "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), ),
-                SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE),
-                            "prod_1_2" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE), )
-                )
-
-        context = PSCOPF.PSCOPFContext(network, TS, mode1,
-                                        generators_init_state,
-                                        uncertainties, nothing)
-
-        tso = PSCOPF.TSOOutFO()
-        @test_throws ErrorException PSCOPF.run(tso, ech, firmness,
-                                                PSCOPF.get_target_timepoints(context),
-                                                context)
-    end
-
-
-    #=
     ECH1*         ECH2            ECH3                                 <---FO--->TS
     |             |               |
     10h           10h30           10h40          10h45                          11h
