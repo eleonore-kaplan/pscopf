@@ -23,21 +23,6 @@ function run(runnable::TSOAtFOBiLevel, ech::Dates.DateTime, firmness, TS::Vector
 end
 
 """
-utilisé pour le mode 1:
-Prend des incertitudes non équilibrées (mode 1 => plus de marché dans la FO)
-Décide de la reserve
-"""
-struct TSOInFO <: AbstractTSO
-end
-function run(runnable::TSOInFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts : ",
-            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time)
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage : ",
-            get_tso_schedule(context).decider_type, ",", get_tso_schedule(context).decision_time)
-    return #result
-end
-
-"""
 utilisé pour le mode 2:
 Prend des incertitudes pas forcément équilibrées
 Décide de la reserve

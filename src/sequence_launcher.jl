@@ -26,6 +26,10 @@ function get_timepoints(sequence::Sequence)
     return collect(keys(get_operations(sequence)))
 end
 
+function get_steps(sequence::Sequence, ech::DateTime)
+    return get_operations(sequence)[ech]
+end
+
 """
     length of the sequence in terms of time not in terms of number of runnables to execute
 """
@@ -37,7 +41,7 @@ function get_horizon_timepoints(sequence::Sequence)::Vector{Dates.DateTime}
     return collect(keys(get_operations(sequence)))
 end
 
-function get_ech(sequence::Sequence, index)
+function get_ech(sequence::Sequence, index::Int)
     if length(sequence) < index
         throw( error("attempt to acess ", length(sequence), "-element Sequence at index ", index, ".") )
     else
@@ -131,17 +135,38 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
     init!(context_p, sequence_p, check_context)
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
-        next_ech = (steps_index == length(sequence_p)) ? nothing : get_ech(sequence_p, steps_index+1)
         println("-"^50)
         delta = Dates.value(Dates.Minute(get_target_timepoints(context_p)[1]-ech))
         println("ECH : ", ech, " : M-", delta)
         println("-"^50)
         for step in steps_at_ech
+            next_ech = get_next_ech(sequence_p, steps_index, step)
+            println("next_ech: ", next_ech)
             run_step!(context_p, step, ech, next_ech)
         end
     end
 end
 
+
+"""
+returns the ech that come after ech at which we execute a step of the same DeciderType as the input step
+if none exists returns nothing
+"""
+function get_next_ech(sequence::Sequence, index::Int, decider_step::AbstractRunnable)
+    if index >= length(sequence)
+        return nothing
+    end
+
+    for ech_l in get_horizon_timepoints(sequence)[index+1:end]
+        for step_l in get_steps(sequence, ech_l)
+            if DeciderType(step_l) == DeciderType(decider_step)
+                return ech_l
+            end
+        end
+    end
+
+    return nothing
+end
 
 
 ##################################
