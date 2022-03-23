@@ -98,7 +98,7 @@ using DataStructures
         #If it was due to TSO constraints, we would have paid for the generator used instead of limitables
         @test (10*1e7 + 1e-3) ≈ value(result.objective_model.penalty) # 10 cut_conso + 1 limitation
         @test value(result.objective_model.start_cost) < 1e-09
-        @test (15. + 15. ) ≈ value(result.objective_model.prop_cost)
+        @test ((20. - 15.) *1. + (25. - 15.) *1. ) ≈ value(result.objective_model.prop_cost)
     end
 
     #=
@@ -278,12 +278,12 @@ using DataStructures
                         |
     (limitable) wind_1_1|
     Pmin=0, Pmax=100    |
-    Csta=0, Cprop=1     |     load_1
+    Csta=0, Cprop=2     |     load_1
       S1: 50            | S1: 15
                         |
     (limitable) wind_1_2|
     Pmin=0, Pmax=100    |
-    Csta=0, Cprop=2     |
+    Csta=0, Cprop=1     |
       S1: 10            |
                         |
     (limitable) wind_1_3|
@@ -299,11 +299,11 @@ using DataStructures
         # Limitables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
-                                                0., 1.,
+                                                0., 2.,
                                                 Dates.Second(0), Dates.Second(0))
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_2", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
-                                                0., 2.,
+                                                0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_3", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
@@ -346,6 +346,12 @@ using DataStructures
         @test (50. - 15) ≈ context.tso_schedule.capping["wind_1_1", TS[1], "S1"]
         @test (10. - 0)  ≈ context.tso_schedule.capping["wind_1_2", TS[1], "S1"]
         @test (0.  - 0)  ≈ context.tso_schedule.capping["wind_1_3", TS[1], "S1"]
+
+        #Cost
+        @test value(result.objective_model.start_cost) < 1e-09
+        @test value(result.objective_model.prop_cost) ≈ (
+              ((50. - 15.) * 2 + (10. - 0.) * 1. + (0. - 0.) * 1.)
+        )
     end
 
     #=

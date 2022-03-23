@@ -190,6 +190,7 @@ using DataStructures
             consider that reference is 0.
             Deviate the least from market (not important in this case since cutting conso is highly penalized)
             Choose cheapest alternative
+            NOTE : unlike market, limitables with high Cprop will be chosen first (cause we pay the non-usage ie capping)
             =#
             context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                             generators_init_state,
@@ -207,10 +208,10 @@ using DataStructures
             @test 55. ≈ value(result.objective_model.deltas)
             @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
 
+            @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1") #Cprop=150 : Highlu penalized if not used
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1") #Cprop=1
-            @test 30. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") #Cprop=10
+            @test 10. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") #Cprop=10
             @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_2", TS[1], "S1") < 1e-09 #Cprop=15
-            @test PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1") <= 1e-09 #Cprop=150
 
             # pmin = 0 for prod_1_1 & prod_2_1
             @test ismissing( PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1") )
@@ -303,7 +304,7 @@ using DataStructures
 
         @test value(result.objective_model.start_cost) < 1e-09 # prod_1_1 started by the market
         @test value(result.objective_model.prop_cost) ≈ (
-              (35. * 1 + 20. * 10.)
+              ((45. - 35.) * 1 + 20. * 10.)
         )
     end
 

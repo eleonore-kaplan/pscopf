@@ -323,7 +323,25 @@ function add_flows!(model_container::TSOModel,
     return model_container
 end
 
-function create_objectives!(model_container::TSOModel, network, gratis_starts, cut_conso_cost)
+
+function add_tso_limitable_prop_cost!(obj_component::AffExpr,
+                                uncertainties_at_ech::UncertaintiesAtEch,
+                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
+    #NOTE: need to make sure uncertainty > injection
+
+    for ((gen_id,ts,s), p_injected_var) in p_injected
+        generator = Networks.get_generator(network, gen_id)
+        gen_prop_cost = Networks.get_prop_cost(generator)
+        uncertainty = get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
+        add_to_expression!(obj_component,
+                            (uncertainty - p_injected_var) * gen_prop_cost)
+    end
+
+    return obj_component
+end
+
+function create_objectives!(model_container::TSOModel,
+                            network, uncertainties_at_ech, gratis_starts, cut_conso_cost)
 
     # cost for cutting load/consumption
     add_cut_conso_cost!(model_container.objective_model.penalty,
@@ -350,9 +368,10 @@ function create_objectives!(model_container::TSOModel, network, gratis_starts, c
     add_imposable_start_cost!(model_container.objective_model.start_cost,
                             model_container.imposable_model.b_start, network, gratis_starts)
 
-    # cost for using limitables : but most of the times these are fixed
-    add_limitable_prop_cost!(model_container.objective_model.prop_cost,
-                            model_container.limitable_model.p_injected, network)
+    # cost for limitables : cost of capped limitable power
+    add_tso_limitable_prop_cost!(model_container.objective_model.prop_cost,
+                                uncertainties_at_ech,
+                                model_container.limitable_model.p_injected, network)
 
     # cost for using imposables
     add_imposable_prop_cost!(model_container.objective_model.prop_cost,
@@ -425,7 +444,9 @@ function tso_out_fo(network::Networks.Network,
                         uncertainties_at_ech
                         )
 
-    create_objectives!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
+    create_objectives!(model_container_l,
+                        network, uncertainties_at_ech,
+                        gratis_starts, configs.cut_conso_penalty)
 
     obj = model_container_l.objective_model.full_obj_1
     @objective(get_model(model_container_l), Min, obj)
