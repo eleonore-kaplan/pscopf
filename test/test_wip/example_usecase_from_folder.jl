@@ -8,7 +8,7 @@ using DataStructures
 
     @testset "example_2bus_mode1" begin
         data_path = joinpath(@__DIR__, "..", "..", "data", "2buses_usecase", "instance")
-        out_path = joinpath(data_path, "example_out")
+        out_path = joinpath(@__DIR__, "..", "..", "default_out", "example_2bus_mode1")
         rm(out_path, recursive=true, force=true)
         mode = PSCOPF.PSCOPF_MODE_1
 

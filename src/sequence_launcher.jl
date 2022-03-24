@@ -14,7 +14,7 @@ using .Networks
 
 Lists, for each horizon timepoint, the ordered operations to execute at that time.
 """
-@with_kw struct Sequence
+@with_kw_noshow struct Sequence
     operations::SortedDict{Dates.DateTime, Vector{AbstractRunnable}} = SortedDict{Dates.DateTime, Vector{AbstractRunnable}}()
 end
 
@@ -35,6 +35,10 @@ end
 """
 function Base.length(sequence::Sequence)
     return length(get_operations(sequence))
+end
+
+function Base.show(io::IO, sequence::Sequence)
+    pretty_print(io, get_operations(sequence))
 end
 
 function get_horizon_timepoints(sequence::Sequence)::Vector{Dates.DateTime}
@@ -114,7 +118,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                         excluded_ids=get_limitables_ids(context_p))
         PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
         PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), get_uncertainties(context_p), "tso_")
-        update_tso_flows!(context_p) #FIXME compute_flows does not account for slacks
+        update_tso_flows!(context_p)
         trace_flows(get_tso_flows(context_p), get_network(context_p))
     end
 
@@ -122,16 +126,20 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         println("update TSO actions based on optimization results")
         update_tso_actions!(context_p,
                             ech, result, firmness, step)
-        # verify_firmness(firmness, context_p.tso_actions)
+        trace_tso_actions(get_tso_actions(context_p))
     end
 
-    #TODO
-    # println("Changes from market schedule to tso schedule:")
-    # trace_delta_schedules(get_market_schedule(context_p), get_tso_schedule(context_p))
+    if (affects_market_schedule(step) || affects_tso_schedule(step))
+        println("Changes between steps:")
+        schedules_to_delta = sort([get_market_schedule(context_p), get_tso_schedule(context_p)],
+                                    by=x->x.decision_time)
+        trace_delta_schedules(schedules_to_delta...)
+    end
 end
 
 function run!(context_p::AbstractContext, sequence_p::Sequence;
                 check_context=true)
+    println(sequence_p)
     init!(context_p, sequence_p, check_context)
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
@@ -141,7 +149,6 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
         println("-"^50)
         for step in steps_at_ech
             next_ech = get_next_ech(sequence_p, steps_index, step)
-            println("next_ech: ", next_ech)
             run_step!(context_p, step, ech, next_ech)
         end
     end
@@ -214,16 +221,23 @@ function trace_flows(flows::SortedDict{Tuple{String, DateTime, String}, Float64}
 end
 
 function trace_delta_schedules(old_schedule::Schedule, new_schedule::Schedule)
-    println("Commitment updates : (only showing firm decisions changes)")
-    trace_delta_schedule_component(old_schedule, new_schedule, get_commitment_sub_schedule, false)
-    println("Production updates : (only showing firm decisions changes)")
-    trace_delta_schedule_component(old_schedule, new_schedule, get_production_sub_schedule, false)
+    print_non_firm_changes = false
+
+    @printf("Commitment updates : new %s Vs %s\n",
+            new_schedule.decider_type, old_schedule.decider_type)
+    trace_delta_schedule_component(old_schedule, new_schedule, get_commitment_sub_schedule, print_non_firm_changes)
+    @printf("Production updates : new %s Vs %s\n",
+            new_schedule.decider_type, old_schedule.decider_type)
+    trace_delta_schedule_component(old_schedule, new_schedule, get_production_sub_schedule, print_non_firm_changes)
 end
 
 function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Schedule,
                                         component_accessor::Function,
                                         print_non_firm_changes=false)
-    for (gen_id, new_gen_schedule) in new_schedule.generator_schedules
+    if !print_non_firm_changes
+        println("(only showing non firm changes)")
+    end
+    for (gen_id, _) in new_schedule.generator_schedules
         @assert(haskey(old_schedule.generator_schedules, gen_id))
         old_schedule_component = component_accessor(old_schedule, gen_id)
         new_schedule_component = component_accessor(new_schedule, gen_id)
@@ -233,16 +247,17 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
             old_uncertain = old_schedule_component[ts]
             if is_definitive(new_uncertain) && is_definitive(old_uncertain)
                 if is_different(get_value(new_uncertain), get_value(old_uncertain))
-                    @printf("firm value for generator %s at timestep %s changed from %s to %s\n",
+                    @printf("%s changed %s old firm value for generator %s at timestep %s from %s to %s\n",
+                            new_schedule.decider_type, old_schedule.decider_type,
                             gen_id, ts, get_value(old_uncertain), get_value(new_uncertain))
                 end
             elseif is_definitive(new_uncertain) && !is_definitive(old_uncertain)
-                @printf("A firm value for generator %s at timestep %s set to %s\n",
-                        gen_id, ts, get_value(new_uncertain))
+                @printf("%s set a firm value for generator %s at timestep %s to %s\n",
+                        new_schedule.decider_type, gen_id, ts, get_value(new_uncertain))
             elseif !is_definitive(new_uncertain) && is_definitive(old_uncertain)
-                @printf("the firm value for generator %s at timestep %s \
-                        is changed from %s to a by scenario value:\n",
-                        gen_id, ts, get_value(new_uncertain))
+                @printf("%s changed the %s firm value for generator %s at timestep %s \
+                        from %s to a by scenario value:\n",
+                        new_schedule.decider_type, old_schedule.decider_type, gen_id, ts, get_value(new_uncertain))
                 println(new_uncertain.anticipated_value)
             elseif print_non_firm_changes
                 for scenario in get_scenarios(new_uncertain)
@@ -258,5 +273,22 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
                 end
             end
         end
+    end
+end
+
+function trace_tso_actions(tso_actions::TSOActions)
+    println("TSO limitation actions :")
+    trace_limitations(tso_actions)
+    println("TSO imposition actions :")
+    trace_impositions(tso_actions)
+end
+function trace_limitations(tso_actions)
+    for ((gen_id,ts), val_l) in get_limitations(tso_actions)
+        println("\tlimited generator %s for timestep %s to %s", gen_id, ts, val_l)
+    end
+end
+function trace_impositions(tso_actions)
+    for ((gen_id,ts), val_l) in get_impositions(tso_actions)
+        println("\timposed generator %s for timestep %s to %s", gen_id, ts, val_l)
     end
 end
