@@ -58,6 +58,7 @@ abstract type AbstractObjectiveModel end
 #    or we will need one variable (eg. injection at or after DP for imposables)
 # if need a firm value (at/after DP or DMO) call a link_scenarios(::Model, ::)
 # which adds @constraint(model, by_scenario_vars[s] == firm_variable)
+# or maybe no need to if we create a single variable for scenarios right from the beginning
 # and have proper getters too get_var(::, s) -> scenario's var or missing
 # and have proper getters too get_var(::) -> firm var or error
 
