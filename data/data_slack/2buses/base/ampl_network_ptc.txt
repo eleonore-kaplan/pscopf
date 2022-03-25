@@ -1,2 +1,0 @@
-#Phase tap changers (quanti_2nodes/InitialState)
-#"variant" "num" "tap" "table" "fault" "curative" "id"

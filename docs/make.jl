@@ -1,6 +1,6 @@
-using Documenter, Dummy
+using Documenter
 
-module DummyDocs
+module PSCOPFDocs
 
 using Documenter
 
@@ -10,21 +10,58 @@ format = Documenter.HTML(
 
 pages = Any[
             "Home" => "index.md",
-            "Library" => Any[
-                "Dummy" => "lib/dummy.md",
+
+            "Introduction" => Any[
+                "Introduction" => "0_intro/1_introduction.md",
+                "Glossaire" => "0_intro/2_glossaire.md",
+               ],
+
+            "Description" => Any[
+                "Architecture et Design" => "1_description/1_architecture.md",
+                "Sequence" => "1_description/2_sequence.md",
+               ],
+
+           "Modèles" => Any[
+               "Notations" => "2_modeles/0_notations.md",
+               "Modèles du marché" => Any[
+                   "Marché de L'Energie avant FO" => Any[
+                        "Le Problème" => "2_modeles/1_marche/1_marche_de_energie_avant_fo/1_problem.md",
+                        "Les Variables et Les Contraintes" => "2_modeles/1_marche/1_marche_de_energie_avant_fo/2_vars_and_cstrs.md",
+                        "L'objectif" => "2_modeles/1_marche/1_marche_de_energie_avant_fo/3_objective.md"
+                        ],
+
+                   "Marché de L'Energie à la FO" => Any[],
+                   ],
+
+                "Modèles du TSO" => Any[
+                    "TSO avant la FO" => Any[
+                        "Le Problème" => "2_modeles/2_tso/1_tso_avant_fo/1_problem.md",
+                        "Les Variables et les Contraintes" => "2_modeles/2_tso/1_tso_avant_fo/2_vars_and_cstrs.md",
+                        "L'Objectif" => "2_modeles/2_tso/1_tso_avant_fo/3_objective.md",
+                        ],
+                    "Mode 1 (ANCIEN)" => Any[
+                        "Problem Description" => "2_modeles/2_tso/1_mode_1/1_problem.md",
+                        "Variables" => "2_modeles/2_tso/1_mode_1/2_variables.md",
+                        "Constraints" => "2_modeles/2_tso/1_mode_1/3_constraints.md",
+                        "Objective" => "2_modeles/2_tso/1_mode_1/4_objective.md",
+                        ],
+                    ],
+
+
                 ],
-            "Model" => Any[
-                "Problem Description" => "model/1_problem.md",
-                "Variables" => "model/2_variables.md",
-                "Constraints" => "model/3_constraints.md",
-                "Objective" => "model/4_objective.md",
+
+            "Library" => Any[
+                "PSCOPF" => "lib/pscopf.md",
                 ],
 ]
 
-end # DummyDocs
+end # PSCOPFDocs
 
-makedocs(modules = [Dummy],
+#TODO : PTDF docs go somewhere else
+include(joinpath(@__DIR__, "..", "src", "PSCOPF.jl"))
+include(joinpath(@__DIR__, "..", "src", "PTDF.jl"))
+makedocs(modules = [PSCOPF, PTDF],
         sitename="PSCOPF",
-        format = DummyDocs.format,
-        pages = DummyDocs.pages,
+        format = PSCOPFDocs.format,
+        pages = PSCOPFDocs.pages,
         )
