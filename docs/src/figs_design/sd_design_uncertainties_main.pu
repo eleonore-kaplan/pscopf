@@ -1,9 +1,0 @@
-@startuml sd_design_uncertainties_main
-
-Main  -> EchGenerator : generate_ech(reseau,TS,mode)
-Main <-- EchGenerator : ECH
-
-Main  -> UncertaintiesGenerator : generate_uncertainties(reseau,TS,ECH,distribution,S)
-Main <-- UncertaintiesGenerator : uncertainties
-
-@enduml

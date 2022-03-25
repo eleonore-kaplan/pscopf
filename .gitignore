@@ -7,11 +7,16 @@ Manifest.toml
 .ipynb_checkpoints/
 
 #test results
+test/tests_data/**/out_*
 
 #ignored data directories
+data/*
+!data/dmo
+!data/2ech
+!data/data_slack/*/base
+!data/random_generation/
 
 #log and dbg files
-default_out
 *.lp
 *.sol
 *.log

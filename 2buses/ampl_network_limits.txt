@@ -1,0 +1,2 @@
+#Temporary current limits (quanti_2nodes/InitialState)
+#"variant" "num" "branch" "side" "limit (A)" "accept. duration (s)" "fault" "curative"

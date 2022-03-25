@@ -6,6 +6,10 @@ This package uses JuMP to implement the optimization problem and solve with mini
 
 Allowed actions are mainly limiting renewable energy generators or controlling other power stations.
 
-## Getting Started Example
 
-TODO
+```math
+\frac{n!}{k!(n - k)!} = \binom{n}{k}
+```
+
+
+The End!

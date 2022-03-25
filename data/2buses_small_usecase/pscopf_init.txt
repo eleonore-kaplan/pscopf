@@ -1,4 +1,0 @@
-#                    name     state
-                    ccg_1       OFF
-                    ccg_2       OFF
-                    tac_1       OFF

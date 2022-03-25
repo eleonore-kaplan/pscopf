@@ -1,3 +1,0 @@
-#bus_name bus_num cc
-poste_1_0 1       0
-poste_2_0 2       0

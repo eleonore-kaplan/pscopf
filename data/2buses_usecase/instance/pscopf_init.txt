@@ -1,3 +1,0 @@
-#                    name       state
-                     alta       on
-                park_city       on

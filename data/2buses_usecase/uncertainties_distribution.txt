@@ -1,5 +1,0 @@
-# id       min_p  max_p    mu     sigma        time_factor  cone_effect
-wind_1     0      50       35     0.099051167  1.           1.
-wind_2     0      20       12     0.141659565  1.           1.
-poste_1_0  0      200      120.   0.01         1.           1.
-poste_2_0  0      80       80.0    0.01         1.           1.

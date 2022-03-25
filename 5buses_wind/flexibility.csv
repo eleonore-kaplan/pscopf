@@ -1,0 +1,9 @@
+str;str;MW;min;€/MWh;€
+prodtype;fuel;power;dmo;variable_cost;startup_cost
+coal;coal;600;360;50;180000
+nuclear;nuclear;1000;1440;10;1000000
+gas;gas_conventional;200;300;40;40000
+gas;gas_ccg;500;180;30;45000
+gas;gas_ct;200;30;120;12000
+wind;onshore;0;5;50;0
+solar;pv;0;5;50;0

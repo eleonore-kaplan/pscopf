@@ -1,4 +1,0 @@
-#                 REF_BUS         unknown
-#                  branch                      bus           value
-               branch_1_2                    bus_1  5.00000000E-01
-               branch_1_2                    bus_2 -5.00000000E-01
