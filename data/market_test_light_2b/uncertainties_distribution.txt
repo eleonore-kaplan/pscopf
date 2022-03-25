@@ -1,0 +1,4 @@
+#id	min_p	max_p	mu	sigma	time_factor	cone_effect
+wind	0	30	20	3	1.	1.
+poste_1_0	0	100	70	10	1.	1.
+poste_2_0	0	50	20	7	1.	1.

@@ -1,0 +1,3 @@
+#name	state
+ccg	off
+nuc	on

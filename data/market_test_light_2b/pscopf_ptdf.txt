@@ -1,0 +1,3 @@
+#REF_BUS	poste_1_0	
+1_2	poste_1_0	0.5
+1_2	poste_2_0	-0.5

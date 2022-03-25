@@ -1,0 +1,6 @@
+#bus_name	bus_num	cc
+poste_1_0	1	0
+poste_2_0	2	0
+poste_3_0	3	0
+poste_4_0	4	0
+poste_5_0	5	0
