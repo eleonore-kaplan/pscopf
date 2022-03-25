@@ -1,4 +1,4 @@
 #name	type	bus_id	minP	maxP	start	prop	dmo(s)	dp(s)
 ccg	Imposable	poste_1_0	100	300	10000	30	7200	900
-nuc	Imposable	poste_2_0	200	1000	100000	10	100000	900
+nuc	Imposable	poste_2_0	200	1000	100000	10	14400	900
 wind	Limitable	poste_1_0	0	30	0	0	0	0
