@@ -1,2 +1,0 @@
-#Tap changer table (quanti_2nodes/InitialState)
-#"variant" "num" "tap" "var ratio" "x (pu)" "angle (rad)" "fault" "curative"

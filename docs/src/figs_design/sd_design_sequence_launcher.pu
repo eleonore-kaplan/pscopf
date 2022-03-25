@@ -1,0 +1,54 @@
+@startuml sd_design_sequence_launcher
+
+Sequence  -> Context : init!(context, sequence)
+Sequence <-- Context : context
+
+loop for each ech in sequence.ECH
+    loop for each step in sequence.operations(ech)
+        ' Sequence  -> AbstractRunnable : run_step!(context, step, ech, next_ech)
+        Sequence  -> AbstractRunnable : compute_firmness(step, ech, next_ech, TS, context)
+        note right
+            Determination du niveau de fermeté pour les décisions à prendre
+        end note
+        Sequence  <-- AbstractRunnable : firmness
+
+        Sequence  -> AbstractRunnable : run(step, ech, firmness, TS, context)
+        note right
+            Lancement du modèle d'optimisation
+        end note
+        Sequence  <-- AbstractRunnable : step_result
+
+        alt step affects market schedule
+            note right
+                Mise a jour du planning marché
+                et des flux du réseau correspondantes
+            end note
+            Sequence  -> AbstractRunnable : update_market_schedule!(context, ech, step_result, firmness, step)
+            Sequence  <-- AbstractRunnable : context updated
+            Sequence  -> Context : update_market_flows!(context)
+            Sequence  <-- Context : updated context
+        end
+
+        alt step affects TSO schedule
+            note right
+                Mise a jour du planning TSO
+                et des flux du réseau correspondantes
+            end note
+            Sequence  -> AbstractRunnable : update_tso_schedule!(context, ech, optim_result, firmness, step)
+            Sequence  <-- AbstractRunnable : context updated
+            Sequence  -> Context : update_tso_flows!(context)
+            Sequence  <-- Context : updated context
+        end
+
+        alt step affects TSO actions
+            note right
+                Mise a jour des actions TSO (limitations, impositions)
+            end note
+            Sequence  -> AbstractRunnable : update_tso_actions!(context, ech, optim_result, firmness, step)
+            Sequence  <-- AbstractRunnable : updated context
+        end
+    end
+
+end
+
+@enduml
