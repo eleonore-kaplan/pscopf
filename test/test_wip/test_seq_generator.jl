@@ -56,9 +56,9 @@ using DataStructures
 
         EXPECTED_OPERATIONS = SortedDict(
             ts1 - Dates.Hour(4)      => [PSCOPF.EnergyMarket, PSCOPF.TSOOutFO],
-            ts1 - Dates.Hour(1)      => [PSCOPF.EnergyMarketAtFO, PSCOPF.EnterFO, PSCOPF.TSOBiLevel],
-            ts1 - Dates.Minute(30)   => [PSCOPF.BalanceMarket, PSCOPF.TSOBiLevel],
-            ts1 - Dates.Minute(15)   => [PSCOPF.BalanceMarket, PSCOPF.TSOBiLevel],
+            ts1 - Dates.Hour(1)      => [PSCOPF.EnergyMarketAtFO, PSCOPF.EnterFO, PSCOPF.TSOBilevel],
+            ts1 - Dates.Minute(30)   => [PSCOPF.BalanceMarket, PSCOPF.TSOBilevel],
+            ts1 - Dates.Minute(15)   => [PSCOPF.BalanceMarket, PSCOPF.TSOBilevel],
             ts1                      => [PSCOPF.Assessment]
         )
 

@@ -22,22 +22,6 @@ function run(runnable::TSOAtFOBiLevel, ech::Dates.DateTime, firmness, TS::Vector
     return #result
 end
 
-"""
-utilisé pour le mode 2:
-Prend des incertitudes pas forcément équilibrées
-Décide de la reserve
-Simule un marché d'équilibrage
-"""
-struct TSOBiLevel <: AbstractTSO
-end
-function run(runnable::TSOBiLevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe simule un marché d'équilibrage pour le pas suivant")
-    println("\tJe me référencie au planning du marché du début de la FO pour les arrets/démarrage et l'estimation des couts ?")
-    println("\tJe me référencie à mon précédent planning du TSO pour les arrets/démarrage ?")
-    return #result
-end
-
-
 #### TSO COMMON :
 function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
                             runnable::AbstractTSO)

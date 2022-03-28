@@ -84,11 +84,11 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
             elseif ech == fo_startpoint
                 add_step!(sequence, EnergyMarketAtFO, ech)
                 add_step!(sequence, EnterFO, ech)
-                add_step!(sequence, TSOBiLevel, ech)
+                add_step!(sequence, TSOBilevel, ech)
 
             else
                 add_step!(sequence, BalanceMarket, ech)
-                add_step!(sequence, TSOBiLevel, ech)
+                add_step!(sequence, TSOBilevel, ech)
             end
         elseif first_ts < ech
             msg = @sprintf(("Error when generating sequence: ech (%s) is after target timepoint (%s)."),
