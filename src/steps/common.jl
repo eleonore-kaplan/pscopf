@@ -392,7 +392,7 @@ function add_power_level_firmness_constraints!(model::Model,
             link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
         end
 
-        imposition_level = get_imposition(tso_actions, gen_id, ts)
+        imposition_level = get_imposition_level(tso_actions, gen_id, ts)
         tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
         if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
             imposition_level = 0.
