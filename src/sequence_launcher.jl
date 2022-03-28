@@ -288,7 +288,7 @@ function trace_limitations(tso_actions)
     end
 end
 function trace_impositions(tso_actions)
-    for ((gen_id,ts), val_l) in get_impositions(tso_actions)
-        println("\timposed generator %s for timestep %s to %s", gen_id, ts, val_l)
+    for ((gen_id,ts), (val_min_l,val_max_l)) in get_impositions(tso_actions)
+        println("\timposed generator %s for timestep %s to [%s,%s]", gen_id, ts, val_min_l,val_max_l)
     end
 end
