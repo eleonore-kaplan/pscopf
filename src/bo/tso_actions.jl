@@ -28,9 +28,6 @@ end
 function get_limitations(limitations_dict::SortedDict{Tuple{String, Dates.DateTime}, Float64})
     return limitations_dict
 end
-function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}})
-    return impositions_dict
-end
 
 function get_limitation(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
     limitations = get_limitations(tso_actions)
@@ -62,7 +59,12 @@ function get_impositions(tso_actions::TSOActions)
     return tso_actions.impositions
 end
 
-function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{Tuple{Float64,Float64}, Missing}
+
+function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}})
+    return impositions_dict
+end
+
+function get_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Tuple{Float64,Float64}, Missing}
     impositions = get_impositions(tso_actions)
     if !haskey(impositions, (gen_id, ts))
         return missing
@@ -93,7 +95,7 @@ function get_imposition_level(tso_actions::TSOActions, gen_id::String, ts::Dates
             throw(error(msg))
         else
             return value_min
-        end 
+        end
     end
 end
 
@@ -107,6 +109,10 @@ end
 
 function get_commitments(tso_actions)
     return tso_actions.commitments
+end
+
+function get_commitments(commitments_dict::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState})
+    return commitments_dict
 end
 
 function get_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{GeneratorState, Missing}

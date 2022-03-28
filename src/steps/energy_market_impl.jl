@@ -54,8 +54,6 @@ end
     objective_model::EnergyMarketObjectiveModel = EnergyMarketObjectiveModel()
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
         SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
-    #v_flow = Dict{Tuple{String,DateTime,String},VariableRef}()
-    status::PSCOPFStatus = pscopf_UNSOLVED
 end
 
 SCENARIOS_DELIMITER = "_+_"
@@ -201,7 +199,7 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             generator_reference_schedule,
-                                            tso_actions
+                                            get_commitments(tso_actions)
                                             )
     end
 
@@ -347,6 +345,11 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
                 available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
                 capped_value = capped_ratio * available_prod
                 market_schedule.capping[gen_id, ts, s] = capped_value
+            end
+        else
+            for lim_gen in Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE)
+                gen_id = Networks.get_id(lim_gen)
+                market_schedule.capping[gen_id, ts, s] = 0.
             end
         end
     end
