@@ -128,6 +128,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                             ech, result, firmness, step)
         trace_tso_actions(get_tso_actions(context_p))
     end
+    #TODO check coherence between tso schedule and actions
 
     if (affects_market_schedule(step) || affects_tso_schedule(step))
         println("Changes between steps:")
