@@ -123,11 +123,10 @@ function read_uncertainties_distributions(data)
                 mu = parse(Float64, buffer[4])
                 sigma = parse(Float64, buffer[5])
                 time_factor = parse(Float64, buffer[6])
-                cone_effect = parse(Float64, buffer[7])
 
                 PSCOPF.add_uncertainty_distribution!(result,
                                         id, min_value, max_value, mu, sigma,
-                                        time_factor, cone_effect)
+                                        time_factor)
             end
         end
     end

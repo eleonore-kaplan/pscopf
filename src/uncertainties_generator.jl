@@ -55,10 +55,9 @@ function generate_values(uncertain_distro::UncertaintyNDistribution,
 
     delta_time_l = max(0,
                     Dates.value(floor(ts - ech, Dates.Second)) / 3600)
-    factor_l = (delta_time_l * uncertain_distro.time_factor) ^ uncertain_distro.cone_effect
+    factor_l = delta_time_l * uncertain_distro.time_factor
     adjusted_sigma_l = factor_l * uncertain_distro.sigma
-    rand_deviations_l = rand(Distributions.Normal(0., adjusted_sigma_l), nb_scenarios)
-    random_values_l = uncertain_distro.mu * (1 .+ rand_deviations_l)
+    random_values_l = rand(Distributions.Normal(uncertain_distro.mu, adjusted_sigma_l), nb_scenarios)
     values_l = max.(uncertain_distro.min_value, random_values_l)
     values_l = min.(uncertain_distro.max_value, values_l)
 
