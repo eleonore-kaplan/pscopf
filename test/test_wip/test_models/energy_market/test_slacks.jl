@@ -64,10 +64,17 @@ using DataStructures
         # Limitable produces to the available level
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
+
+        # Capping is not localised in market model
         # Limitable was capped when prod > load (ie. S1):
         @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
         # Limitable was not capped when prod <= load (ie. S2):
         @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+
+        # Capping is localised in the market schedule
+        @test 5. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
+        @test PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S2") < 1e-09
+
         # No penalty but we do pay for capped power
         #(otherwise we need a per unit variable for capping to localise and reduce the unpaid costs)
         @test value(result.objective_model.penalty) < 1e-09
@@ -203,6 +210,11 @@ using DataStructures
         @test (50. * 1e7 + 15. * 1e7 + 0. ) ≈ value(result.objective_model.penalty)
         @test (1e5 + 0. + 1e5) ≈ value(result.objective_model.start_cost)
         @test (100. + 0. + 25. ) ≈ value(result.objective_model.prop_cost)
+
+        #cut conso is localized in the ranscripted schedule:
+        @test 50. ≈ PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S1")
+        @test 15. ≈ PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S2")
+        @test PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S3") < 1e-09
     end
 
     #=
@@ -504,5 +516,6 @@ using DataStructures
     end
 
     #TODO : illustrate ptdf effect
+    #TODO : test capping and load_shedding transcription in schedule for marketAtFO
 
 end

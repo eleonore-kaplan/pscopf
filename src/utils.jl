@@ -1,5 +1,6 @@
 import Logging
 import LoggingExtras
+using LinearAlgebra
 
 """
     Sets a two-logger TeeLogger as the global_logger:
@@ -135,3 +136,17 @@ function is_different(a::Number, b::Number)
     return abs(a-b) >= 1e-09
 end
 
+"""
+normalize_zero : If True, [0 0 0] will be normalized to [1/3 1/3 1/3] else, to [Nan Nan Nan]
+Note : [-1 1] is normalized to [-0.5 0.5]
+"""
+function normalize_values(d::AbstractDict, normalize_zero::Bool=true)
+    values_l = collect(values(d))
+    if normalize_zero && !is_different(norm(values_l), 0.)
+        normalized_values = fill(1. / length(values_l), length(values_l))
+    else
+        normalized_values = normalize(collect(values(d)), 1)
+    end
+
+    return Dict(zip( keys(d), normalized_values ))
+end

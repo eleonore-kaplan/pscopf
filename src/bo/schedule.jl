@@ -510,6 +510,13 @@ function set_cut_conso_value!(schedule::Schedule, bus_id::String, ts::Dates.Date
     schedule.cut_conso_by_bus[bus_id, ts, scenario] = value
 end
 
+function reset_cut_conso_by_bus!(schedule::Schedule)
+    empty!(schedule.cut_conso_by_bus)
+end
+function reset_capping!(schedule::Schedule)
+    empty!(schedule.capping)
+end
+
 function get_commitment_sub_schedule(schedule::Schedule, gen_id::String)
     return get_commitment(get_sub_schedule(schedule, gen_id))
 end

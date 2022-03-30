@@ -73,12 +73,12 @@ end
 function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
     solver_status_l = termination_status(get_model(model_container_p))
 
-    if solver_status_l == OPTIMIZE_NOT_CALLED
+    if solver_status_l == MOI.OPTIMIZE_NOT_CALLED
         return pscopf_UNSOLVED
-    elseif solver_status_l == INFEASIBLE
+    elseif solver_status_l == MOI.INFEASIBLE
         @error "model status is infeasible!"
         return pscopf_INFEASIBLE
-    elseif solver_status_l == OPTIMAL
+    elseif solver_status_l == MOI.OPTIMAL
         if has_positive_slack(model_container_p)
             @warn "model solved optimally but slack variables were used!"
             return pscopf_HAS_SLACK
@@ -126,6 +126,19 @@ function solve!(model_container::AbstractModelContainer, problem_name, out_path)
     return model_container
 end
 
+function get_p_injected(model_container, type::Networks.GeneratorType)
+    if type == Networks.LIMITABLE
+        return model_container.limitable_model.p_injected
+    elseif type == Networks.IMPOSABLE
+        return model_container.imposable_model.p_injected
+    end
+    return nothing
+end
+
+function has_positive_slack(model_container)::Bool
+    error("unimplemented")
+end
+
 # AbstractGeneratorModel
 ############################
 
@@ -166,7 +179,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
                         pmax,
                         inject_uncertainties::InjectionUncertainties,
                         decision_firmness::DecisionFirmness, #by ts
-                        preceding_limit::Union{Float64, Missing}
+                        always_link_scenarios=false
                         )
     b_is_limited = limitable_model.b_is_limited
     p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
@@ -200,7 +213,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
     # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
     #       p_limit can always be changed in the future horizons (it is not really decided)
     #DECIDED indicates that we are past the limitable's DP => need a common decision for all scenarios
-    if decision_firmness in [DECIDED, TO_DECIDE]
+    if always_link_scenarios || (decision_firmness in [DECIDED, TO_DECIDE])
         link_scenarios!(model, p_limit, gen_id, ts, scenarios)
     end
 
@@ -209,7 +222,23 @@ end
 
 # AbstractImposableModel
 ############################
-
+function add_commitment_constraints!(model::Model,
+                                    b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                    b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                    gen_id::String,
+                                    target_timepoints::Vector{Dates.DateTime},
+                                    scenarios::Vector{String},
+                                    generator_initial_state::GeneratorState)
+    for s in scenarios
+        for (ts_index, ts) in enumerate(target_timepoints)
+            preceding_on = (ts_index > 1) ? b_on_vars[gen_id, target_timepoints[ts_index-1], s] : float(generator_initial_state)
+            @constraint(model, b_start_vars[gen_id, ts, s] <= b_on_vars[gen_id, ts, s])
+            @constraint(model, b_start_vars[gen_id, ts, s] <= 1 - preceding_on)
+            @constraint(model, b_start_vars[gen_id, ts, s] >= b_on_vars[gen_id, ts, s] - preceding_on)
+        end
+    end
+    return model
+end
 function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
@@ -224,7 +253,7 @@ function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
     p_max = Networks.get_p_max(generator)
     p_min = Networks.get_p_min(generator)
     for s in scenarios
-        for (ts_index, ts) in enumerate(target_timepoints)
+        for ts in target_timepoints
             name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
             b_on_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
             name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
@@ -233,14 +262,13 @@ function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
             # pmin < P_injected < pmax OR = 0
             @constraint(model, p_injected_vars[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s]);
             @constraint(model, p_injected_vars[gen_id, ts, s] >= p_min * b_on_vars[gen_id, ts, s]);
-
-            #commitment_constraints
-            preceding_on = (ts_index > 1) ? b_on_vars[gen_id, target_timepoints[ts_index-1], s] : float(generator_initial_state)
-            @constraint(model, b_start_vars[gen_id, ts, s] <= b_on_vars[gen_id, ts, s])
-            @constraint(model, b_start_vars[gen_id, ts, s] <= 1 - preceding_on)
-            @constraint(model, b_start_vars[gen_id, ts, s] >= b_on_vars[gen_id, ts, s] - preceding_on)
         end
     end
+
+    #commitment_constraints : link b_start and b_on
+    add_commitment_constraints!(model,
+                                b_on_vars, b_start_vars,
+                                gen_id, target_timepoints, scenarios, generator_initial_state)
 
     return imposable_model, model
 end
@@ -302,15 +330,30 @@ end
 # AbstractSlackModel
 ############################
 
-function has_positive_slack(model_container_p::AbstractModelContainer)::Bool
-    error("unimplemented")
-end
-
 function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: VariableRef
     return any(e -> value(e[2]) > 1e-09, dict_vars)
     #e.g. 1e-15 is supposed to be 0.
 end
 
+function add_cut_conso_by_bus!(model::Model, p_cut_conso,
+                                buses,
+                                target_timepoints::Vector{Dates.DateTime},
+                                scenarios::Vector{String},
+                                uncertainties_at_ech::UncertaintiesAtEch
+                                )
+    for ts in target_timepoints
+        for s in scenarios
+            for bus in buses
+                bus_id = Networks.get_id(bus)
+                name =  @sprintf("P_cut_conso[%s,%s,%s]", bus_id, ts, s)
+                load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
+                p_cut_conso[bus_id, ts, s] = @variable(model, base_name=name,
+                                                            lower_bound=0., upper_bound=load)
+            end
+        end
+    end
+    return p_cut_conso
+end
 
 # Utils
 ##################
@@ -326,7 +369,7 @@ function link_scenarios!(model::Model, vars::AbstractDict{Tuple{String,DateTime,
     return model
 end
 
-function add_non_start_constraint(model::Model, b_on_vars, b_start_vars,
+function add_keep_off_constraint(model::Model, b_on_vars, b_start_vars,
                                 gen_id, ts, scenarios)
     for s in scenarios
         @constraint(model, b_on_vars[gen_id, ts, s] == 0)
@@ -343,24 +386,26 @@ function add_commitment_firmness_constraints!(model::Model,
                                             scenarios::Vector{String},
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                                             generator_reference_schedule::GeneratorSchedule,
-                                            tso_actions::TSOActions=TSOActions()
+                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}(),
+                                            always_link_scenarios::Bool=false
                                             )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if commitment_firmness[ts] in [DECIDED, TO_DECIDE]
+        if always_link_scenarios || (commitment_firmness[ts] in [DECIDED, TO_DECIDE])
             link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
             link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
         end
 
-        tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
+        tso_action_commitment = get_commitment(commitment_actions, gen_id, ts)
         if !ismissing(tso_action_commitment)
+            #TSO Actions OFF will be applied even if firmness is FREE
             if tso_action_commitment == OFF
-                add_non_start_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         elseif commitment_firmness[ts] == DECIDED
             reference_on_val = safeget_commitment_value(generator_reference_schedule, ts)
             if reference_on_val == OFF
-                add_non_start_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         end
     end
@@ -368,7 +413,7 @@ function add_commitment_firmness_constraints!(model::Model,
     return model
 end
 
-function freeze_injections(model, p_injected_vars,
+function freeze_vars!(model, p_injected_vars,
                         gen_id, ts, scenarios,
                         imposed_value::Float64)
     for s in scenarios
@@ -386,13 +431,15 @@ function add_power_level_firmness_constraints!(model::Model,
                                                 generator_reference_schedule::GeneratorSchedule,
                                                 tso_actions::TSOActions=TSOActions()
                                                 )
+    @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
+
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
         if power_level_firmness[ts] in [DECIDED, TO_DECIDE]
             link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
         end
 
-        imposition_level = get_imposition(tso_actions, gen_id, ts)
+        imposition_level = get_imposition_level(tso_actions, gen_id, ts)
         tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
         if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
             imposition_level = 0.
@@ -400,7 +447,7 @@ function add_power_level_firmness_constraints!(model::Model,
             imposition_level = safeget_prod_value(generator_reference_schedule,ts)
         end
         if !ismissing(imposition_level)
-            freeze_injections(model, p_injected_vars, gen_id, ts, scenarios, imposition_level)
+            freeze_vars!(model, p_injected_vars, gen_id, ts, scenarios, imposition_level)
         end
     end
 

@@ -21,9 +21,9 @@ end
     #gen,ts,s
     p_limit = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
-    b_is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
+    b_is_limited = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
-    p_limit_x_is_limited = Dict{Tuple{String,DateTime,String},VariableRef}();
+    p_limit_x_is_limited = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
 
 @with_kw struct TSOImposableModel <: AbstractImposableModel
@@ -69,20 +69,10 @@ end
     #branch,ts,s
     flows::SortedDict{Tuple{String,DateTime,String},VariableRef} =
         SortedDict{Tuple{String,DateTime,String},VariableRef}()
-    status::PSCOPFStatus = pscopf_UNSOLVED
 end
 
 function has_positive_slack(model_container::TSOModel)::Bool
     return has_positive_value(model_container.slack_model.p_cut_conso)
-end
-
-function get_p_injected(model_container::TSOModel, type::Networks.GeneratorType)
-    if type == Networks.LIMITABLE
-        return model_container.limitable_model.p_injected
-    elseif type == Networks.IMPOSABLE
-        return model_container.imposable_model.p_injected
-    end
-    return nothing
 end
 
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
@@ -122,8 +112,7 @@ function add_limitable!(limitable_model::TSOLimitableModel, model::Model,
 
         add_p_limit!(limitable_model, model, gen_id, ts, scenarios, gen_pmax,
                     inject_uncertainties,
-                    power_level_firmness[ts],
-                    get_limitation(preceding_limitations, gen_id, ts))
+                    power_level_firmness[ts])
     end
 
     return limitable_model, model
@@ -167,6 +156,7 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                         preceding_tso_subschedule::GeneratorSchedule,
                         preceding_market_subschedule::GeneratorSchedule
                         )
+    #FIXME take into account the preceding TSOActions ? or not (cause they are already included in the tso_schedule)
     gen_id = Networks.get_id(generator)
     p_min = Networks.get_p_min(generator)
     p_max = Networks.get_p_max(generator)
@@ -234,18 +224,12 @@ function add_slacks!(model_container::TSOModel,
                     scenarios::Vector{String},
                     uncertainties_at_ech::UncertaintiesAtEch)
     model = model_container.model
-    slack_model = model_container.slack_model
-    for ts in target_timepoints
-        for s in scenarios
-            for bus in Networks.get_buses(network)
-                bus_id = Networks.get_id(bus)
-                name =  @sprintf("P_cut_conso[%s,%s,%s]", bus_id, ts, s)
-                load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-                slack_model.p_cut_conso[bus_id, ts, s] = @variable(model, base_name=name,
-                                                            lower_bound=0., upper_bound=load)
-            end
-        end
-    end
+    p_cut_conso = model_container.slack_model.p_cut_conso
+    buses = Networks.get_buses(network)
+
+    add_cut_conso_by_bus!(model, p_cut_conso,
+                        buses, target_timepoints, scenarios, uncertainties_at_ech)
+
     return model_container.slack_model
 end
 

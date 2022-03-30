@@ -11,9 +11,9 @@ using DataStructures
     # Max allowed P of a limitable for a given ts
     limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
         SortedDict{Tuple{String, Dates.DateTime}, Float64}()
-    # Imposed P of a imposable for a given ts
-    impositions::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
-        SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    # Imposed P bounds of an imposable for a given ts
+    impositions::SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}} =
+        SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}}()
     # Imposed commitment of a generator (with Pmin>0) for a given ts
     commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState} =
         SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
@@ -27,9 +27,6 @@ function get_limitations(tso_actions::TSOActions)
 end
 function get_limitations(limitations_dict::SortedDict{Tuple{String, Dates.DateTime}, Float64})
     return limitations_dict
-end
-function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime}, Float64})
-    return impositions_dict
 end
 
 function get_limitation(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
@@ -62,7 +59,12 @@ function get_impositions(tso_actions::TSOActions)
     return tso_actions.impositions
 end
 
-function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
+
+function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}})
+    return impositions_dict
+end
+
+function get_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{Tuple{Float64,Float64}, Missing}
     impositions = get_impositions(tso_actions)
     if !haskey(impositions, (gen_id, ts))
         return missing
@@ -71,7 +73,7 @@ function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateT
     end
 end
 
-function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::GeneratorState
+function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::Tuple{Float64,Float64}
     imposition = get_imposition(tso_actions, gen_id, ts)
     if ismissing(imposition)
         msg = @sprintf("No imposition entry in TSOActions for (gen_id=%s,ts=%s).", gen_id, ts)
@@ -81,9 +83,25 @@ function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime)::Ge
     end
 end
 
-function set_imposition_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value::Float64)
+function get_imposition_level(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{Float64, Missing}
     impositions = get_impositions(tso_actions)
-    impositions[gen_id, ts] = value
+    if !haskey(impositions, (gen_id, ts))
+        return missing
+    else
+        value_min,value_max = impositions[gen_id, ts]
+        if value_min != value_max
+            msg = @sprintf("TSOActions for (gen_id=%s,ts=%s) imposes interval [%s,%s] and not a single power level.",
+                            gen_id, ts, value_min, value_max)
+            throw(error(msg))
+        else
+            return value_min
+        end
+    end
+end
+
+function set_imposition_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value_min::Float64, value_max::Float64)
+    impositions = get_impositions(tso_actions)
+    impositions[gen_id, ts] = (value_min,value_max)
 end
 
 ## Commitment
@@ -91,6 +109,10 @@ end
 
 function get_commitments(tso_actions)
     return tso_actions.commitments
+end
+
+function get_commitments(commitments_dict::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState})
+    return commitments_dict
 end
 
 function get_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{GeneratorState, Missing}
@@ -140,7 +162,7 @@ function filter_tso_actions(tso_actions::TSOActions;
                         keep_impositions::Bool=false,
                         keep_commitments::Bool=false)::TSOActions
     limitations_l = keep_limitations ? tso_actions.limitations : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
-    impositions_l = keep_impositions ? tso_actions.impositions : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+    impositions_l = keep_impositions ? tso_actions.impositions : SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}}()
     commitments_l = keep_commitments ? tso_actions.commitments : SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 
     return TSOActions(limitations_l, impositions_l, commitments_l)

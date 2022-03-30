@@ -159,7 +159,7 @@ using DataStructures
                     context)
         PSCOPF.update_tso_schedule!(context, ech, result, firmness, tso)
 
-        # TODO a status to indicate using slacks for feasibility
+        # indicate use of slacks for feasibility
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S1")
