@@ -91,6 +91,10 @@ function is_imposable(generator::Generator)::Bool
     return get_type(generator) == IMPOSABLE
 end
 
+function needs_commitment(generator::Generator)::Bool
+    return get_p_min(generator) > 0
+end
+
 ################
 ## INFO / LOG ##
 ################
