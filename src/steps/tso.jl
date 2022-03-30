@@ -74,6 +74,7 @@ end
 
 function update_schedule_capping!(tso_schedule, context, ech,
                                     limitable_model::TSOLimitableModel)
+    reset_capping!(tso_schedule)
     for ((gen_id,ts, s), p_injected_var) in limitable_model.p_injected
         available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
         injected_prod = value(p_injected_var)
@@ -82,6 +83,8 @@ function update_schedule_capping!(tso_schedule, context, ech,
 end
 
 function update_schedule_cut_conso!(tso_schedule, context, ech, slack_model::TSOSlackModel)
+    reset_cut_conso_by_bus!(tso_schedule)
+
     for ((bus_id, ts, s), p_cut_conso_var) in slack_model.p_cut_conso
         tso_schedule.cut_conso_by_bus[bus_id, ts, s] = value(p_cut_conso_var)
     end

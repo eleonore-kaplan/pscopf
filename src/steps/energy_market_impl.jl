@@ -334,46 +334,64 @@ end
 ###########################
 
 function update_schedule_capping!(market_schedule, context, ech, limitable_model::EnergyMarketLimitableModel)
-    for ((ts, s), p_capping_var) in limitable_model.p_capping
+    reset_capping!(market_schedule)
+    uncertainties = get_uncertainties(context, ech)
+
+    for ((ts, scenario), p_capping_var) in limitable_model.p_capping
         capped_lim_prod = value(p_capping_var)
-        if capped_lim_prod > 1e-09
-        #distribute the capped power on limitables
-            available_lim_prod = compute_prod(get_uncertainties(context, ech), get_network(context), ts, s)
-            capped_ratio = capped_lim_prod / available_lim_prod
-            for lim_gen in Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE)
-                gen_id = Networks.get_id(lim_gen)
-                available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
-                capped_value = capped_ratio * available_prod
-                market_schedule.capping[gen_id, ts, s] = capped_value
-            end
-        else
-            for lim_gen in Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE)
-                gen_id = Networks.get_id(lim_gen)
-                market_schedule.capping[gen_id, ts, s] = 0.
+        for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
+        #for EnergyMarket, s==scenario
+        #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
+            @printf("capped %f power in scenario %s at ts %s\n", capped_lim_prod, s, ts)
+            limitables_ids = Networks.get_id.(Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE))
+
+            if capped_lim_prod > 1e-09
+            #distribute the capped power on limitables
+                distribution_key = Dict{String,Float64}(gen_id_l => get_uncertainties(uncertainties, gen_id_l, ts, s)
+                                                        for gen_id_l in limitables_ids)
+                distribution_key = normalize_values(distribution_key)
+                println("capped:", capped_lim_prod)
+                println("distribution_key:", distribution_key)
+
+                for (gen_id, coeff) in distribution_key
+                    capped_value = coeff * capped_lim_prod
+                    market_schedule.capping[gen_id, ts, s] = capped_value
+                end
+            else
+                for gen_id in limitables_ids
+                    market_schedule.capping[gen_id, ts, s] = 0.
+                end
             end
         end
     end
 end
 
 function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::EnergyMarketSlackModel)
+    reset_cut_conso_by_bus!(market_schedule)
+    uncertainties = get_uncertainties(context, ech)
+
     for ((ts, scenario), p_cut_conso_var) in slack_model.p_cut_conso
         total_cut_conso = value(p_cut_conso_var)
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
         #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
+            @printf("cut conso %f in scenario %s at ts %s\n", total_cut_conso, s, ts)
+            bus_ids = Networks.get_id.(Networks.get_buses(get_network(context)))
+
             if total_cut_conso > 1e-09
             #distribute the cut conso on buses
-                total_load = compute_load(get_uncertainties(context, ech), get_network(context), ts, s)
-                cut_ratio = total_cut_conso / total_load
-                for bus in Networks.get_buses(get_network(context))
-                    bus_id = Networks.get_id(bus)
-                    bus_load = get_uncertainties(get_uncertainties(context, ech), bus_id, ts, s)
-                    cut_load_on_bus = cut_ratio * bus_load
+                distribution_key = Dict{String,Float64}(bus_id_l => get_uncertainties(uncertainties, bus_id_l, ts, s)
+                                                        for bus_id_l in bus_ids)
+                distribution_key = normalize_values(distribution_key)
+                println("total_cut_conso:", total_cut_conso)
+                println("distribution_key:", distribution_key)
+
+                for (bus_id, coeff) in distribution_key
+                    cut_load_on_bus = coeff * total_cut_conso
                     market_schedule.cut_conso_by_bus[bus_id, ts, s] = cut_load_on_bus
                 end
             else
-                for bus in Networks.get_buses(get_network(context))
-                    bus_id = Networks.get_id(bus)
+                for bus_id in bus_ids
                     market_schedule.cut_conso_by_bus[bus_id, ts, s] = 0.
                 end
             end
