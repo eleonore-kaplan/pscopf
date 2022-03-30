@@ -387,9 +387,9 @@ function _write(dir_path::String, schedule::PSCOPF.Schedule, context::PSCOPF.Abs
     schedule_filename_l = joinpath(dir_path, OUTPUT_PREFIX*prefix*"full_schedule.txt")
     open(schedule_filename_l, "a") do schedule_file_l
         if filesize(schedule_file_l) == 0
-            Base.write(schedule_file_l, @sprintf("#%19s%10s%25s%10s%20s%10s%16s%16s%16s%15s%8s%15s\n",
+            Base.write(schedule_file_l, @sprintf("#%19s%10s%25s%10s%20s%10s%16s%16s%16s%16s%15s%8s%15s\n",
                                             "ech", "decider", "unit/bus", "PROD/LOAD", "ts", "scenario",
-                                            "power_value", "load_shed", "power_capped", "DP_firmness",
+                                            "inject_value", "power_value", "load_shed", "power_capped", "DP_firmness",
                                             "ON/OFF", "DMO_firmness",
                                             ))
         end
@@ -414,11 +414,14 @@ function _write(dir_path::String, schedule::PSCOPF.Schedule, context::PSCOPF.Abs
                     commitment_firmness = "X"
                 end
                 for scenario in scenarios
+                    prod_value = PSCOPF.get_prod_value(gen_schedule, ts, scenario)
                     if Networks.is_limitable(generator)
                         power_value = PSCOPF.get_uncertainties(uncertainties_at_ech, gen_id, ts, scenario)
                         power_capped = PSCOPF.get_capping(schedule, gen_id, ts, scenario)
+                        inject_value = prod_value - power_capped #TODO : add this to schedule and compute it by each Model
+                                                                 #FIXME : for TSOModel the prod_value take account of capping already
                     else
-                        power_value = PSCOPF.get_prod_value(gen_schedule, ts, scenario)
+                        inject_value = power_value = prod_value
                         power_capped = 0.
                     end
                     if Networks.needs_commitment(generator)
@@ -427,9 +430,9 @@ function _write(dir_path::String, schedule::PSCOPF.Schedule, context::PSCOPF.Abs
                         commitment_value = "X"
                     end
 
-                    Base.write(schedule_file_l, @sprintf("%20s%8s%25s%10s%20s%10s%16.8E%16.8E%16.8E%15s%8s%15s\n",
+                    Base.write(schedule_file_l, @sprintf("%20s%8s%25s%10s%20s%10s%16.8E%16.8E%16.8E%16.8E%15s%8s%15s\n",
                                                     ech, decider, gen_id, "PROD", ts, scenario,
-                                                    power_value, load_shed, power_capped, power_firmness,
+                                                    inject_value, power_value, load_shed, power_capped, power_firmness,
                                                     commitment_value, commitment_firmness)
                                 )
                 end
@@ -441,10 +444,11 @@ function _write(dir_path::String, schedule::PSCOPF.Schedule, context::PSCOPF.Abs
                 for scenario in scenarios
                     power_value = PSCOPF.get_uncertainties(uncertainties_at_ech, bus_id, ts, scenario)
                     load_shed = PSCOPF.get_cut_conso(schedule, bus_id, ts, scenario)
+                    inject_value = power_value - load_shed
 
-                    Base.write(schedule_file_l, @sprintf("%20s%8s%25s%8s%20s%10s%16.8E%16.8E%16.8E%8s%6s%8s\n",
+                    Base.write(schedule_file_l, @sprintf("%20s%8s%25s%8s%20s%10s%16.8E%16.8E%16.8E%16.8E%8s%6s%8s\n",
                                                         ech, decider, bus_id, "LOAD", ts, scenario,
-                                                        power_value, load_shed, 0., "X",
+                                                        inject_value, power_value, load_shed, 0., "X",
                                                         "X", "X")
                         )
                 end
