@@ -8,9 +8,9 @@ describes the uncertainty distribution of an injection (load or renewable)
 We consider `ts` as the target timepoint at which the realisation will have place,
 and `ech` is the observation point.
 The farthest we are from ts, the greater is the uncertainty: we assume an increase  by a ratio of `time_factor` for each hour.
-i.e.: factor_l = ( max{ 0, ( ts - ech )/1h } * time_factor ) ^ cone_effect
+i.e.: factor_l = max{ 0, ( ts - ech )/1h } * time_factor
 adjusted_sigma = factor_l * sigma
-random_injection = mu * (1 + rand(Normal(0, adjusted_sigma)) )
+random_injection = Normal( mu,  adjusted_sigma)
 
 # Arguments
     - `min_value::Float64` : minimum value that can be assigned to the injection
@@ -18,7 +18,6 @@ random_injection = mu * (1 + rand(Normal(0, adjusted_sigma)) )
     - `mu::Float64` : average injection value
     - `sigma::Float64` : base sigma value to be used as a standard deviation value for the injection uncertainty distribution
     - `time_factor::Float64` : per hour increase ratio of the uncertainty's standard deviation
-    - `cone_effect::Float64` : variability of the uncertainty's standard deviation wrt time axis (timefactor > 0 => the cone uncertainty hypothesis)
 """
 struct UncertaintyNDistribution
     id::String
@@ -27,7 +26,6 @@ struct UncertaintyNDistribution
     mu::Float64
     sigma::Float64
     time_factor::Float64
-    cone_effect::Float64
 end
 
 UncertaintiesDistribution = SortedDict{String, UncertaintyNDistribution}
@@ -36,10 +34,10 @@ function add_uncertainty_distribution!(uncertainties_distribution::Uncertainties
                         id::String,
                         min_value::Float64, max_value::Float64,
                         mu::Float64, sigma::Float64,
-                        time_factor::Float64=1., cone_effect::Float64=1.)
+                        time_factor::Float64=1.)
     uncertainties_distribution[id] = UncertaintyNDistribution(id, min_value, max_value,
                                                             mu, sigma,
-                                                            time_factor, cone_effect)
+                                                            time_factor)
 end
 
 

@@ -74,6 +74,7 @@ end
 
 function update_schedule_capping!(tso_schedule, context, ech,
                                     limitable_model::TSOLimitableModel)
+    reset_capping!(tso_schedule)
     for ((gen_id,ts, s), p_injected_var) in limitable_model.p_injected
         available_prod = get_uncertainties(get_uncertainties(context, ech), gen_id, ts, s)
         injected_prod = value(p_injected_var)
@@ -82,6 +83,8 @@ function update_schedule_capping!(tso_schedule, context, ech,
 end
 
 function update_schedule_cut_conso!(tso_schedule, context, ech, slack_model::TSOSlackModel)
+    reset_cut_conso_by_bus!(tso_schedule)
+
     for ((bus_id, ts, s), p_cut_conso_var) in slack_model.p_cut_conso
         tso_schedule.cut_conso_by_bus[bus_id, ts, s] = value(p_cut_conso_var)
     end
@@ -107,7 +110,7 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios
-            set_imposition_value!(tso_actions, gen_id, ts, value(p_injected_var))
+            set_imposition_value!(tso_actions, gen_id, ts, value(p_injected_var), value(p_injected_var))
         end
     end
 

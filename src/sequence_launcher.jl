@@ -102,7 +102,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         verify_firmness(firmness, context_p.market_schedule,
                         excluded_ids=get_limitables_ids(context_p))
         PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), "market_")
-        PSCOPF.PSCOPFio.write(context_p, get_market_schedule(context_p), get_uncertainties(context_p), "market_")
+        PSCOPF.PSCOPFio.write_full(context_p, get_market_schedule(context_p), "market_")
         update_market_flows!(context_p)
         trace_flows(get_market_flows(context_p), get_network(context_p))
     end
@@ -117,7 +117,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         verify_firmness(firmness, context_p.tso_schedule,
                         excluded_ids=get_limitables_ids(context_p))
         PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), "tso_")
-        PSCOPF.PSCOPFio.write(context_p, get_tso_schedule(context_p), get_uncertainties(context_p), "tso_")
+        PSCOPF.PSCOPFio.write_full(context_p, get_tso_schedule(context_p), "tso_")
         update_tso_flows!(context_p)
         trace_flows(get_tso_flows(context_p), get_network(context_p))
     end
@@ -128,6 +128,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                             ech, result, firmness, step)
         trace_tso_actions(get_tso_actions(context_p))
     end
+    #TODO check coherence between tso schedule and actions
 
     if (affects_market_schedule(step) || affects_tso_schedule(step))
         println("Changes between steps:")
@@ -288,7 +289,7 @@ function trace_limitations(tso_actions)
     end
 end
 function trace_impositions(tso_actions)
-    for ((gen_id,ts), val_l) in get_impositions(tso_actions)
-        println("\timposed generator %s for timestep %s to %s", gen_id, ts, val_l)
+    for ((gen_id,ts), (val_min_l,val_max_l)) in get_impositions(tso_actions)
+        println("\timposed generator %s for timestep %s to [%s,%s]", gen_id, ts, val_min_l,val_max_l)
     end
 end
