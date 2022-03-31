@@ -33,8 +33,6 @@ end
     p_capping = SortedDict{Tuple{String,DateTime,String},BilevelJuMP.BilevelVariableRef}();
     #ts,s
     p_capping_min = SortedDict{Tuple{DateTime,String},BilevelJuMP.BilevelVariableRef}();
-    #ts,s #FIXME not sure if this should be a lower or an upper variable
-    p_agg_injected = SortedDict{Tuple{DateTime,String},BilevelJuMP.BilevelVariableRef}();
 end
 
 @with_kw struct TSOBilevelTSOImposableModel <: AbstractImposableModel
@@ -68,6 +66,8 @@ end
 #        lower problem : Market
 ##########################################################
 @with_kw struct TSOBilevelMarketLimitableModel <: AbstractLimitableModel
+    #ts,s #FIXME not sure if this should be a lower or an upper variable
+    p_injected = SortedDict{Tuple{DateTime,String},BilevelJuMP.BilevelVariableRef}();
     #ts,s
     p_capping = SortedDict{Tuple{DateTime,String},BilevelJuMP.BilevelVariableRef}();
 end
@@ -201,8 +201,6 @@ function add_limitables!(model_container::TSOBilevelTSOModelContainer,
             enr_max = compute_prod(uncertainties_at_ech, network, ts, s)
             name =  @sprintf("P_capping_min[%s,%s]", ts, s)
             limitable_model.p_capping_min[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
-            name =  @sprintf("P_agg_injected[%s,%s]", ts, s)
-            limitable_model.p_agg_injected[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
         end
     end
 
@@ -380,6 +378,7 @@ function add_cut_conso_distribution_constraint!(tso_model_container::TSOBilevelT
 end
 
 function add_enr_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
+                                        market_limitable_model::TSOBilevelMarketLimitableModel,
                                         target_timepoints, scenarios, network)
     tso_model = tso_model_container.model
     limitable_model = tso_model_container.limitable_model
@@ -388,7 +387,7 @@ function add_enr_distribution_constraint!(tso_model_container::TSOBilevelTSOMode
         for s in scenarios
             vars_sum = sum(limitable_model.p_injected[gen_id, ts, s]
                             for gen_id in limitables_ids)
-            @constraint(tso_model, limitable_model.p_agg_injected[ts, s] == vars_sum)
+            @constraint(tso_model, market_limitable_model.p_injected[ts, s] == vars_sum)
         end
     end
     return tso_model_container
@@ -421,6 +420,7 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                                         market_model_container.slack_model,
                                         target_timepoints, scenarios, network)
     add_enr_distribution_constraint!(tso_model_container,
+                                    market_model_container.limitable_model,
                                     target_timepoints, scenarios, network)
     add_capping_distribution_constraint!(tso_model_container,
                                     market_model_container.limitable_model,
@@ -482,6 +482,8 @@ function add_limitables!(model_container::TSOBilevelMarketModelContainer,
     for ts in target_timepoints
         for s in scenarios
             enr_max = compute_prod(uncertainties_at_ech, network, ts, s)
+            name =  @sprintf("P_injected[%s,%s]", ts, s)
+            limitable_model.p_injected[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
             name =  @sprintf("P_capping[%s,%s]", ts, s)
             limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
         end
