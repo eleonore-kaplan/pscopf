@@ -152,7 +152,7 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
                             model_container.imposable_model.p_injected, network)
 
     # cost for cutting load/consumption
-    add_cut_conso_cost!(model_container.objective_model.penalty,
+    add_coeffxsum_cost!(model_container.objective_model.penalty,
                         model_container.slack_model.p_cut_conso, cut_conso_cost)
 
     model_container.objective_model.full_obj = ( model_container.objective_model.start_cost +
