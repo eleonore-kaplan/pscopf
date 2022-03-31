@@ -14,7 +14,8 @@ using Printf
     next_ech = DateTime("2015-01-01T07:30:00")
     function create_instance(load_1, load_2,
                             wind_1,
-                            limit::Float64=35.)
+                            limit::Float64=35.,
+                            logs=nothing)
         network = PSCOPF.Networks.Network()
         # Buses
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
@@ -43,7 +44,7 @@ using Printf
 
         context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                     SortedDict{String,PSCOPF.GeneratorState}(), #gen_initial_state
-                                    uncertainties, nothing)
+                                    uncertainties, nothing, logs)
 
         return context
     end
@@ -68,7 +69,8 @@ using Printf
         println("\n\nno_problem")
 
         context = create_instance(10., 30.,
-                                40.)
+                                40.,
+                                "no_problem")
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -113,7 +115,8 @@ using Printf
     @testset "EOD_problem_needs_capping" begin
         println("\n\nEOD_problem_needs_capping")
         context = create_instance(10., 30.,
-                                100.)
+                                100.,
+                                "EOD_problem_needs_capping")
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -158,7 +161,8 @@ using Printf
     @testset "EOD_problem_needs_cut_conso" begin
         println("\n\nEOD_problem_needs_cut_conso")
         context = create_instance(100., 30.,
-                                40.)
+                                40.,
+                                "EOD_problem_needs_cut_conso")
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -203,7 +207,8 @@ using Printf
     @testset "RSO_problem" begin
         println("\n\nRSO_problem")
         context = create_instance(10., 40.,
-                                50.)
+                                50.,
+                                "RSO_problem")
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
