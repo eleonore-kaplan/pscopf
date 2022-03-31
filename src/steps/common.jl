@@ -1,6 +1,7 @@
 using .Networks
 
 using JuMP
+using BilevelJuMP
 using Dates
 
 try
@@ -56,17 +57,22 @@ abstract type AbstractObjectiveModel end
 # or maybe a similar other struct cause depending on "ech"
 #    we either will need by scenario vars (eg. injection/commitment before DP/DMO for imposables)
 #    or we will need one variable (eg. injection at or after DP for imposables)
-# if need a firm value (at/after DP or DMO) call a link_scenarios(::Model, ::)
+# if need a firm value (at/after DP or DMO) call a link_scenarios(::AbstractModel, ::)
 # which adds @constraint(model, by_scenario_vars[s] == firm_variable)
 # or maybe no need to if we create a single variable for scenarios right from the beginning
 # and have proper getters too get_var(::, s) -> scenario's var or missing
 # and have proper getters too get_var(::) -> firm var or error
 
+struct BilevelModelContainer{U,L} <: AbstractModelContainer
+    model::BilevelModel
+    upper::U
+    lower::L
+end
 
 # AbstractModelContainer
 ###########################
 
-function get_model(model_container::AbstractModelContainer)::Model
+function get_model(model_container::AbstractModelContainer)::AbstractModel
     return model_container.model
 end
 
@@ -91,7 +97,34 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
     end
 end
 
-function solve!(model::Model,
+function solve!(model::BilevelModel,
+                problem_name="problem", out_folder=nothing)
+    problem_name_l = replace(problem_name, ":"=>"_")
+
+    lower_file = ""
+    upper_file = ""
+    bilevel_file = ""
+    if !isnothing(out_folder)
+        mkpath(out_folder)
+        lower_file  = joinpath(out_folder, "lower_"*problem_name_l*".lp")
+        upper_file = joinpath(out_folder, "upper_"*problem_name_l*".lp")
+        #bilevel_file = joinpath(out_folder, problem_name_l*".lp") #buged?
+
+        log_file_l = joinpath(out_folder, problem_name_l*".log")
+    else
+        log_file_l = devnull
+    end
+
+    redirect_to_file(log_file_l) do
+        optimize!(model,
+                lower_prob=lower_file, upper_prob=upper_file,
+                bilevel_prob=bilevel_file)
+    end
+
+    return model
+end
+
+function solve!(model::AbstractModel,
                 problem_name="problem", out_folder=nothing,
                 optimizer=OPTIMIZER)
     problem_name_l = replace(problem_name, ":"=>"_")
@@ -142,27 +175,37 @@ end
 # AbstractGeneratorModel
 ############################
 
-function add_p_injected!(generator_model::AbstractGeneratorModel, model::Model,
+function add_p_injected!(generator_model::AbstractGeneratorModel, model::AbstractModel,
                         gen_id::String, ts::DateTime, s::String,
                         p_max::Float64,
                         force_to_max::Bool
-                        )
+                        )::AbstractVariableRef
     name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
+    println(typeof(generator_model.p_injected))
 
     if force_to_max
         generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
                                                         lower_bound=p_max, upper_bound=p_max)
     else
-        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
+        var = @variable(model, base_name=name,
                                                         lower_bound=0., upper_bound=p_max)
+        println(typeof(var))
+        generator_model.p_injected[gen_id, ts, s] = var
     end
 
     return generator_model.p_injected[gen_id, ts, s]
 end
 
 function sum_injections(generator_model::AbstractGeneratorModel,
-                        ts::Dates.DateTime, s::String)::AffExpr
-    sum_l = AffExpr(0)
+    ids::AbstractArray, ts::Dates.DateTime, s::String)::AffExpr
+    error("TODO")
+    for id in ids
+        #...
+    end
+end
+function sum_injections(generator_model::AbstractGeneratorModel,
+                        ts::Dates.DateTime, s::String)
+    sum_l = 0.
     for ((_,ts_l,s_l), var_l) in generator_model.p_injected
         if (ts_l,s_l) == (ts, s)
             sum_l += var_l
@@ -173,7 +216,7 @@ end
 
 # AbstractLimitableModel
 ############################
-function add_p_limit!(limitable_model::AbstractLimitableModel, model::Model,
+function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractModel,
                         gen_id::String, ts::Dates.DateTime,
                         scenarios::Vector{String},
                         pmax,
@@ -222,7 +265,7 @@ end
 
 # AbstractImposableModel
 ############################
-function add_commitment_constraints!(model::Model,
+function add_commitment_constraints!(model::AbstractModel,
                                     b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                     b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                     gen_id::String,
@@ -239,7 +282,7 @@ function add_commitment_constraints!(model::Model,
     end
     return model
 end
-function add_commitment!(imposable_model::AbstractImposableModel, model::Model,
+function add_commitment!(imposable_model::AbstractImposableModel, model::AbstractModel,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
@@ -316,11 +359,10 @@ function add_imposable_prop_cost!(obj_component::AffExpr,
     return obj_component
 end
 
-function add_cut_conso_cost!(obj_component::AffExpr,
-                            p_cut_conso::AbstractDict{T,V}, cut_conso_cost::Float64)  where T <: Tuple where V <: VariableRef
-    for (_, p_cut_conso_var) in p_cut_conso
-        add_to_expression!(obj_component,
-                            cut_conso_cost * p_cut_conso_var)
+function add_coeffxsum_cost!(obj_component::AffExpr,
+                            vars_dict::AbstractDict{T,V}, coeff::Float64)  where T <: Tuple where V <: VariableRef
+    for (_, var_l) in vars_dict
+        add_to_expression!(obj_component, coeff * var_l)
     end
 
     return obj_component
@@ -330,12 +372,12 @@ end
 # AbstractSlackModel
 ############################
 
-function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: VariableRef
+function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: AbstractVariableRef
     return any(e -> value(e[2]) > 1e-09, dict_vars)
     #e.g. 1e-15 is supposed to be 0.
 end
 
-function add_cut_conso_by_bus!(model::Model, p_cut_conso,
+function add_cut_conso_by_bus!(model::AbstractModel, p_cut_conso,
                                 buses,
                                 target_timepoints::Vector{Dates.DateTime},
                                 scenarios::Vector{String},
@@ -358,8 +400,8 @@ end
 # Utils
 ##################
 
-function link_scenarios!(model::Model, vars::AbstractDict{Tuple{String,DateTime,String},VariableRef},
-                        gen_id::String, ts::DateTime, scenarios::Vector{String})
+function link_scenarios!(model::AbstractModel, vars::AbstractDict{Tuple{String,DateTime,String},V},
+                        gen_id::String, ts::DateTime, scenarios::Vector{String}) where V<:AbstractVariableRef
     s1 = scenarios[1]
     for (s_index, s) in enumerate(scenarios)
         if s_index > 1
@@ -369,7 +411,7 @@ function link_scenarios!(model::Model, vars::AbstractDict{Tuple{String,DateTime,
     return model
 end
 
-function add_keep_off_constraint(model::Model, b_on_vars, b_start_vars,
+function add_keep_off_constraint(model::AbstractModel, b_on_vars, b_start_vars,
                                 gen_id, ts, scenarios)
     for s in scenarios
         @constraint(model, b_on_vars[gen_id, ts, s] == 0)
@@ -378,7 +420,7 @@ function add_keep_off_constraint(model::Model, b_on_vars, b_start_vars,
     return model
 end
 
-function add_commitment_firmness_constraints!(model::Model,
+function add_commitment_firmness_constraints!(model::AbstractModel,
                                             generator::Networks.Generator,
                                             b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
@@ -422,7 +464,7 @@ function freeze_vars!(model, p_injected_vars,
     end
 end
 
-function add_power_level_firmness_constraints!(model::Model,
+function add_power_level_firmness_constraints!(model::AbstractModel,
                                                 generator::Networks.Generator,
                                                 p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                                 target_timepoints::Vector{Dates.DateTime},
@@ -464,12 +506,12 @@ The following constraints are added to the model :
     var_a_x_b <= M * var_b
     M*(1 - var_b) + var_a_x_b >= var_a
 """
-function add_prod_vars!(model::Model,
-                        var_a::VariableRef,
-                        var_binary::VariableRef,
+function add_prod_vars!(model::AbstractModel,
+                        var_a::AbstractVariableRef,
+                        var_binary::AbstractVariableRef,
                         M,
                         name
-                        )
+                        )::AbstractVariableRef
     if !is_binary(var_binary)
         throw(error("variable var_binary needs to be binary to express the product!"))
     end

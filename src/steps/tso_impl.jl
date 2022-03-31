@@ -78,7 +78,7 @@ end
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
                         gen_id::String, ts::DateTime, s::String,
                         p_reference::Float64
-                        )
+                        )::VariableRef
     deltas = generator_model.delta_p
     p_injected = generator_model.p_injected
 
@@ -274,9 +274,9 @@ function add_flows!(model_container::TSOModel,
                     uncertainties_at_ech::UncertaintiesAtEch)
     for branch in Networks.get_branches(network)
         branch_id = Networks.get_id(branch)
+        flow_limit_l = Networks.get_limit(branch)
         for ts in target_timepoints
             for s in scenarios
-                flow_limit_l = Networks.get_limit(branch)
                 name =  @sprintf("Flow[%s,%s,%s]", branch_id, ts, s)
                 model_container.flows[branch_id, ts, s] =
                     @variable(model_container.model, base_name=name, lower_bound=-flow_limit_l, upper_bound=flow_limit_l)
@@ -328,7 +328,7 @@ function create_objectives!(model_container::TSOModel,
                             network, uncertainties_at_ech, gratis_starts, cut_conso_cost)
 
     # cost for cutting load/consumption
-    add_cut_conso_cost!(model_container.objective_model.penalty,
+    add_coeffxsum_cost!(model_container.objective_model.penalty,
                         model_container.slack_model.p_cut_conso, cut_conso_cost)
 
     # avoid limiting when not necessary

@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 Bijections = "e2ed5e7c-b2de-5872-ae92-c73ca462fb04"
+BilevelJuMP = "485130c0-026e-11ea-0f1a-6992cd14145c"
 Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
