@@ -70,6 +70,7 @@ using Printf
 
         context = create_instance(10., 30.,
                                 40.,
+                                35.,
                                 "no_problem")
 
         tso = PSCOPF.TSOBilevel()
@@ -116,6 +117,7 @@ using Printf
         println("\n\nEOD_problem_needs_capping")
         context = create_instance(10., 30.,
                                 100.,
+                                35.,
                                 "EOD_problem_needs_capping")
 
         tso = PSCOPF.TSOBilevel()
@@ -162,6 +164,7 @@ using Printf
         println("\n\nEOD_problem_needs_cut_conso")
         context = create_instance(100., 30.,
                                 40.,
+                                35.,
                                 "EOD_problem_needs_cut_conso")
 
         tso = PSCOPF.TSOBilevel()
@@ -208,6 +211,7 @@ using Printf
         println("\n\nRSO_problem")
         context = create_instance(10., 40.,
                                 50.,
+                                35.,
                                 "RSO_problem")
 
         tso = PSCOPF.TSOBilevel()
