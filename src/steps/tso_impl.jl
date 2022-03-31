@@ -274,9 +274,9 @@ function add_flows!(model_container::TSOModel,
                     uncertainties_at_ech::UncertaintiesAtEch)
     for branch in Networks.get_branches(network)
         branch_id = Networks.get_id(branch)
+        flow_limit_l = Networks.get_limit(branch)
         for ts in target_timepoints
             for s in scenarios
-                flow_limit_l = Networks.get_limit(branch)
                 name =  @sprintf("Flow[%s,%s,%s]", branch_id, ts, s)
                 model_container.flows[branch_id, ts, s] =
                     @variable(model_container.model, base_name=name, lower_bound=-flow_limit_l, upper_bound=flow_limit_l)

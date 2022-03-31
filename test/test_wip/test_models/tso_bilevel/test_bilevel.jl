@@ -17,12 +17,12 @@ using Printf
     (limitable) wind_1_1|       "1_2"          |
     Pmin=0, Pmax=100    |                      |
     Csta=0, Cprop=1     |                      |
-      S1: 40            |----------------------|
+      S1: 50            |----------------------|
                         |         35           |
                         |                      |
                         |                      |
            load(bus_1)  |                      |load(bus_2)
-      S1: 10            |                      | S1: 30
+      S1: 10            |                      | S1: 40
 
     =#
 
@@ -62,7 +62,7 @@ using Printf
                 )
     # Uncertainties
     uncertainties = PSCOPF.Uncertainties()
-    PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S1", 40.)
+    PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S1", 50.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 30.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:15:00"), "S1", 15.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:15:00"), "S2", 30.)
@@ -71,7 +71,7 @@ using Printf
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S2", 10.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S1", 15.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 15.)
-    PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S1", 30.)
+    PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S1", 40.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:00:00"), "S2", 45.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S1", 50.)
     # PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 50.)
