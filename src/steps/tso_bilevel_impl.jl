@@ -119,7 +119,8 @@ end
 
 
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
-    return has_positive_value(model_container.upper.slack_model.p_cut_conso)
+    return ( has_positive_value(model_container.upper.slack_model.p_cut_conso)
+            || has_positive_value(model_container.lower.slack_model.p_cut_conso))
 end
 
 
@@ -357,8 +358,45 @@ function add_slacks!(model_container::TSOBilevelTSOModelContainer,
     return slack_model
 end
 
-function add_rso_constraints!()
+function add_rso_constraints!(model_container::TSOBilevelTSOModelContainer,
+                            network::Networks.Network,
+                            target_timepoints::Vector{Dates.DateTime},
+                            scenarios::Vector{String},
+                            uncertainties_at_ech::UncertaintiesAtEch)
+    tso_model = model_container.model
+    for branch in Networks.get_branches(network)
+        branch_id = Networks.get_id(branch)
+        flow_limit_l = Networks.get_limit(branch)
 
+        for ts in target_timepoints
+            for s in scenarios
+
+                flow_l = 0.
+                for bus in Networks.get_buses(network)
+                    bus_id = Networks.get_id(bus)
+                    ptdf = Networks.safeget_ptdf(network, branch_id, bus_id)
+
+                    # + injections
+                    for gen in Networks.get_generators(bus)
+                        gen_id = Networks.get_id(gen)
+                        gen_type = Networks.get_type(gen)
+                        var_p_injected = get_p_injected(model_container, gen_type)[gen_id, ts, s]
+                        flow_l += ptdf * var_p_injected
+                    end
+
+                    # - loads
+                    flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
+
+                    # + cutting loads ~ injections
+                    flow_l += ptdf * model_container.slack_model.p_cut_conso[bus_id, ts, s]
+                end
+
+                cstr = @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l)
+                println("RSO ",branch_id,",",ts,",",s,": ", cstr)
+
+            end
+        end
+    end
 end
 
 function add_cut_conso_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
@@ -410,12 +448,15 @@ function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSO
 end
 
 function add_tso_constraints!(bimodel_container::TSOBilevelModel,
-                            target_timepoints, scenarios, network)
+                            target_timepoints, scenarios, network,
+                            uncertainties_at_ech::UncertaintiesAtEch)
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
 
     #add_operational_constraints!()
-    #add_rso_constraints!()
+    add_rso_constraints!(tso_model_container,
+                        network, target_timepoints, scenarios,
+                        uncertainties_at_ech)
     add_cut_conso_distribution_constraint!(tso_model_container,
                                         market_model_container.slack_model,
                                         target_timepoints, scenarios, network)
@@ -430,6 +471,7 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
 end
 
 function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
+                                market_model_container::TSOBilevelMarketModelContainer,
                                 capping_cost, cut_conso_cost)
     objective_model = model_container.objective_model
 
@@ -440,6 +482,8 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
 
     # cost for cutting load/consumption
     objective_model.penalty += coeffxsum(model_container.slack_model.p_cut_conso_min, cut_conso_cost)
+    # #FIXME : looks necessary otherwise TSO will always consider that market can feasibly cut all conso
+    # objective_model.penalty += coeffxsum(market_model_container.slack_model.p_cut_conso, cut_conso_cost)
 
     objective_model.full_obj = ( objective_model.imposable_cost +
                                 objective_model.limitable_cost +
@@ -524,7 +568,8 @@ function add_eod_constraints!(market_model_container::TSOBilevelMarketModelConta
             conso = compute_load(uncertainties_at_ech, network, ts, s)
             conso -= market_model_container.slack_model.p_cut_conso[ts,s]
 
-            @constraint(market_model_container.model, prod == conso)
+            cstr = @constraint(market_model_container.model, prod == conso)
+            println("EOD ",ts,",",s,": ", cstr)
         end
     end
     return market_model_container
@@ -625,8 +670,6 @@ function tso_bilevel(network::Networks.Network,
 
     bimodel_container_l = TSOBilevelModel()
 
-    println(bimodel_container_l)
-
     create_tso_vars!(bimodel_container_l.upper,
                     network, target_timepoints, generators_initial_state, scenarios,
                     uncertainties_at_ech, firmness, preceding_tso_schedule, preceding_tso_actions,
@@ -635,10 +678,10 @@ function tso_bilevel(network::Networks.Network,
                         network, target_timepoints, scenarios, uncertainties_at_ech)
 
     #constraints that use upper and lower vars at the same time
-    add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network)
+    add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
     add_market_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
 
-    create_tso_objectives!(bimodel_container_l.upper, configs.capping_cost, configs.cut_conso_penalty)
+    create_tso_objectives!(bimodel_container_l.upper, bimodel_container_l.lower, configs.capping_cost, configs.cut_conso_penalty)
     create_market_objectives!(bimodel_container_l.lower, configs.capping_cost, configs.cut_conso_penalty)
 
     solve!(bimodel_container_l, configs.problem_name, configs.out_path) #FIXME write(Bilevel) not supported
