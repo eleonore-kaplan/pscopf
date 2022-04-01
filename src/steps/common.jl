@@ -100,25 +100,36 @@ end
 function solve!(model::BilevelModel,
                 problem_name="problem", out_folder=nothing)
     problem_name_l = replace(problem_name, ":"=>"_")
+    BilevelJuMP.set_mode(model, BilevelJuMP.IndicatorMode())
+    # BilevelJuMP.set_mode(model, BilevelJuMP.SOS1Mode())
 
     lower_file = ""
     upper_file = ""
     bilevel_file = ""
+    solver_file = ""
     if !isnothing(out_folder)
         mkpath(out_folder)
         lower_file  = joinpath(out_folder, "lower_"*problem_name_l*".lp")
         upper_file = joinpath(out_folder, "upper_"*problem_name_l*".lp")
         #bilevel_file = joinpath(out_folder, problem_name_l*".lp") #buged?
+        # solver_file = joinpath(out_folder, "solver_"*problem_name_l*".lp") #buged?
 
         log_file_l = joinpath(out_folder, problem_name_l*".log")
     else
         log_file_l = devnull
     end
 
+    println(typeof(model))
+    println(typeof(model.upper))
+    println(typeof(model.lower))
+    println(typeof(Upper(model)))
+    println(typeof(Lower(model)))
+
     redirect_to_file(log_file_l) do
         optimize!(model,
                 lower_prob=lower_file, upper_prob=upper_file,
-                bilevel_prob=bilevel_file)
+                bilevel_prob=bilevel_file,
+                solver_prob=solver_file)
     end
 
     @info "Lower objective value : $(objective_value(Lower(model)))"

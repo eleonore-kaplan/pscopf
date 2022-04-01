@@ -620,6 +620,10 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
 
+    # @constraint(market_model_container.model,
+    #             market_model_container.slack_model.p_cut_conso[target_timepoints[1], scenarios[1]]==0.,
+    #             base_name = "DBG_temp_constraint")
+
     add_eod_constraints!(market_model_container,
                         target_timepoints, scenarios,
                         network, uncertainties_at_ech)
