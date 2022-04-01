@@ -63,10 +63,11 @@ abstract type AbstractObjectiveModel end
 # and have proper getters too get_var(::, s) -> scenario's var or missing
 # and have proper getters too get_var(::) -> firm var or error
 
-struct BilevelModelContainer{U,L} <: AbstractModelContainer
-    model::BilevelModel
+struct BilevelModelContainer{U,L,K} <: AbstractModelContainer
+    model::Model
     upper::U
     lower::L
+    kkt_model::K
 end
 
 # AbstractModelContainer
@@ -541,5 +542,45 @@ function add_prod_vars!(model::AbstractModel,
     @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a, base_name=c_name)
 
     return var_a_x_b
+end
+
+function formulate_complementarity_constraints!(model::Model,
+                                                kkt_var::VariableRef, pos_cstr_expr, b_indicator, ub_kkt, ub_cstr)
+    # complementarity constraints are supposed for constraints like : g(x) <= 0 => the duals should be positive
+    #model should already have the constraints -pos_cstr_expr <= 0 and kkt_var >=0
+    # reformulation adds the following constraints :
+    # kkt_var <= M1 * b_indicator
+    # -g(x) <= M2 * (1-b_indicator)
+    @assert( lower_bound(kkt_var) >= 0 )
+
+    name = "c1_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, kkt_var <= ub_kkt*b_indicator, base_name=name)
+    name = "c2_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, pos_cstr_expr <= ub_cstr * (1-b_indicator), base_name=name)
+    #This constraints should have already been added in primal-feasibility constraints : g_i(x)<=0
+    name = "c3_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, pos_cstr_expr >= 0, base_name=name)
+end
+
+function compute_ub(expr::AffExpr, big_m=nothing)
+    expr_ub = expr.constant
+    for (coeff, var) in linear_terms(expr)
+        if coeff == 0
+            continue
+        elseif coeff > 0 && has_upper_bound(var)
+            expr_ub += coeff * upper_bound(var)
+        elseif coeff < 0 && has_lower_bound(var)
+            expr_ub += coeff * lower_bound(var)
+        else
+            expr_ub = big_m
+            break;
+        end
+    end
+
+    if isnothing(expr_ub)
+        error("need to specify bound for expression $(expr)")
+    end
+
+    return expr_ub
 end
 
