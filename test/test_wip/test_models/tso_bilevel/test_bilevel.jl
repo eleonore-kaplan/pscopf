@@ -106,9 +106,8 @@ using Printf
         # @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
     end
 
-    for (var_idx, _) in sort(result.model.variables)
-        var_name = result.model.varnames[var_idx]
-        println(var_name, " = ", value(variable_by_name(result.model, var_name)))
+    for var in all_variables(result.model)
+        println(name(var), " = ", value(var))
     end
 
 end
