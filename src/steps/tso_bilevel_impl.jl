@@ -168,8 +168,9 @@ function add_limitable!(limitable_model::TSOBilevelTSOLimitableModel, model::Abs
             p_enr = min(gen_pmax, p_uncert)
             p_inj_var = add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
             name =  @sprintf("P_capping[%s,%s,%s]", gen_id, ts, s)
-            limitable_model.p_capping[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
-            @constraint(model, limitable_model.p_capping[gen_id, ts, s] == p_uncert - p_inj_var )
+            limitable_model.p_capping[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=p_enr)
+            name =  @sprintf("c_define_e[%s,%s,%s]", gen_id, ts, s)
+            @constraint(model, limitable_model.p_capping[gen_id, ts, s] == p_uncert - p_inj_var, base_name=name)
         end
         add_p_limit!(limitable_model, model, gen_id, ts, scenarios, gen_pmax,
                 inject_uncertainties,
@@ -391,7 +392,8 @@ function add_rso_constraints!(model_container::TSOBilevelTSOModelContainer,
                     flow_l += ptdf * model_container.slack_model.p_cut_conso[bus_id, ts, s]
                 end
 
-                cstr = @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l)
+                name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
+                cstr = @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
                 println("RSO ",branch_id,",",ts,",",s,": ", cstr)
 
             end
@@ -407,9 +409,10 @@ function add_cut_conso_distribution_constraint!(tso_model_container::TSOBilevelT
     buses_ids = Networks.get_id.(Networks.get_buses(network))
     for ts in target_timepoints
         for s in scenarios
+            name = @sprintf("c_dist_LOL[%s,%s]",ts,s)
             vars_sum = sum(tso_slack_model.p_cut_conso[bus_id, ts, s]
                             for bus_id in buses_ids)
-            @constraint(tso_model, market_slack_model.p_cut_conso[ts, s] == vars_sum)
+            @constraint(tso_model, market_slack_model.p_cut_conso[ts, s] == vars_sum, base_name=name)
         end
     end
     return tso_model_container
@@ -423,9 +426,10 @@ function add_enr_distribution_constraint!(tso_model_container::TSOBilevelTSOMode
     limitables_ids = Networks.get_id.(Networks.get_generators_of_type(network, Networks.LIMITABLE))
     for ts in target_timepoints
         for s in scenarios
+            name = @sprintf("c_dist_penr[%s,%s]",ts,s)
             vars_sum = sum(limitable_model.p_injected[gen_id, ts, s]
                             for gen_id in limitables_ids)
-            @constraint(tso_model, market_limitable_model.p_injected[ts, s] == vars_sum)
+            @constraint(tso_model, market_limitable_model.p_injected[ts, s] == vars_sum, base_name=name)
         end
     end
     return tso_model_container
@@ -439,9 +443,10 @@ function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSO
     limitables_ids = Networks.get_id.(Networks.get_generators_of_type(network, Networks.LIMITABLE))
     for ts in target_timepoints
         for s in scenarios
+            name = @sprintf("c_dist_e[%s,%s]",ts,s)
             vars_sum = sum(tso_limitable_model.p_capping[gen_id, ts, s]
                             for gen_id in limitables_ids)
-            @constraint(tso_model, market_limitable_model.p_capping[ts, s] == vars_sum)
+            @constraint(tso_model, market_limitable_model.p_capping[ts, s] == vars_sum, base_name=name)
         end
     end
     return tso_model_container
@@ -475,7 +480,7 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
                                 capping_cost, cut_conso_cost)
     objective_model = model_container.objective_model
 
-    # model_container.imposable_cost
+    # objective_model.imposable_cost
 
     # limitable_cost : capping (fr. ecretement)
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping_min, capping_cost)
@@ -568,7 +573,8 @@ function add_eod_constraints!(market_model_container::TSOBilevelMarketModelConta
             conso = compute_load(uncertainties_at_ech, network, ts, s)
             conso -= market_model_container.slack_model.p_cut_conso[ts,s]
 
-            cstr = @constraint(market_model_container.model, prod == conso)
+            name = @sprintf("c_EOD[%s,%s]",ts,s)
+            cstr = @constraint(market_model_container.model, prod == conso, base_name=name)
             println("EOD ",ts,",",s,": ", cstr)
         end
     end
@@ -582,8 +588,10 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
     market_limitable_model = market_model_container.limitable_model
     for ts in target_timepoints
         for s in scenarios
+            name = @sprintf("c_min_e[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_limitable_model.p_capping_min[ts,s] <= market_limitable_model.p_capping[ts,s])
+                        tso_limitable_model.p_capping_min[ts,s] <= market_limitable_model.p_capping[ts,s],
+                        base_name=name)
         end
     end
     return market_model_container
@@ -596,8 +604,10 @@ function add_link_cut_conso_constraint!(market_model_container::TSOBilevelMarket
     market_slack_model = market_model_container.slack_model
     for ts in target_timepoints
         for s in scenarios
+            name = @sprintf("c_min_lol[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_slack_model.p_cut_conso_min[ts,s] <= market_slack_model.p_cut_conso[ts,s])
+                        tso_slack_model.p_cut_conso_min[ts,s] <= market_slack_model.p_cut_conso[ts,s],
+                        base_name=name)
         end
     end
     return market_model_container
