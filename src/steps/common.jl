@@ -121,6 +121,8 @@ function solve!(model::BilevelModel,
                 bilevel_prob=bilevel_file)
     end
 
+    @info "Lower objective value : $(objective_value(Lower(model)))"
+
     return model
 end
 
@@ -187,10 +189,8 @@ function add_p_injected!(generator_model::AbstractGeneratorModel, model::Abstrac
         generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
                                                         lower_bound=p_max, upper_bound=p_max)
     else
-        var = @variable(model, base_name=name,
+        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
                                                         lower_bound=0., upper_bound=p_max)
-        println(typeof(var))
-        generator_model.p_injected[gen_id, ts, s] = var
     end
 
     return generator_model.p_injected[gen_id, ts, s]
@@ -246,11 +246,13 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
                                                             )
 
         #inj[g,ts,s] = min{p_limit[g,ts,s], uncertainties(g,ts,s), pmax(g)}
-        @constraint(model, injection_var <= p_limit[gen_id, ts, s])
+        name = @sprintf("c1_pinj_lim[%s,%s,%s]",gen_id,ts,s)
+        @constraint(model, injection_var <= p_limit[gen_id, ts, s], base_name = name)
+        name = @sprintf("c2_pinj_lim[%s,%s,%s]",gen_id,ts,s)
         p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
         @constraint(model, injection_var ==
-                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
-                        )
+                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s],
+                    base_name = name)
     end
 
     # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
@@ -520,9 +522,12 @@ function add_prod_vars!(model::AbstractModel,
     end
 
     var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
-    @constraint(model, var_a_x_b <= var_a)
-    @constraint(model, var_a_x_b <= M * var_binary)
-    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a)
+    c_name = @sprintf("c1_%s",name)
+    @constraint(model, var_a_x_b <= var_a, base_name=c_name)
+    c_name = @sprintf("c2_%s",name)
+    @constraint(model, var_a_x_b <= M * var_binary, base_name=c_name)
+    c_name = @sprintf("c3_%s",name)
+    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a, base_name=c_name)
 
     return var_a_x_b
 end
