@@ -4,12 +4,11 @@ using .PSCOPFFixtures
 
 using Test
 using JuMP
-using BilevelJuMP
 using Dates
 using DataStructures
 using Printf
 
-@testset verbose=true "test" begin
+@testset verbose=true "test_bilevel_limitables" begin
 
     TS = [DateTime("2015-01-01T11:00:00")]
     ech = DateTime("2015-01-01T07:00:00")
@@ -84,10 +83,6 @@ using Printf
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) <= 1e-09
         @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) <= 1e-09
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -130,10 +125,6 @@ using Printf
         #Market caps ENR for EOD reasons
         @test 60. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
         @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) <= 1e-09
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -176,10 +167,6 @@ using Printf
         #Market cuts conso for EOD reasons
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) <= 1e-09
         @test 90. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -227,13 +214,6 @@ using Printf
         #Market only cuts as required since EOD is OK
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
         @test 5. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
-
-        println(result.lower.objective_model.full_obj)
-        @printf("%.8f", value(result.lower.objective_model.full_obj))
     end
 
 
