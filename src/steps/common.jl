@@ -1,7 +1,6 @@
 using .Networks
 
 using JuMP
-using BilevelJuMP
 using Dates
 
 try
@@ -63,10 +62,11 @@ abstract type AbstractObjectiveModel end
 # and have proper getters too get_var(::, s) -> scenario's var or missing
 # and have proper getters too get_var(::) -> firm var or error
 
-struct BilevelModelContainer{U,L} <: AbstractModelContainer
-    model::BilevelModel
+struct BilevelModelContainer{U,L,K} <: AbstractModelContainer
+    model::Model
     upper::U
     lower::L
+    kkt_model::K
 end
 
 # AbstractModelContainer
@@ -95,33 +95,6 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
         @warn "solver termination status was not optimal : $(solver_status_l)"
         return pscopf_FEASIBLE
     end
-end
-
-function solve!(model::BilevelModel,
-                problem_name="problem", out_folder=nothing)
-    problem_name_l = replace(problem_name, ":"=>"_")
-
-    lower_file = ""
-    upper_file = ""
-    bilevel_file = ""
-    if !isnothing(out_folder)
-        mkpath(out_folder)
-        lower_file  = joinpath(out_folder, "lower_"*problem_name_l*".lp")
-        upper_file = joinpath(out_folder, "upper_"*problem_name_l*".lp")
-        #bilevel_file = joinpath(out_folder, problem_name_l*".lp") #buged?
-
-        log_file_l = joinpath(out_folder, problem_name_l*".log")
-    else
-        log_file_l = devnull
-    end
-
-    redirect_to_file(log_file_l) do
-        optimize!(model,
-                lower_prob=lower_file, upper_prob=upper_file,
-                bilevel_prob=bilevel_file)
-    end
-
-    return model
 end
 
 function solve!(model::AbstractModel,
@@ -187,10 +160,8 @@ function add_p_injected!(generator_model::AbstractGeneratorModel, model::Abstrac
         generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
                                                         lower_bound=p_max, upper_bound=p_max)
     else
-        var = @variable(model, base_name=name,
+        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
                                                         lower_bound=0., upper_bound=p_max)
-        println(typeof(var))
-        generator_model.p_injected[gen_id, ts, s] = var
     end
 
     return generator_model.p_injected[gen_id, ts, s]
@@ -246,11 +217,13 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
                                                             )
 
         #inj[g,ts,s] = min{p_limit[g,ts,s], uncertainties(g,ts,s), pmax(g)}
-        @constraint(model, injection_var <= p_limit[gen_id, ts, s])
+        name = @sprintf("c1_pinj_lim[%s,%s,%s]",gen_id,ts,s)
+        @constraint(model, injection_var <= p_limit[gen_id, ts, s], base_name = name)
+        name = @sprintf("c2_pinj_lim[%s,%s,%s]",gen_id,ts,s)
         p_enr = min(get_uncertainties(inject_uncertainties, ts, s), pmax)
         @constraint(model, injection_var ==
-                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s]
-                        )
+                        (1-b_is_limited[gen_id, ts, s]) * p_enr + p_limit_x_is_limited[gen_id, ts, s],
+                    base_name = name)
     end
 
     # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
@@ -520,10 +493,53 @@ function add_prod_vars!(model::AbstractModel,
     end
 
     var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
-    @constraint(model, var_a_x_b <= var_a)
-    @constraint(model, var_a_x_b <= M * var_binary)
-    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a)
+    c_name = @sprintf("c1_%s",name)
+    @constraint(model, var_a_x_b <= var_a, base_name=c_name)
+    c_name = @sprintf("c2_%s",name)
+    @constraint(model, var_a_x_b <= M * var_binary, base_name=c_name)
+    c_name = @sprintf("c3_%s",name)
+    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a, base_name=c_name)
 
     return var_a_x_b
+end
+
+function formulate_complementarity_constraints!(model::Model,
+                                                kkt_var::VariableRef, pos_cstr_expr, b_indicator, ub_kkt, ub_cstr)
+    # complementarity constraints are supposed for constraints like : g(x) <= 0 => the duals should be positive
+    #model should already have the constraints -pos_cstr_expr <= 0 and kkt_var >=0
+    # reformulation adds the following constraints :
+    # kkt_var <= M1 * b_indicator
+    # -g(x) <= M2 * (1-b_indicator)
+    @assert( lower_bound(kkt_var) >= 0 )
+
+    name = "c1_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, kkt_var <= ub_kkt*b_indicator, base_name=name)
+    name = "c2_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, pos_cstr_expr <= ub_cstr * (1-b_indicator), base_name=name)
+    #This constraints should have already been added in primal-feasibility constraints : g_i(x)<=0
+    name = "c3_complementarity_" * JuMP.name(kkt_var)
+    @constraint(model, pos_cstr_expr >= 0, base_name=name)
+end
+
+function compute_ub(expr::AffExpr, big_m=nothing)
+    expr_ub = expr.constant
+    for (coeff, var) in linear_terms(expr)
+        if coeff == 0
+            continue
+        elseif coeff > 0 && has_upper_bound(var)
+            expr_ub += coeff * upper_bound(var)
+        elseif coeff < 0 && has_lower_bound(var)
+            expr_ub += coeff * lower_bound(var)
+        else
+            expr_ub = big_m
+            break;
+        end
+    end
+
+    if isnothing(expr_ub)
+        error("need to specify bound for expression $(expr)")
+    end
+
+    return expr_ub
 end
 
