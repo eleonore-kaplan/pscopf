@@ -125,6 +125,9 @@ using Printf
         #Market caps ENR for EOD reasons
         @test 60. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
         @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) <= 1e-09
+
+        #TSO decides the distribution but has no options here
+        @test 60. ≈ ( value(result.upper.limitable_model.p_capping["wind_1_1",TS[1],"S1"]))
     end
 
     #=
@@ -167,6 +170,10 @@ using Printf
         #Market cuts conso for EOD reasons
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) <= 1e-09
         @test 90. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+
+        #TSO distributes the cut conso (arbitrarily) while assuring RSO constraint
+        @test 90. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"])
+                    + value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"]) )
     end
 
     #=
@@ -214,6 +221,14 @@ using Printf
         #Market only cuts as required since EOD is OK
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
         @test 5. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+
+        #TSO decides the distribution :
+        @test 5. ≈ ( value(result.upper.limitable_model.p_capping["wind_1_1",TS[1],"S1"]))
+        @test 5. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1",TS[1],"S1"])
+                    + value(result.upper.slack_model.p_cut_conso["bus_2",TS[1],"S1"]) )
+        @test value(result.upper.slack_model.p_cut_conso["bus_1",TS[1],"S1"]) < 1e-09
+        @test 5. ≈ value(result.upper.slack_model.p_cut_conso["bus_2",TS[1],"S1"])
+
     end
 
 
