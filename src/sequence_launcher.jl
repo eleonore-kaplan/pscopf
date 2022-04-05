@@ -130,10 +130,13 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
     end
     #TODO check coherence between tso schedule and actions
 
-    if (affects_market_schedule(step) || affects_tso_schedule(step))
-        println("Changes between steps:")
+    if ( (affects_market_schedule(step) || affects_tso_schedule(step))
+        && ( !is_utilitary(get_market_schedule(context_p).decider_type)
+            && !is_utilitary(get_tso_schedule(context_p).decider_type) )  )
         schedules_to_delta = sort([get_market_schedule(context_p), get_tso_schedule(context_p)],
                                     by=x->x.decision_time)
+        @printf("changes in %s schedule compared to preceding %s schedule:\n",
+                schedules_to_delta[2].decider_type, schedules_to_delta[1].decider_type)
         trace_delta_schedules(schedules_to_delta...)
     end
 end
@@ -236,7 +239,7 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
                                         component_accessor::Function,
                                         print_non_firm_changes=false)
     if !print_non_firm_changes
-        println("(only showing non firm changes)")
+        println("(only showing firm changes)")
     end
     for (gen_id, _) in new_schedule.generator_schedules
         @assert(haskey(old_schedule.generator_schedules, gen_id))
@@ -285,11 +288,11 @@ function trace_tso_actions(tso_actions::TSOActions)
 end
 function trace_limitations(tso_actions)
     for ((gen_id,ts), val_l) in get_limitations(tso_actions)
-        println("\tlimited generator %s for timestep %s to %s", gen_id, ts, val_l)
+        @printf("\tlimited generator %s for timestep %s to %s\n", gen_id, ts, val_l)
     end
 end
 function trace_impositions(tso_actions)
     for ((gen_id,ts), (val_min_l,val_max_l)) in get_impositions(tso_actions)
-        println("\timposed generator %s for timestep %s to [%s,%s]", gen_id, ts, val_min_l,val_max_l)
+        @printf("\timposed generator %s for timestep %s to [%s,%s]\n", gen_id, ts, val_min_l,val_max_l)
     end
 end

@@ -194,7 +194,6 @@ function add_limitable!(limitable_model::TSOBilevelTSOLimitableModel, model::Abs
     gen_pmax = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
-            println("gen_id:",gen_id, ", ts:",ts ,", s:",s)
             p_uncert = get_uncertainties(inject_uncertainties, ts, s)
             p_enr = min(gen_pmax, p_uncert)
             p_inj_var = add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
@@ -457,8 +456,7 @@ function add_rso_constraints!(model_container::TSOBilevelModel,
                 end
 
                 name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
-                cstr = @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
-                println("RSO ",branch_id,",",ts,",",s,": ", cstr)
+                @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
 
             end
         end
@@ -739,8 +737,7 @@ function add_eod_constraints!(market_model_container::TSOBilevelMarketModelConta
             conso -= market_model_container.slack_model.p_cut_conso[ts,s]
 
             name = @sprintf("c_EOD[%s,%s]",ts,s)
-            cstr = @constraint(market_model_container.model, prod == conso, base_name=name)
-            println("EOD ",ts,",",s,": ", cstr)
+            @constraint(market_model_container.model, prod == conso, base_name=name)
 
             #create duals relative to EOD constraint
             add_dual!(kkt_model_container.model, kkt_model_container.eod_duals, (ts,s), name, false)

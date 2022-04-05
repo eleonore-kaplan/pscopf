@@ -154,7 +154,6 @@ function add_p_injected!(generator_model::AbstractGeneratorModel, model::Abstrac
                         force_to_max::Bool
                         )::AbstractVariableRef
     name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-    println(typeof(generator_model.p_injected))
 
     if force_to_max
         generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
