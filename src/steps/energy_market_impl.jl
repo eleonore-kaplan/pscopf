@@ -144,12 +144,12 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
                             model_container.imposable_model.b_start, network, gratis_starts)
 
     # cost for using limitables : but most of the times these are fixed
-    add_limitable_prop_cost!(model_container.objective_model.prop_cost,
-                            model_container.limitable_model.p_injected, network)
+    add_prop_cost!(model_container.objective_model.prop_cost,
+                    model_container.limitable_model.p_injected, network)
 
     # cost for using imposables
-    add_imposable_prop_cost!(model_container.objective_model.prop_cost,
-                            model_container.imposable_model.p_injected, network)
+    add_prop_cost!(model_container.objective_model.prop_cost,
+                    model_container.imposable_model.p_injected, network)
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,

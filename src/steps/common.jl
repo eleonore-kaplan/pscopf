@@ -308,19 +308,7 @@ function add_imposable_start_cost!(obj_component::AffExpr,
     return obj_component
 end
 
-function add_limitable_prop_cost!(obj_component::AffExpr,
-                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
-    for ((gen_id,_,_), p_injected_var) in p_injected
-        generator = Networks.get_generator(network, gen_id)
-        gen_prop_cost = Networks.get_prop_cost(generator)
-        add_to_expression!(obj_component,
-                            p_injected_var * gen_prop_cost)
-    end
-
-    return obj_component
-end
-
-function add_imposable_prop_cost!(obj_component::AffExpr,
+function add_prop_cost!(obj_component::AffExpr,
                                 p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
     for ((gen_id,_,_), p_injected_var) in p_injected
         generator = Networks.get_generator(network, gen_id)
@@ -374,11 +362,15 @@ end
 ##################
 
 function link_scenarios!(model::AbstractModel, vars::AbstractDict{Tuple{String,DateTime,String},V},
-                        gen_id::String, ts::DateTime, scenarios::Vector{String}) where V<:AbstractVariableRef
+                        gen_id::String, ts::DateTime, scenarios::Vector{String};
+                        name=nothing) where V<:AbstractVariableRef
     s1 = scenarios[1]
     for (s_index, s) in enumerate(scenarios)
         if s_index > 1
-            @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
+            cstr_l = @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
+            if !isnothing(name)
+                set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
+            end
         end
     end
     return model
@@ -430,10 +422,15 @@ end
 
 function freeze_vars!(model, p_injected_vars,
                         gen_id, ts, scenarios,
-                        imposed_value::Float64)
+                        imposed_value::Float64;
+                        name=nothing)
     for s in scenarios
         @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value <= upper_bound(p_injected_vars[gen_id, ts, s])) )
-        @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
+        @assert( !has_lower_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value >= lower_bound(p_injected_vars[gen_id, ts, s])) )
+        cstr_l = @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
+        if !isnothing(name)
+            set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
+        end
     end
 end
 
@@ -454,6 +451,7 @@ function add_power_level_firmness_constraints!(model::AbstractModel,
             link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
         end
 
+        #get preceding level from tsoActions, if not possible, then, get it from preceding schedule
         imposition_level = get_imposition_level(tso_actions, gen_id, ts)
         tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
         if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )

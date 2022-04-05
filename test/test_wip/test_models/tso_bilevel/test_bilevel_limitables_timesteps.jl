@@ -95,9 +95,6 @@ using Printf
         @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"]) > 60. - 1e-09
         @test value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[2],"S1"]) < 1e-09
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -161,9 +158,6 @@ using Printf
         @test 40. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"])
         @test 1. ≈ value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[2],"S1"])
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -231,9 +225,6 @@ using Printf
         @test 20. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1", TS[2],"S1"])
                     + value(result.upper.slack_model.p_cut_conso["bus_2", TS[2],"S1"]) )
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -301,9 +292,6 @@ using Printf
         @test value(result.upper.slack_model.p_cut_conso["bus_1", TS[2],"S1"]) < 1e-09
         @test 5. ≈ value(result.upper.slack_model.p_cut_conso["bus_2", TS[2],"S1"])
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
 end

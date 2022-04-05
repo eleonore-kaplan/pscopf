@@ -99,6 +99,16 @@ function get_imposition_level(tso_actions::TSOActions, gen_id::String, ts::Dates
     end
 end
 
+function safeget_imposition_level(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Float64
+    imposition = get_imposition_level(tso_actions, gen_id, ts)
+    if ismissing(imposition)
+        msg = @sprintf("TSOActions has no imposition value for (gen_id=%s,ts=%s).", gen_id, ts)
+        throw(error(msg))
+    else
+        return imposition
+    end
+end
+
 function set_imposition_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value_min::Float64, value_max::Float64)
     impositions = get_impositions(tso_actions)
     impositions[gen_id, ts] = (value_min,value_max)
@@ -140,7 +150,7 @@ function set_commitment_value!(tso_actions, gen_id::String, ts::Dates.DateTime, 
 end
 
 function get_commitments(tso_actions, gen_id::String)
-    gen_commitments = SortedDict{Dates.DateTime, GeneratorState}
+    gen_commitments = SortedDict{Dates.DateTime, GeneratorState}()
     for ((gen_id_l,ts),commitment_val) in get_commitments(tso_actions)
         if gen_id_l == gen_id
             gen_commitments[ts] = commitment_val
