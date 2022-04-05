@@ -90,7 +90,7 @@ end
 function compute_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("Initialisation de la fermeté des décisions : DECIDED ou TO_DECIDE")
+    println("Initialisation de la fermeté des décisions : tout est ferme")
     next_ech = nothing
     generators = collect(Networks.get_generators(get_network(context)))
     return compute_firmness(ech, next_ech, TS, generators)
@@ -112,5 +112,10 @@ end
 function run(runnable::EnterFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("-----Entrée dans la fenêtre opérationnelle-----")
     return #result
+end
+function compute_firmness(runnable::EnterFO,
+                        ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                        TS::Vector{Dates.DateTime}, context::AbstractContext)
+    return Firmness()
 end
 

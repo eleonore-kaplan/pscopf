@@ -20,6 +20,10 @@ is_market(x::T) where {T} = is_market(DeciderType(T))
 is_market(::DeciderType) = false
 is_market(::Market) = true
 
+is_utilitary(x::T) where {T} = is_utilitary(DeciderType(T))
+is_utilitary(::DeciderType) = false
+is_utilitary(::Utilitary) = true
+
 function Base.string(decider_type::DeciderType)
     if is_market(decider_type)
         return "market"

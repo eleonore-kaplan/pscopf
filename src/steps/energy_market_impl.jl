@@ -342,15 +342,14 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
         #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
-            @printf("capped %f power in scenario %s at ts %s\n", capped_lim_prod, s, ts)
             limitables_ids = Networks.get_id.(Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE))
 
             if capped_lim_prod > 1e-09
             #distribute the capped power on limitables
+                @printf("capped %f power in scenario %s at ts %s\n", capped_lim_prod, s, ts)
                 distribution_key = Dict{String,Float64}(gen_id_l => get_uncertainties(uncertainties, gen_id_l, ts, s)
                                                         for gen_id_l in limitables_ids)
                 distribution_key = normalize_values(distribution_key)
-                println("capped:", capped_lim_prod)
                 println("distribution_key:", distribution_key)
 
                 for (gen_id, coeff) in distribution_key
@@ -375,15 +374,14 @@ function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
         #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
-            @printf("cut conso %f in scenario %s at ts %s\n", total_cut_conso, s, ts)
             bus_ids = Networks.get_id.(Networks.get_buses(get_network(context)))
 
             if total_cut_conso > 1e-09
             #distribute the cut conso on buses
+                @printf("cut conso %f in scenario %s at ts %s\n", total_cut_conso, s, ts)
                 distribution_key = Dict{String,Float64}(bus_id_l => get_uncertainties(uncertainties, bus_id_l, ts, s)
                                                         for bus_id_l in bus_ids)
                 distribution_key = normalize_values(distribution_key)
-                println("total_cut_conso:", total_cut_conso)
                 println("distribution_key:", distribution_key)
 
                 for (bus_id, coeff) in distribution_key
