@@ -186,6 +186,7 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             preceding_tso_subschedule
+                                            #no commitment actions
                                             )
     end
 
@@ -358,7 +359,7 @@ function create_objectives!(model_container::TSOModel,
                                 model_container.limitable_model.p_injected, network)
 
     # cost for using imposables
-    add_imposable_prop_cost!(model_container.objective_model.prop_cost,
+    add_prop_cost!(model_container.objective_model.prop_cost,
                             model_container.imposable_model.p_injected, network)
 
     # Objective 1 :

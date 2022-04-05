@@ -58,12 +58,10 @@ using Printf
       S1: 10            |                      | S1: 30
     =#
     @testset "no_problem" begin
-        println("\n\nno_problem")
 
         context = create_instance(10., 30.,
                                 40.,
-                                35.,
-                                "no_problem")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -101,11 +99,9 @@ using Printf
       S1: 10            |                      | S1: 30
     =#
     @testset "EOD_problem_needs_capping" begin
-        println("\n\nEOD_problem_needs_capping")
         context = create_instance(10., 30.,
                                 100.,
-                                35.,
-                                "EOD_problem_needs_capping")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -146,11 +142,9 @@ using Printf
       S1: 100           |                      | S1: 30
     =#
     @testset "EOD_problem_needs_cut_conso" begin
-        println("\n\nEOD_problem_needs_cut_conso")
         context = create_instance(100., 30.,
                                 40.,
-                                35.,
-                                "EOD_problem_needs_cut_conso")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -192,11 +186,9 @@ using Printf
       S1: 10            |                      | S1: 40
     =#
     @testset "RSO_problem" begin
-        println("\n\nRSO_problem")
         context = create_instance(10., 40.,
                                 50.,
-                                35.,
-                                "RSO_problem")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
@@ -228,8 +220,6 @@ using Printf
                     + value(result.upper.slack_model.p_cut_conso["bus_2",TS[1],"S1"]) )
         @test value(result.upper.slack_model.p_cut_conso["bus_1",TS[1],"S1"]) < 1e-09
         @test 5. ≈ value(result.upper.slack_model.p_cut_conso["bus_2",TS[1],"S1"])
-
     end
-
 
 end

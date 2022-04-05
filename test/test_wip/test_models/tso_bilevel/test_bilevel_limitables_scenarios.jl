@@ -58,7 +58,6 @@ using Printf
       S2: 25            |                      | S2: 35
     =#
     @testset "no_problem" begin
-        println("\n\nno_problem")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [10., 25.], #load1
@@ -97,16 +96,12 @@ using Printf
         @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"]) > 60. - 1e-09
         @test value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[1],"S2"]) < 1e-09
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
     previous + link limits
     =#
     @testset "no_problem_link_scenarios_limit" begin
-        println("\n\nno_problem_link_scenarios_limit")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [10., 25.], #load1
@@ -149,9 +144,6 @@ using Printf
         @test !PSCOPF.is_different( value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]),
                                 value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"]) )
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -172,7 +164,6 @@ using Printf
       S2: 10            |                      | S2: 50
     =#
     @testset "EOD_problem_needs_capping_in_s2" begin
-        println("\n\nEOD_problem_needs_capping_in_s2")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [10., 10.], #load1
@@ -211,16 +202,12 @@ using Printf
         @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"])
         @test 1. ≈ value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[1],"S2"])
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
     previous + link limits
     =#
     @testset "EOD_problem_needs_capping_in_s2_link_scenarios" begin
-        println("\n\nEOD_problem_needs_capping_in_s2_link_scenarios")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [10., 10.], #load1
@@ -261,9 +248,6 @@ using Printf
         @test !PSCOPF.is_different( value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]),
                                 value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"]) )
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -289,7 +273,6 @@ using Printf
             or cut conso on bus2 to 35
     =#
     @testset "limiting_a_scenario_does_not_affect_the_other" begin
-        println("\n\nlimiting_a_scenario_does_not_affect_the_other")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [50., 10.], #load1
@@ -328,9 +311,6 @@ using Printf
         @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"])
         @test 1. ≈ value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[1],"S2"])
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
     #=
@@ -376,13 +356,12 @@ using Printf
     previous + link limits
     =#
     @testset "limiting_a_scenario_affects_the_other_link_scenarios" begin
-        println("\n\nlimiting_a_scenario_affects_the_other_link_scenarios")
 
         context = create_instance(["S1", "S2"], #scenarios
                                     [50., 10.], #load1
                                     [10., 50.], #load2
                                     [60., 60.], #wind_1_1
-                                35., "link_scenarios")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         tso.configs.LINK_SCENARIOS_LIMIT = true
@@ -418,9 +397,6 @@ using Printf
         @test !PSCOPF.is_different( value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]),
                                 value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S2"]) )
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
     end
 
 end
