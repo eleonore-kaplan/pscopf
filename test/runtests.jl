@@ -52,6 +52,7 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables_scenarios.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables_timesteps.jl")
+    include("test_wip/test_models/tso_bilevel/test_bilevel_imposables.jl")
 
     # include("test_wip/test_seq_launch.jl")
     # include("test_wip/example_usecase.jl")
