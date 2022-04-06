@@ -8,7 +8,7 @@ using Dates
 using DataStructures
 using Printf
 
-@testset verbose=true "test_bilevel_imposables" begin
+@testset verbose=true "test_bilevel_imposables_start" begin
 
     TS = [DateTime("2015-01-01T11:00:00")]
     ech = DateTime("2015-01-01T07:00:00")
@@ -134,7 +134,7 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         S1: 30              |                      | S1: 30
 
-        Suppose market did not start any of prod_1_1 and prod_2_1
+        Suppose market did not start any of prod_1_1 and prod_2_1 (e.g. market was not launched before tso)
         The EOD constraint would be violated
         but there are no RSO constraints
         => TSO does not have to undertake an action cause EOD is not his responsibility
@@ -148,7 +148,8 @@ using Printf
         If the TSO had started any of the units he would have fixed its minimum production,
         Thus, he would have paid for it.
         =#
-        @testset "no_risk_of_breaking_rso_constraint_off_off" begin
+        @testset "tso_bilevel_must_be_launched_after_a_market_off_off" begin
+            #no_risk_of_breaking_rso_constraint_off_off
 
             context = create_instance(30., 30.,
                                     PSCOPF.OFF, PSCOPF.OFF,
@@ -194,6 +195,8 @@ using Printf
         end
 
         #=
+        same as above : 
+
         TS: [11h, 11h15]
         S: [S1,S2]
                             bus 1                   bus 2
@@ -222,8 +225,8 @@ using Printf
         If the TSO had started any of the units he would have fixed its minimum production,
         Thus, he would have paid for it.
         =#
-        @testset "no_risk_of_breaking_rso_constraint_missing_missing" begin
-
+        @testset "tso_bilevel_must_be_launched_after_a_market_missing_missing" begin
+            # no_risk_of_breaking_rso_constraint_missing_missing
             context = create_instance(30., 30.,
                                     missing, missing,
                                     35.,"start_imp_test")

@@ -12,10 +12,6 @@ end
 function run(runnable::TSOBilevel, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     problem_name_l = @sprintf("tso_bilevel_%s", ech)
 
-    tso_starts = get_starts(get_tso_schedule(context), get_generators_initial_state(context))
-    market_starts = get_starts(get_market_schedule(context), get_generators_initial_state(context))
-    gratis_starts = union(tso_starts, market_starts)
-
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
 
@@ -28,7 +24,6 @@ function run(runnable::TSOBilevel, ech::Dates.DateTime, firmness, TS::Vector{Dat
                     get_market_schedule(context),
                     get_tso_schedule(context),
                     get_tso_actions(context),
-                    gratis_starts,
                     runnable.configs
                     )
 end
