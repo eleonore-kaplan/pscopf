@@ -19,6 +19,14 @@ using DataStructures
         SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 end
 
+function reset_tso_actions!(tso_actions::TSOActions)
+    empty!(tso_actions.limitations)
+    empty!(tso_actions.impositions)
+    empty!(tso_actions.commitments)
+
+    return tso_actions
+end
+
 ## Limitations
 #--------------
 

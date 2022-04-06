@@ -489,7 +489,8 @@ function add_prod_vars!(model::AbstractModel,
         throw(error("variable var_a needs to be positive to express the product!"))
     end
 
-    var_a_x_b = add_prod_expr_x_b!(model, AffExpr(var_a), var_binary, M, name)
+    expr_var_a::AffExpr = var_a
+    var_a_x_b = add_prod_expr_x_b!(model, expr_var_a, var_binary, M, name)
 
     return var_a_x_b
 end
