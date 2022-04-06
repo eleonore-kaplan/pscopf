@@ -53,6 +53,9 @@ using Printf
                         |                      |
            load(bus_1)  |                      |load(bus_2)
       S1: 30            |                      | S1: 30
+
+    
+    FIXME!
     =#
     @testset "no_risk_of_breaking_rso_constraint" begin
 
@@ -90,6 +93,8 @@ using Printf
         @test 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
 
+        @test objective_value(result.upper.model) < 1e-09
+
         for var in all_variables(result.model)
             println(name(var), " = ", value(var))
         end
@@ -109,7 +114,7 @@ using Printf
                         |                      |
                         |                      |
            load(bus_1)  |                      |load(bus_2)
-      S1: 10            |                      | S1: 100
+      S1: 10            |                      | S1: 100   
 
     prod_1_1 is cheaper than prod_2_1
      but using only prod_1_1, like a market would, will cause RSO problems
@@ -118,6 +123,7 @@ using Printf
             bus2 to produce at least 100-35=65 => P_2_1 in [65,200] => cost : 65
         Imposing one of the preceding conditions guarantees RSO constraint
         => TSO will impose one of the two preceding conditions, the cheaper one
+
     =#
     @testset "rso_constraint_requires_setting_imposables_bounds" begin
 
@@ -154,6 +160,8 @@ using Printf
         #Market chooses the levels sets the bounds for imposable production
         @test 45. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+
+        @test objective_value(result.upper.model) ≈ ( 65 )
 
         for var in all_variables(result.model)
             println(name(var), " = ", value(var))
@@ -220,6 +228,8 @@ using Printf
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
+        @test objective_value(result.upper.model) < 1e-09
+
         for var in all_variables(result.model)
             println(name(var), " = ", value(var))
         end
@@ -281,6 +291,8 @@ using Printf
         #Market chooses the levels sets the bounds for imposable production
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+
+        @test objective_value(result.upper.model) < 1e-09
 
         for var in all_variables(result.model)
             println(name(var), " = ", value(var))

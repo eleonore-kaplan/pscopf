@@ -7,7 +7,7 @@ using Printf
 using Parameters
 
 @with_kw mutable struct TSOBilevelConfigs
-    cut_conso_penalty::Float64 = 1e7
+    cut_conso_penalty::Float64 = 1e5
     capping_cost::Float64 = 1.
     imposable_bounding_cost::Float64 = 1.
     out_path::Union{Nothing,String} = nothing
@@ -16,7 +16,7 @@ using Parameters
     LINK_SCENARIOS_IMPOSABLE_LEVEL::Bool = false
     LINK_SCENARIOS_IMPOSABLE_ON::Bool = false
     LINK_SCENARIOS_IMPOSABLE_LEVEL_MARKET::Bool = false
-    big_m = 1e9
+    big_m = 1e6
 end
 
 ##########################################################
@@ -539,10 +539,6 @@ function add_injection_commitment_constraints!(tso_model_container::TSOBilevelTS
                     @constraint(tso_model, p_min * b_on_vars[gen_id, ts, s] <= p_tso_min[gen_id, ts, s]);
                     @constraint(tso_model, p_tso_min[gen_id, ts, s] <= p_tso_max[gen_id, ts, s])
                     @constraint(tso_model, p_tso_max[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s])
-
-                    # pmin B_on < P_market_inj < pmax B_on
-                    @constraint(tso_model, p_min * b_on_vars[gen_id, ts, s] <= p_market_inj[gen_id, ts, s] )
-                    @constraint(tso_model, p_market_inj[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s] )
                 end
             end
         end
@@ -576,12 +572,15 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
 end
 
 function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
-                                network,
+                                target_timepoints, scenarios, network,
+                                preceding_market_schedule::Schedule,
                                 capping_cost, cut_conso_cost, imposable_bounding_cost)
     objective_model = model_container.objective_model
 
     # objective_model.imposable_cost
-    add_tsobilevel_impositions_cost!(model_container, network, imposable_bounding_cost)
+    add_tsobilevel_impositions_cost!(model_container,
+                                    target_timepoints, scenarios, network,
+                                    preceding_market_schedule, imposable_bounding_cost)
 
     # limitable_cost : capping (fr. ecretement)
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping_min, capping_cost)
@@ -597,20 +596,76 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
 end
 
 function add_tsobilevel_impositions_cost!(model_container::TSOBilevelTSOModelContainer,
-                                        network, imposable_bounding_cost)
+                                        target_timepoints, scenarios, network,
+                                        preceding_market_schedule, imposable_bounding_cost)
     tso_imposable_model = model_container.imposable_model
     objective_expr = model_container.objective_model.imposable_cost
 
-    for ((gen_id,_,_), pmax_var) in tso_imposable_model.p_tso_max
-        p_max = Networks.get_p_max(Networks.get_generator(network, gen_id))
-        add_to_expression!(objective_expr, imposable_bounding_cost * (p_max - pmax_var))
-    end
-    for ((gen_id,_,_), pmin_var) in tso_imposable_model.p_tso_min
-        p_min = Networks.get_p_min(Networks.get_generator(network, gen_id))
-        add_to_expression!(objective_expr, imposable_bounding_cost * (pmin_var - p_min))
+    for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+        gen_id = Networks.get_id(gen)
+        for ts in target_timepoints
+            for s in scenarios
+                commitment = get_commitment_value(preceding_market_schedule, gen_id, ts, s)
+                if  !ismissing(commitment) && (commitment==ON)
+                    add_tsobilevel_started_impositions_cost!(objective_expr, gen,
+                                                            tso_imposable_model.p_tso_min[gen_id, ts, s],
+                                                            tso_imposable_model.p_tso_max[gen_id, ts, s],
+                                                            imposable_bounding_cost)
+                else #OFF or missing
+                    add_tsobilevel_non_started_impositions_cost!(objective_expr, model_container,
+                                                                 gen, ts, s, imposable_bounding_cost)
+                end
+            end
+        end
     end
 
     return model_container
+end
+function add_tsobilevel_started_impositions_cost!(objective_expr::AffExpr,
+                                                gen::Generator,
+                                                pmin_var, pmax_var,
+                                                imposable_bounding_cost
+                                                )
+    p_max = Networks.get_p_max(gen)
+    p_min = Networks.get_p_min(gen)
+
+    add_to_expression!(objective_expr, imposable_bounding_cost * (p_max - pmax_var))
+    add_to_expression!(objective_expr, imposable_bounding_cost * (pmin_var - p_min))
+
+    return objective_expr
+end
+function add_tsobilevel_non_started_impositions_cost!(objective_expr::AffExpr,
+                                                      tso_model_container::TSOBilevelTSOModelContainer,
+                                                    gen, ts, s,
+                                                    imposable_bounding_cost
+                                                    )
+    tso_imposable_model = tso_model_container.imposable_model
+    gen_id = Networks.get_id(gen)
+    pmin_var = tso_imposable_model.p_tso_min[gen_id, ts, s]
+    pmax_var = tso_imposable_model.p_tso_max[gen_id, ts, s]
+
+    #need a second expression for units that do not need a commitment (p_min=0 and no b_on)
+    if !Networks.needs_commitment(gen)
+        return add_tsobilevel_started_impositions_cost!(objective_expr,
+                                                    gen, pmin_var, pmax_var, imposable_bounding_cost )
+    end
+    #else
+
+    p_max = Networks.get_p_max(gen)
+    # p_min = Networks.get_p_min(gen)
+
+    #need to cost reducing pmax otherwise TSO may always limit pmax when starting a unit
+    b_on_var = tso_imposable_model.b_on[gen_id, ts, s]
+    name = @sprintf("pmax_x_on[%s,%s,%s]", gen_id, ts, s)
+    # pmax_x_on_var = add_prod_vars!(tso_model_container.model, pmax_var, b_on_var, p_max, name)
+    deltamax_x_on_var = add_prod_expr_x_b!(tso_model_container.model,
+                                        (p_max-pmax_var), b_on_var, p_max, name)
+    add_to_expression!(objective_expr, imposable_bounding_cost * deltamax_x_on_var)
+
+    add_to_expression!(objective_expr, imposable_bounding_cost * pmin_var)
+    # add_to_expression!(objective_expr, imposable_bounding_cost * p_min * b_on_var)
+
+    return objective_expr
 end
 
 ##########################################################
@@ -1116,7 +1171,9 @@ function tso_bilevel(network::Networks.Network,
     #kkt complementarity
     add_kkt_complementarity_constraints!(bimodel_container_l, configs.big_m, target_timepoints, scenarios, network)
 
-    create_tso_objectives!(bimodel_container_l.upper, network,
+    create_tso_objectives!(bimodel_container_l.upper,
+                        target_timepoints, scenarios, network,
+                        preceding_market_schedule,
                         configs.capping_cost, configs.cut_conso_penalty, configs.imposable_bounding_cost)
 
     solve!(bimodel_container_l, configs.problem_name, configs.out_path)

@@ -14,6 +14,7 @@ using Printf
     ech = DateTime("2015-01-01T07:00:00")
     next_ech = DateTime("2015-01-01T07:30:00")
     function create_instance(load_1, load_2,
+                            market_decision_prod1, market_decision_prod2,
                             limit::Float64=35.,
                             logs=nothing)
         network = PSCOPFFixtures.network_2buses(limit=limit)
@@ -41,62 +42,263 @@ using Printf
                                     gen_initial_state,
                                     uncertainties, nothing, logs)
 
+        PSCOPF.set_commitment_value!(context.market_schedule, "prod_1_1", TS[1], "S1", market_decision_prod1)
+        PSCOPF.set_commitment_value!(context.market_schedule, "prod_2_1", TS[1], "S1", market_decision_prod2)
+
         return context
     end
 
-    #=
-    TS: [11h, 11h15]
-    S: [S1,S2]
-                        bus 1                   bus 2
-                        |                      |
-    (limitable) prod_1_1|       "1_2"          |prod_2_1
-    Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
-    Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
-                        |----------------------|
-                        |         35           |
-                        |                      |
-                        |                      |
-           load(bus_1)  |                      |load(bus_2)
-      S1: 30            |                      | S1: 30
-    =#
     @testset "no_risk_of_breaking_rso_constraint" begin
+        #=
+        TS: [11h, 11h15]
+        S: [S1,S2]
+                            bus 1                   bus 2
+                            |                      |
+        (limitable) prod_1_1|       "1_2"          |prod_2_1
+        Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
+        Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
+                            |----------------------|
+                            |         35           |
+                            |                      |
+                            |                      |
+            load(bus_1)  |                      |load(bus_2)
+        S1: 30            |                      | S1: 30
 
-        context = create_instance(30., 30.,
-                                35.,"start_imp_test")
+        prod_1_1 20-200
+        prod_2_1 0
+        =#
+        @testset "no_risk_of_breaking_rso_constraint_on_on" begin
 
-        tso = PSCOPF.TSOBilevel()
-        firmness = PSCOPF.compute_firmness(tso,
-                                            ech, next_ech,
-                                            TS, context)
-        result = PSCOPF.run(tso, ech, firmness,
-                    PSCOPF.get_target_timepoints(context),
-                    context)
+            context = create_instance(30., 30.,
+                                    PSCOPF.ON, PSCOPF.ON,
+                                    35.,"start_imp_test")
 
-        # Solution is optimal
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+            tso = PSCOPF.TSOBilevel()
+            firmness = PSCOPF.compute_firmness(tso,
+                                                ech, next_ech,
+                                                TS, context)
+            result = PSCOPF.run(tso, ech, firmness,
+                        PSCOPF.get_target_timepoints(context),
+                        context)
 
-        #TSO RSO constraints are OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            # Solution is optimal
+            @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-        #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            #TSO RSO constraints are OK
+            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
 
-        #TSO does not need to bound imposables
-        #prod_1_1 is not bound
-        @test_broken value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-        #prod_2_1 is not bound
-        @test_broken value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
-        @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+            #Market EOD constraints are OK
+            @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
 
-        #Market chooses the levels respecting the bounds for imposable production
-        @test_broken 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
-        @test_broken value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
+            #TSO does not need to bound imposables because there is no risk of breaking RSO constraints
+            #prod_1_1 is not bound
+            @test 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+            #prod_2_1 is not bound
+            @test 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
+            #Market chooses the levels respecting the bounds for imposable production
+            @test 40. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
+            @test 20. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+
+            @test - 1e-09 < objective_value(result.upper.model) < 1e-09
+
+            for var in all_variables(result.model)
+                println(name(var), " = ", value(var))
+            end
+
+        end
+
+        #=
+        TS: [11h, 11h15]
+        S: [S1,S2]
+                            bus 1                   bus 2
+                            |                      |
+        (limitable) prod_1_1|       "1_2"          |prod_2_1
+        Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
+        Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
+                            |----------------------|
+                            |         35           |
+                            |                      |
+                            |                      |
+            load(bus_1)  |                      |load(bus_2)
+        S1: 30            |                      | S1: 30
+
+        prod_1_1 20-200
+        prod_2_1 0
+        =#
+        @testset "no_risk_of_breaking_rso_constraint_off_off" begin
+
+            context = create_instance(30., 30.,
+                                    PSCOPF.OFF, PSCOPF.OFF,
+                                    35.,"start_imp_test")
+
+            tso = PSCOPF.TSOBilevel()
+            firmness = PSCOPF.compute_firmness(tso,
+                                                ech, next_ech,
+                                                TS, context)
+            result = PSCOPF.run(tso, ech, firmness,
+                        PSCOPF.get_target_timepoints(context),
+                        context)
+
+            # Solution is optimal
+            @test_broken PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
+            #TSO RSO constraints are OK
+            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+
+            #Market EOD constraints are OK
+            @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+            @test_broken value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+
+            #TSO does not need to bound imposables
+            #prod_1_1 is not bound
+            @test_broken 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
+            @test_broken 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+            #prod_2_1 is not bound
+            @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
+
+            #Market chooses the levels respecting the bounds for imposable production
+            @test_broken 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
+            @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
+
+            @test_broken - 1e-09 < objective_value(result.upper.model) ≈ 20.
+
+            for var in all_variables(result.model)
+                println(name(var), " = ", value(var))
+            end
+
+        end
+
+        #=
+        TS: [11h, 11h15]
+        S: [S1,S2]
+                            bus 1                   bus 2
+                            |                      |
+        (limitable) prod_1_1|       "1_2"          |prod_2_1
+        Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
+        Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
+                            |----------------------|
+                            |         35           |
+                            |                      |
+                            |                      |
+            load(bus_1)  |                      |load(bus_2)
+        S1: 30            |                      | S1: 30
+
+        prod_1_1 20-200
+        prod_2_1 0
+        =#
+        @testset "no_risk_of_breaking_rso_constraint_on_off" begin
+
+            context = create_instance(30., 30.,
+                                    PSCOPF.ON, PSCOPF.OFF,
+                                    35.,"start_imp_test")
+
+            tso = PSCOPF.TSOBilevel()
+            firmness = PSCOPF.compute_firmness(tso,
+                                                ech, next_ech,
+                                                TS, context)
+            result = PSCOPF.run(tso, ech, firmness,
+                        PSCOPF.get_target_timepoints(context),
+                        context)
+
+            # Solution is optimal
+            @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
+            #TSO RSO constraints are OK
+            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+
+            #Market EOD constraints are OK
+            @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+
+            #TSO does not need to bound imposables
+            #prod_1_1 is not bound
+            @test 20. ≈value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+            #prod_2_1 is not bound
+            @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
+
+            #Market chooses the levels respecting the bounds for imposable production
+            @test 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
+            @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
+
+            @test - 1e-09 < objective_value(result.upper.model) < 1e-09
+
+            for var in all_variables(result.model)
+                println(name(var), " = ", value(var))
+            end
+
+        end
+
+        #=
+        TS: [11h, 11h15]
+        S: [S1,S2]
+                            bus 1                   bus 2
+                            |                      |
+        (limitable) prod_1_1|       "1_2"          |prod_2_1
+        Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
+        Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
+                            |----------------------|
+                            |         35           |
+                            |                      |
+                            |                      |
+            load(bus_1)  |                      |load(bus_2)
+        S1: 30            |                      | S1: 30
+
+        prod_1_1 20-200
+        prod_2_1 0
+        =#
+        @testset "no_risk_of_breaking_rso_constraint_off_on" begin
+
+            context = create_instance(30., 30.,
+                                    PSCOPF.OFF, PSCOPF.ON,
+                                    35.,"start_imp_test")
+
+            tso = PSCOPF.TSOBilevel()
+            firmness = PSCOPF.compute_firmness(tso,
+                                                ech, next_ech,
+                                                TS, context)
+            result = PSCOPF.run(tso, ech, firmness,
+                        PSCOPF.get_target_timepoints(context),
+                        context)
+
+            # Solution is optimal
+            @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+
+            #TSO RSO constraints are OK
+            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+
+            #Market EOD constraints are OK
+            @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+
+            #TSO does not need to bound imposables
+            #prod_1_1 is not bound
+            @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            #prod_2_1 is not bound
+            @test 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+
+            #Market chooses the levels respecting the bounds for imposable production
+            @test value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test 60. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+
+            @test objective_value(result.upper.model)  < 1e-09
+
+            for var in all_variables(result.model)
+                println(name(var), " = ", value(var))
+            end
+
         end
 
     end
