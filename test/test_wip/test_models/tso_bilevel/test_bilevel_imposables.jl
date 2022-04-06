@@ -128,7 +128,7 @@ using Printf
     @testset "rso_constraint_requires_setting_imposables_bounds" begin
 
         context = create_instance(10., 100.,
-                                35.,"imposable_test")
+                                35.)
 
         tso = PSCOPF.TSOBilevel()
         firmness = PSCOPF.compute_firmness(tso,
