@@ -439,8 +439,6 @@ function add_power_level_firmness_constraints!(model::AbstractModel,
                                                 target_timepoints::Vector{Dates.DateTime},
                                                 scenarios::Vector{String},
                                                 power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                generator_reference_schedule::GeneratorSchedule,
-                                                tso_actions::TSOActions=TSOActions()
                                                 )
     @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
 
@@ -449,17 +447,49 @@ function add_power_level_firmness_constraints!(model::AbstractModel,
         if power_level_firmness[ts] in [DECIDED, TO_DECIDE]
             link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
         end
+    end
 
-        #get preceding level from tsoActions, if not possible, then, get it from preceding schedule
-        imposition_level = get_imposition_level(tso_actions, gen_id, ts)
+    return model
+end
+
+function add_power_level_sequencing_constraints!(model::AbstractModel,
+                                                generator::Networks.Generator,
+                                                p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                                target_timepoints::Vector{Dates.DateTime},
+                                                scenarios::Vector{String},
+                                                power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                                generator_reference_schedule::GeneratorSchedule,
+                                                tso_actions::TSOActions=TSOActions()
+                                                )
+    @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
+
+    gen_id = Networks.get_id(generator)
+    for ts in target_timepoints
         tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
-        if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
-            imposition_level = 0.
-        elseif ( power_level_firmness[ts]==DECIDED && ismissing(imposition_level) )
-            imposition_level = safeget_prod_value(generator_reference_schedule,ts)
-        end
-        if !ismissing(imposition_level)
-            freeze_vars!(model, p_injected_vars, gen_id, ts, scenarios, imposition_level)
+
+        for s in scenarios
+            imposition_bounds = missing
+
+            tso_action_impositions = get_imposition(tso_actions, gen_id, ts, s)
+            if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
+                imposition_bounds = (0., 0.)
+            elseif !ismissing(tso_action_impositions)
+                imposition_bounds = (tso_action_impositions[1], tso_action_impositions[2])
+            elseif power_level_firmness[ts]==DECIDED
+                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
+                imposition_bounds = (scheduled_prod, scheduled_prod)
+            end
+
+            if power_level_firmness[ts]==DECIDED
+                @assert(imposition_bounds[1] == imposition_bounds[2])
+                c_name = @sprintf("c_decided_level[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_injected_vars[gen_id,ts,s] == imposition_bounds[1], base_name=c_name)
+            elseif !ismissing(imposition_bounds)
+                c_name = @sprintf("c_min_imposition[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
+                c_name = @sprintf("c_max_imposition[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
+            end
         end
     end
 

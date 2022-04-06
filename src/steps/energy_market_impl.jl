@@ -185,6 +185,12 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
+                                        )
+
+    add_power_level_sequencing_constraints!(model, generator,
+                                        imposable_model.p_injected,
+                                        target_timepoints, scenarios,
+                                        power_level_firmness,
                                         generator_reference_schedule,
                                         tso_actions
                                         )

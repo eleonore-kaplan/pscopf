@@ -172,8 +172,15 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
     add_power_level_firmness_constraints!(model, generator,
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
+                                        power_level_firmness
+                                        )
+    
+    add_power_level_sequencing_constraints!(model, generator,
+                                        imposable_model.p_injected,
+                                        target_timepoints, scenarios,
                                         power_level_firmness,
                                         preceding_tso_subschedule
+                                        #does not consider TSOActions
                                         )
 
     if p_min > 0
