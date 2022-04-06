@@ -489,15 +489,34 @@ function add_prod_vars!(model::AbstractModel,
         throw(error("variable var_a needs to be positive to express the product!"))
     end
 
-    var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
-    c_name = @sprintf("c1_%s",name)
-    @constraint(model, var_a_x_b <= var_a, base_name=c_name)
-    c_name = @sprintf("c2_%s",name)
-    @constraint(model, var_a_x_b <= M * var_binary, base_name=c_name)
-    c_name = @sprintf("c3_%s",name)
-    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a, base_name=c_name)
+    var_a_x_b = add_prod_expr_x_b!(model, AffExpr(var_a), var_binary, M, name)
 
     return var_a_x_b
+end
+
+function add_prod_expr_x_b!(model::AbstractModel,
+                        expr_a::AffExpr,
+                        var_binary::AbstractVariableRef,
+                        M,
+                        name
+                        )::AbstractVariableRef
+    if !is_binary(var_binary)
+        throw(error("variable var_binary needs to be binary to express the product!"))
+    end
+    if compute_lb(expr_a, -1) < 0
+        c_name = @sprintf("c0_%s",name)
+        @constraint(model, expr_a >= 0., base_name=c_name)
+    end
+
+    var_expra_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
+    c_name = @sprintf("c1_%s",name)
+    @constraint(model, var_expra_x_b <= expr_a, base_name=c_name)
+    c_name = @sprintf("c2_%s",name)
+    @constraint(model, var_expra_x_b <= M * var_binary, base_name=c_name)
+    c_name = @sprintf("c3_%s",name)
+    @constraint(model, M*(1-var_binary) + var_expra_x_b >= expr_a, base_name=c_name)
+
+    return var_expra_x_b
 end
 
 function formulate_complementarity_constraints!(model::Model,
@@ -529,6 +548,28 @@ function compute_ub(expr::AffExpr, big_m=nothing)
             expr_ub += coeff * lower_bound(var)
         else
             expr_ub = big_m
+            break;
+        end
+    end
+
+    if isnothing(expr_ub)
+        error("need to specify bound for expression $(expr)")
+    end
+
+    return expr_ub
+end
+
+function compute_lb(expr::AffExpr, default_lb=nothing)
+    expr_ub = expr.constant
+    for (coeff, var) in linear_terms(expr)
+        if coeff == 0
+            continue
+        elseif coeff > 0 && has_lower_bound(var)
+            expr_ub += coeff * lower_bound(var)
+        elseif coeff < 0 && has_upper_bound(var)
+            expr_ub += coeff * upper_bound(var)
+        else
+            expr_ub = default_lb
             break;
         end
     end
