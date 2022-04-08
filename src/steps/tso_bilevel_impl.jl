@@ -674,14 +674,11 @@ function add_tsobilevel_non_started_impositions_cost!(objective_expr::AffExpr,
     # p_min = Networks.get_p_min(gen)
 
     #need to cost reducing pmax otherwise TSO may always limit pmax when starting a unit
-    pmin_var = tso_imposable_model.p_tso_min[gen_id, ts, s]
     pmax_var = tso_imposable_model.p_tso_max[gen_id, ts, s]
     b_on_var = tso_imposable_model.b_on[gen_id, ts, s]
-    name = @sprintf("deltamax_x_on[%s,%s,%s]", gen_id, ts, s)
-    deltamax_x_on_var = add_prod_expr_x_b!(tso_model_container.model,
-                                        (p_max-pmax_var), b_on_var, p_max, name)
-    add_to_expression!(objective_expr, imposable_bounding_cost * deltamax_x_on_var)
+    add_to_expression!(objective_expr, imposable_bounding_cost * (p_max*b_on_var - pmax_var) )
 
+    pmin_var = tso_imposable_model.p_tso_min[gen_id, ts, s]
     add_to_expression!(objective_expr, imposable_bounding_cost * pmin_var)
     # add_to_expression!(objective_expr, imposable_bounding_cost * p_min * b_on_var)
 
