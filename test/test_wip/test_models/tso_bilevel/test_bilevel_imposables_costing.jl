@@ -58,8 +58,8 @@ using Printf
     prod_1_1 is cheaper than prod_2_1
      but using only prod_1_1, like a market would, will cause RSO problems
     => The TSO needs to oblige
-            bus1 to produce at most 10+35=45 => P_1_1 in [0,45] => cost : 200-45 = 1*155
-            bus2 to produce at least 100-35=65 => P_2_1 in [65,200] => cost : 65 = 1*65
+            prod_1_1 to produce at most 10+35=45 => P_1_1 in [0,45] => cost : 200-45 = 1*155
+            prod_2_1 to produce at least 100-35=65 => P_2_1 in [65,200] => cost : 65 = 1*65
         Imposing one of the preceding conditions guarantees RSO constraints
         => TSO will impose one of the two preceding conditions, the cheaper one => option 2
 
@@ -102,10 +102,6 @@ using Printf
         @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
         @test objective_value(result.upper.model) ≈ ( 65 )
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
 
     end
 
@@ -175,10 +171,6 @@ using Printf
         @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
         @test objective_value(result.upper.model) ≈ 1550.
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
 
     end
 

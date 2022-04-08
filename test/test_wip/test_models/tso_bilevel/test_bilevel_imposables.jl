@@ -54,8 +54,16 @@ using Printf
            load(bus_1)  |                      |load(bus_2)
       S1: 30            |                      | S1: 30
 
-    
-    FIXME!
+
+    Market :
+        The market uses prod_1_1 to satisfy all the demand
+        This causes no RSO constraints
+
+    TSO : does not to take any action
+        lol_min = p_cut_conso_min = 0.
+        prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+        prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+
     =#
     @testset "no_risk_of_breaking_rso_constraint" begin
 
@@ -93,11 +101,8 @@ using Printf
         @test 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
 
-        @test objective_value(result.upper.model) < 1e-09
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
+        @test value(PSCOPF.get_upper_obj_expr(result)) < 1e-09
+        @test value(PSCOPF.get_lower_obj_expr(result)) ≈ (60. * 10.)
 
     end
 
@@ -114,16 +119,28 @@ using Printf
                         |                      |
                         |                      |
            load(bus_1)  |                      |load(bus_2)
-      S1: 10            |                      | S1: 100   
+      S1: 10            |                      | S1: 100
 
-    prod_1_1 is cheaper than prod_2_1
-     but using only prod_1_1, like a market would, will cause RSO problems
-    => The TSO needs to oblige
-            bus1 to produce at most 10+35=45 => P_1_1 in [0,45] => cost : 200-45=155
-            bus2 to produce at least 100-35=65 => P_2_1 in [65,200] => cost : 65
-        Imposing one of the preceding conditions guarantees RSO constraint
-        => TSO will impose one of the two preceding conditions, the cheaper one
+    Market :
+        market would use prod_1_1 at 110MW cause it is cheaper
+        This would cause a RSO constraint (flow of 100 > 35)
 
+    TSO needs to anticipate to prevent that:
+        option 1 : oblige prod_1_1 to produce at most 10+35=45 => P_1_1 in [0,45]
+            => cost : 200-45=155
+        option 2 : oblige prod_2_1 to produce at least 100-35=65 => P_2_1 in [65,200]
+            => cost : 65
+
+    Only obliging one of the options + EOD constraint is enough.
+    The cheaper option is chosen : option 2
+        lol_min = p_cut_conso_min = 0.
+        prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+        prod_2_1 : p_tso_min=65.  p_tso_max=200
+
+    Market solution :
+        lol = p_cut_conso = 0.
+        prod_1_1 : 45.
+        prod_2_1 : 65.
     =#
     @testset "rso_constraint_requires_setting_imposables_bounds" begin
 
@@ -157,15 +174,12 @@ using Printf
         @test 65. ≈ value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"])
         @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
 
-        #Market chooses the levels sets the bounds for imposable production
+        #Market chooses the levels respecting the bounds for imposable production
         @test 45. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
-        @test objective_value(result.upper.model) ≈ ( 65 )
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
+        @test value(PSCOPF.get_upper_obj_expr(result)) ≈ ( 65 )
+        @test value(PSCOPF.get_lower_obj_expr(result)) ≈ ( 45*10 + 65*50. )
 
     end
 
@@ -184,9 +198,25 @@ using Printf
            load(bus_1)  |                      |load(bus_2)
       S1: 400           |                      | S1: 20
 
-    No risk of RSO constraint breaking, but EOD cannot be satisfied
-        => the market needs to cut conso
-        => the TSO will locate the bus where we cut
+    Market :
+        Possible prod : 400,  Demand : 420
+        market will use prod_1_1 and prod_2_1 (=> 400MW)
+        market will need to cut 20MW
+        This will not cause RSO constraints violation
+
+    TSO does not need to intervene
+        lol_min = p_cut_conso_min = 0.
+        prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+        prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+
+        The TSO will locate the LoL on either of bus 1 or 2
+        p_cut_conso[bus1] + p_cut_conso[bus2] = 20
+
+    Market solution :
+        lol = p_cut_conso = 20.
+        prod_1_1 : 200.
+        prod_2_1 : 200.
+
     =#
     @testset "eod_problem_requires_cutting_conso" begin
 
@@ -216,23 +246,21 @@ using Printf
         @test 20. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"])
                     + value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"]) )
 
-        #TSO sets the bounds for imposable production respecting units' pmin and pmax
+        #TSO does not need to bound imposables
         #prod_1_1 is not bound
         @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
         @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-        #prod_2_1 bounding + EOD, guarantees RSO constraints
+        #prod_2_1 is not bound
         @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
         @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
 
-        #Market chooses the levels sets the bounds for imposable production
+        #Market chooses the levels respecting the bounds for imposable production
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
-        @test objective_value(result.upper.model) < 1e-09
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
+        @test value(PSCOPF.get_upper_obj_expr(result)) < 1e-09
+        @test value(PSCOPF.get_lower_obj_expr(result)) ≈ ( 200*10. + 200*50.
+                                                        + 20 *tso.configs.MARKET_CUT_CONSO_PENALTY)
 
     end
 
@@ -241,15 +269,38 @@ using Printf
     S: [S1,S2]
                         bus 1                   bus 2
                         |                      |
-    (limitable) prod_1_1|       "1_2"          |prod_2_1
+    (limitable) prod_1_1|                      |prod_2_1
     Pmin=0, Pmax=200    |                      |Pmin=0, Pmax=200
-    Csta=0, Cprop=10    |                      |Csta=0, Cprop=50
+    Csta=0, Cprop=10    |        "1_2"         |Csta=0, Cprop=50
                         |----------------------|
                         |         180          |
                         |                      |
                         |                      |
            load(bus_1)  |                      |load(bus_2)
       S1: 400           |                      | S1: 20
+
+    Market :
+        Possible prod : 400,  Demand : 420
+        market will use prod_1_1 and prod_2_1 (=> 400MW)
+        market will need to cut 20MW
+
+    If load is cut from bus 1 => no problem
+    If load is cut from bus 2 => RSO constraint violation
+
+    TSO needs to prevent this by locating the cut conso on bus 2
+        option 1 : limit prod2 to 0-20
+        lol_min = p_cut_conso_min = 0.
+        prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+        prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
+
+        The TSO will locate the LoL on bus 1 to avoid the constraint violation
+        p_cut_conso[bus1] = 20
+        p_cut_conso[bus2] = 0
+
+    Market solution :
+        lol = p_cut_conso = 20.
+        prod_1_1 : 200.
+        prod_2_1 : 200.
 
     =#
     @testset "eod_and_rso_problems_require_cutting_conso_and_locating_it" begin
@@ -280,26 +331,20 @@ using Printf
         @test 20. ≈ value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"])
         @test value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"]) < 1e-09
 
-        #TSO sets the bounds for imposable production respecting units' pmin and pmax
+        #TSO does not need to bound imposables
         #prod_1_1 is not bound
         @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
         @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-        #prod_2_1 bounding + EOD, guarantees RSO constraints
+        #prod_2_1 is not bound
         @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
         @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
 
-        #Market chooses the levels sets the bounds for imposable production
+        #Market chooses the levels respecting the bounds for imposable production
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
 
         @test objective_value(result.upper.model) < 1e-09
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
-
     end
-
-    
 
 end

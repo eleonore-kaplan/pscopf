@@ -51,10 +51,25 @@ using Printf
         return context
     end
 
-    @testset "no_risk_of_breaking_rso_constraint" begin
+    @testset "importance_of_input_unit_states_for_tso_bilevel" begin
         #=
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        These tests show the importance of the preceding ech decisions as it will affect the TSO decisions
+        Here, we illustrate different starting cases.
+        Since the preceding modules may have been launched on different uncertainties,
+         we can consider arbitrary starting scenarios.
+        This proves the importance of the hypothesis that a TSOBilevel model considers a balanced state as input.
+
+        The current model does not allow the TSO to make efficient starting decisions.
+         In addition, its limitation decisions affect the performance of the markets.
+
+        The only thing that changes in the testcases is the preceding decision on the unit's start state.
+        (these are the decisions at ech-1 for ts and not the generator initial state at ts-1)
+        =#
+
+
+        #=
+        TS: [11h]
+        S: [S1]
                             bus 1                   bus 2
                             |                      |
         (limitable) prod_1_1|       "1_2"          |prod_2_1
@@ -67,14 +82,26 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         S1: 30              |                      | S1: 30
 
-        Suppose market starts prod_1_1 and prod_2_1
+        Suppose market started prod_1_1 and prod_2_1 at the preceding ech.
+
         There are no RSO constraints
         => TSO does not have to undertake an action
-        => he keeps the started units at their bounds
+        => TSO keeps the started units at their bounds
         => prod_1_1 : 20 -> 200
            prod_2_1 : 20 -> 200
+
+        Bilevel Market decision would be :
+            prod_1_1 : 40 (economically preferred)
+            prod_2_1 : 20 (to respect imposed minimum)
+
+        However, the next market module decision without the limitation constraints would have been:
+            prod_1_1 : 60 (economically preferred)
+            prod_2_1 : 0 (shut down)
+            => the limitation constraints lead to higher costs for no RSO reason
+
+        FIXME?
         =#
-        @testset "no_risk_of_breaking_rso_constraint_on_on" begin
+        @testset "tso_avoids_shutting_down_units" begin
 
             context = create_instance(30., 30.,
                                     PSCOPF.ON, PSCOPF.ON,
@@ -113,20 +140,16 @@ using Printf
 
             @test - 1e-09 < objective_value(result.upper.model) < 1e-09
 
-            for var in all_variables(result.model)
-                println(name(var), " = ", value(var))
-            end
-
         end
 
         #=
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        TS: [11h]
+        S: [S1]
                             bus 1                   bus 2
                             |                      |
-        (limitable) prod_1_1|       "1_2"          |prod_2_1
+        (limitable) prod_1_1|                      |prod_2_1
         Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
-        Csta=1k, Cprop=10   |                      |Csta=5k, Cprop=50
+        Csta=1k, Cprop=10   |        "1_2"         |Csta=5k, Cprop=50
                             |----------------------|
                             |         35           |
                             |                      |
@@ -134,21 +157,31 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         S1: 30              |                      | S1: 30
 
-        Suppose market did not start any of prod_1_1 and prod_2_1 (e.g. market was not launched before tso)
+        Suppose market did not start any of prod_1_1 nor prod_2_1 (first TSO launch ?)
         The EOD constraint would be violated
         but there are no RSO constraints
-        => TSO does not have to undertake an action cause EOD is not his responsibility
-        => he keeps the units shut down
+        => TSO does not have to undertake any actions cause EOD is not his responsibility
+        => TSO keeps the units shut down
+
+        COST for TSO : 0. (no limitations cause units were already shutdown, no LoL for RSO reasons)
+        However, if the TSO had started any of the units he would have fixed its minimum production,
+        Thus, he would have paid for it.
+
         PROBLEM : the following market will not be able to start the units due to the impositions
         => prod_1_1 : 0
            prod_2_1 : 0
-           These cost 0.
            But the market will need to cut all the conso
+           market cost : LoL(60MW)
 
-        If the TSO had started any of the units he would have fixed its minimum production,
-        Thus, he would have paid for it.
+        However, the next market module decision without the limitation constraints would have been:
+            prod_1_1 : 60 (economically preferred)
+            prod_2_1 : 0 (shut down)
+            => the limitation constraints lead to LoL for no reason
+
+        FIXME?
+        we want TSO to start prod_1_1 without limiations (i.e 20-200) => costs 20. for tso
         =#
-        @testset "tso_bilevel_must_be_launched_after_a_market_off_off" begin
+        @testset "tso_bilevel_does_not_start_units_for_eod_reasons_from_off" begin
             #no_risk_of_breaking_rso_constraint_off_off
 
             context = create_instance(30., 30.,
@@ -163,42 +196,46 @@ using Printf
                         PSCOPF.get_target_timepoints(context),
                         context)
 
-            # Solution is optimal
+            # Solution status
             @test_broken PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+            @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
             @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
 
-            #Market EOD constraints are OK
+            #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
             @test_broken value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
 
-            #TSO does not need to bound imposables
-            #prod_1_1 is not bound
+            #TSO impositions
+            #prod_1_1
             @test_broken 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
             @test_broken 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-            #prod_2_1 is not bound
+            @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            #prod_2_1
             @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
             @test value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
             #Market chooses the levels respecting the bounds for imposable production
             @test_broken 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
             @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"]) < 1e-09
 
-            @test_broken - 1e-09 < objective_value(result.upper.model) ≈ 20.
-
-            for var in all_variables(result.model)
-                println(name(var), " = ", value(var))
-            end
+            @test_broken value(PSCOPF.get_upper_obj_expr(result)) ≈ 20.
+            @test_broken value(PSCOPF.get_lower_obj_expr(result)) ≈ (60 * 10.)
+            @test value(PSCOPF.get_upper_obj_expr(result))  < 1e-09
+            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_CUT_CONSO_PENALTY
 
         end
 
         #=
-        same as above : 
+        same as above :
 
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        TS: [11h]
+        S: [S1]
                             bus 1                   bus 2
                             |                      |
         (limitable) prod_1_1|       "1_2"          |prod_2_1
@@ -211,7 +248,9 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         S1: 30              |                      | S1: 30
 
-        Suppose market did not start any of prod_1_1 and prod_2_1
+        Suppose we still haven't decided the state of prod_1_1 nor prod_2_1 (first TSO launch ?)
+        This is similar to the preceding since we have the same cost expressions for missing or OFF units
+
         The EOD constraint would be violated
         but there are no RSO constraints
         => TSO does not have to undertake an action cause EOD is not his responsibility
@@ -224,8 +263,10 @@ using Printf
 
         If the TSO had started any of the units he would have fixed its minimum production,
         Thus, he would have paid for it.
+
+        FIXME? issue if first tso bilevel (mode 3)
         =#
-        @testset "tso_bilevel_must_be_launched_after_a_market_missing_missing" begin
+        @testset "tso_bilevel_does_not_start_units_for_eod_reasons_from_missing" begin
             # no_risk_of_breaking_rso_constraint_missing_missing
             context = create_instance(30., 30.,
                                     missing, missing,
@@ -239,40 +280,44 @@ using Printf
                         PSCOPF.get_target_timepoints(context),
                         context)
 
-            # Solution is optimal
+            # Solution status
             @test_broken PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
+            @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
             @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
 
-            #Market EOD constraints are OK
+            #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
             @test_broken value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
 
-            #TSO does not need to bound imposables
-            #prod_1_1 is not bound
+            #TSO impositions
+            #prod_1_1
             @test_broken 20. ≈ value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
             @test_broken 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-            #prod_2_1 is not bound
+            @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            #prod_2_1
             @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
             @test value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
             #Market chooses the levels respecting the bounds for imposable production
             @test_broken 60. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
             @test value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"]) < 1e-09
 
-            @test_broken - 1e-09 < objective_value(result.upper.model) ≈ 20.
-
-            for var in all_variables(result.model)
-                println(name(var), " = ", value(var))
-            end
+            @test_broken value(PSCOPF.get_upper_obj_expr(result)) ≈ 20.
+            @test_broken value(PSCOPF.get_lower_obj_expr(result)) ≈ (60 * 10.)
+            @test value(PSCOPF.get_upper_obj_expr(result))  < 1e-09
+            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_CUT_CONSO_PENALTY
 
         end
 
         #=
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        TS: [11h]
+        S: [S1]
                             bus 1                   bus 2
                             |                      |
         (limitable) prod_1_1|       "1_2"          |prod_2_1
@@ -288,10 +333,14 @@ using Printf
         Suppose market only started prod_1_1
         There are no RSO constraints
         => TSO does not have to undertake an action
-        => he keeps the unit prod_2_1 shut
+        => he keeps the unit prod_2_1 shutdown
         => prod_1_1 : 20 -> 200 : cost 0.
            prod_2_1 : 0 : cost 0.
-           These cost 0.
+           TSO cost : 0.
+
+        The Bilevel market will use prod_1_1 to produce 60MW
+
+        The same behaviour will be observed by the following market module
         =#
         @testset "no_risk_of_breaking_rso_constraint_on_off" begin
 
@@ -318,11 +367,11 @@ using Printf
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
             @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
 
-            #TSO does not need to bound imposables
-            #prod_1_1 is not bound
+            #TSO impositions
+            #prod_1_1
             @test 20. ≈value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"])
             @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-            #prod_2_1 is not bound
+            #prod_2_1
             @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
             @test value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
@@ -332,15 +381,11 @@ using Printf
 
             @test - 1e-09 < objective_value(result.upper.model) < 1e-09
 
-            for var in all_variables(result.model)
-                println(name(var), " = ", value(var))
-            end
-
         end
 
         #=
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        TS: [11h]
+        S: [S1]
                             bus 1                   bus 2
                             |                      |
         (limitable) prod_1_1|       "1_2"          |prod_2_1
@@ -356,14 +401,14 @@ using Printf
         Suppose market only started prod_2_1
         There are no RSO constraints
         => TSO does not have to undertake an action
-        => he keeps the unit prod_1_1 shut
+        => TSO keeps the unit prod_1_1 shutdown
         => prod_1_1 : 0 : cost 0.
            prod_2_1 : 20 -> 200 : cost 0.
            These cost 0.
 
-        If he had imposed prod_1_1's starting, he would have paid for that : 20
+        If TSO had imposed prod_1_1's starting, TSO would have paid : 20
         =#
-        @testset "no_risk_of_breaking_rso_constraint_off_on" begin
+        @testset "tso_follows_preceding_market_starts" begin
 
             context = create_instance(30., 30.,
                                     PSCOPF.OFF, PSCOPF.ON,
@@ -402,21 +447,17 @@ using Printf
 
             @test objective_value(result.upper.model)  < 1e-09
 
-            for var in all_variables(result.model)
-                println(name(var), " = ", value(var))
-            end
-
         end
 
     end
 
     #=
-    TS: [11h, 11h15]
-    S: [S1,S2]
+    TS: [11h]
+    S: [S1]
                         bus 1                   bus 2
                         |                      |
     (limitable) prod_1_1|       "1_2"          |prod_2_1
-    Pmin=0, Pmax=200    |                      |Pmin=0, Pmax=200
+    Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
     Csta=0, Cprop=10    |                      |Csta=0, Cprop=50
                         |----------------------|
                         |         35           |
@@ -484,19 +525,15 @@ using Printf
 
         @test 65. ≈ objective_value(result.upper.model)
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
-
     end
 
     #=
-    TS: [11h, 11h15]
-    S: [S1,S2]
+    TS: [11h]
+    S: [S1]
                         bus 1                   bus 2
                         |                      |
     (limitable) prod_1_1|       "1_2"          |prod_2_1
-    Pmin=0, Pmax=200    |                      |Pmin=0, Pmax=200
+    Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
     Csta=0, Cprop=10    |                      |Csta=0, Cprop=50
                         |----------------------|
                         |         35           |
@@ -509,13 +546,18 @@ using Printf
         because prod_1_1 is cheaper, it will be used at max capa i.e. 200.
         This will cause an RSO constraint on branch 1_2
 
-    TSO needs to solve the RSO constraint by limiting prod_1_1 at [20, 45]
-        => limit using prod_1_1 to 10+35=45
-        prod_1_1 : 20 -> 45 : cost : 200-45 = 155
-        prod_2_1 : 20 -> 200
+    TSO needs to solve the RSO constraint by
+    option 1 : limit using prod_1_1 to 10+35=45
+        => limitng prod_1_1 at [20, 45]
+        prod_1_1 : 20 -> 45, cost : 200-45 = 155
+        prod_2_1 : 20 -> 200, cost : 0.
         => costs 155
+    option 2 : cut conso on bus 2 (expensive)
 
-    This however will cause a EOD disbalance in market => cut_conso = 65
+    option 1 is adopted.
+    This however will cause an EOD disbalance in market
+     cause demand=310, capacity=245
+     => market needs to cut_conso by 65
     =#
     @testset "rso_constraint_requires_setting_imposables_bounds_max" begin
 
@@ -560,21 +602,15 @@ using Printf
 
         @test 155. ≈ objective_value(result.upper.model)
 
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
-
     end
 
-    #TODO : use prop cost instead of the bounding_cost (1.)
-
     #=
-    TS: [11h, 11h15]
-    S: [S1,S2]
+    TS: [11h]
+    S: [S1]
                         bus 1                   bus 2
                         |                      |
     (limitable) prod_1_1|       "1_2"          |prod_2_1
-    Pmin=0, Pmax=200    |                      |Pmin=0, Pmax=200
+    Pmin=20, Pmax=200   |                      |Pmin=20, Pmax=200
     Csta=0, Cprop=10    |                      |Csta=0, Cprop=50
                         |----------------------|
                         |         500          |
@@ -627,10 +663,6 @@ using Printf
         #Market chooses the levels sets the bounds for imposable production
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
         @test 200. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
-
-        for var in all_variables(result.model)
-            println(name(var), " = ", value(var))
-        end
 
     end
 
