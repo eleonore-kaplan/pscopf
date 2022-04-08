@@ -7,6 +7,7 @@ using Printf
 using Parameters
 
 @with_kw mutable struct TSOBilevelConfigs
+    TSO_LIMIT_PENALTY::Float64 = 1e-3
     TSO_CUT_CONSO_PENALTY::Float64 = 1e5
     TSO_CAPPING_COST::Float64 = 1.
     TSO_IMPOSABLE_BOUNDING_COST::Float64 = 1.
@@ -155,6 +156,13 @@ end
 
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
     return has_positive_value(model_container.lower.slack_model.p_cut_conso) #If TSO cut => market did too
+end
+
+function get_upper_obj_expr(bilevel_model::TSOBilevelModel)
+    return bilevel_model.upper.objective_model.full_obj
+end
+function get_lower_obj_expr(bilevel_model::TSOBilevelModel)
+    return bilevel_model.lower.objective_model.full_obj
 end
 
 
@@ -578,6 +586,7 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
                                 target_timepoints, scenarios, network,
                                 preceding_market_schedule::Schedule,
                                 capping_cost, cut_conso_cost,
+                                limit_penalty,
                                 imposable_bounding_cost,
                                 use_prop_cost_for_bounding::Bool)
     objective_model = model_container.objective_model
@@ -592,8 +601,9 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
     # limitable_cost : capping (fr. ecretement)
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping_min, capping_cost)
 
-    # cost for cutting load/consumption
+    # cost for cutting consumption (lol) and avoid limiting for no reason
     objective_model.penalty += coeffxsum(model_container.slack_model.p_cut_conso_min, cut_conso_cost)
+    objective_model.penalty += coeffxsum(model_container.limitable_model.b_is_limited, limit_penalty)
 
     objective_model.full_obj = ( objective_model.imposable_cost +
                                 objective_model.limitable_cost +
@@ -1188,6 +1198,7 @@ function tso_bilevel(network::Networks.Network,
                         target_timepoints, scenarios, network,
                         preceding_market_schedule,
                         configs.TSO_CAPPING_COST, configs.TSO_CUT_CONSO_PENALTY,
+                        configs.TSO_LIMIT_PENALTY,
                         configs.TSO_IMPOSABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)
 
     solve!(bimodel_container_l, configs.problem_name, configs.out_path)
