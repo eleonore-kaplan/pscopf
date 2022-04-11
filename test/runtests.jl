@@ -59,4 +59,7 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/example_usecase.jl")
     include("test_wip/example_usecase_from_folder.jl")
 
+    include("test_wip/test_sequence/test_bileveltso_market.jl")
+
+
 end

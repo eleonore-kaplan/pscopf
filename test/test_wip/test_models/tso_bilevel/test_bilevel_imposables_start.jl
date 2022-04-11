@@ -99,7 +99,7 @@ using Printf
             prod_2_1 : 0 (shut down)
             => the limitation constraints lead to higher costs for no RSO reason
 
-        FIXME?
+        FIXME? we may want the TSO to shutdown one of the units
         =#
         @testset "tso_avoids_shutting_down_units" begin
 
