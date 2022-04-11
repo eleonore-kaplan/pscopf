@@ -545,6 +545,10 @@ end
 function Base.show(io::IO, schedule::Schedule)
     @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
     pretty_print(io, schedule.generator_schedules)
+    println("capping:")
+    pretty_print(io, schedule.capping)
+    println("cut_conso_by_bus:")
+    pretty_print(io, schedule.cut_conso_by_bus)
 end
 
 

@@ -6,10 +6,16 @@ using DataStructures
 using Printf
 using Parameters
 
+"""
+REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO schedule as a reference.
+                    The reference schedule is used to get decided commitment and production levels if
+                      tso actions are missing.
+"""
 @with_kw mutable struct TSOConfigs
     cut_conso_penalty = 1e7
     out_path = nothing
     problem_name = "TSO"
+    REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
 end
 
 
@@ -96,7 +102,6 @@ function add_limitable!(limitable_model::TSOLimitableModel, model::Model,
                         scenarios::Vector{String},
                         inject_uncertainties::InjectionUncertainties,
                         power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        preceding_limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64},
                         preceding_market_subschedule::GeneratorSchedule
                         )
     gen_id = Networks.get_id(generator)
@@ -123,7 +128,6 @@ function add_limitables!(model_container::TSOModel, network::Networks.Network,
                         scenarios::Vector{String},
                         uncertainties_at_ech::UncertaintiesAtEch,
                         firmness::Firmness,
-                        preceding_limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64},
                         preceding_market_schedule::Schedule
                         )
     limitable_model = model_container.limitable_model
@@ -138,7 +142,6 @@ function add_limitables!(model_container::TSOModel, network::Networks.Network,
                         scenarios,
                         get_uncertainties(uncertainties_at_ech, gen_id),
                         get_power_level_firmness(firmness, gen_id),
-                        preceding_limitations,
                         get_sub_schedule(preceding_market_schedule, gen_id)
                         )
     end
@@ -153,7 +156,7 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                         generator_initial_state::GeneratorState,
                         commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
                         power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        preceding_tso_subschedule::GeneratorSchedule,
+                        reference_subschedule::GeneratorSchedule,
                         preceding_market_subschedule::GeneratorSchedule
                         )
     #FIXME take into account the preceding TSOActions ? or not (cause they are already included in the tso_schedule)
@@ -169,17 +172,18 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
         end
     end
 
-    add_power_level_firmness_constraints!(model, generator,
+    add_scenarios_linking_constraints!(model, generator,
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
-                                        power_level_firmness
+                                        power_level_firmness,
+                                        false
                                         )
-    
+
     add_power_level_sequencing_constraints!(model, generator,
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
-                                        preceding_tso_subschedule
+                                        reference_subschedule
                                         #does not consider TSOActions
                                         )
 
@@ -187,12 +191,19 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
         add_commitment!(imposable_model, model, generator,
                         target_timepoints, scenarios, generator_initial_state
                         )
-        add_commitment_firmness_constraints!(model, generator,
+        #linking b_on scenarios => linking b_start
+        add_scenarios_linking_constraints!(model,
+                                        generator, imposable_model.b_on,
+                                        target_timepoints, scenarios,
+                                        commitment_firmness, false
+                                        )
+
+        add_commitment_sequencing_constraints!(model, generator,
                                             imposable_model.b_on,
                                             imposable_model.b_start,
                                             target_timepoints, scenarios,
                                             commitment_firmness,
-                                            preceding_tso_subschedule
+                                            reference_subschedule
                                             #no commitment actions
                                             )
     end
@@ -205,7 +216,7 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
                         scenarios::Vector{String},
                         generators_initial_state::SortedDict{String,GeneratorState},
                         firmness::Firmness,
-                        preceding_tso_schedule::Schedule,
+                        reference_schedule::Schedule,
                         preceding_market_schedule::Schedule
                         )
     imposable_generators = Networks.get_generators_of_type(network, Networks.IMPOSABLE)
@@ -219,7 +230,7 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
                         gen_initial_state,
                         get_commitment_firmness(firmness, gen_id),
                         get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(preceding_tso_schedule, gen_id),
+                        get_sub_schedule(reference_schedule, gen_id),
                         get_sub_schedule(preceding_market_schedule, gen_id)
                         )
     end
@@ -397,7 +408,6 @@ function tso_out_fo(network::Networks.Network,
                     firmness::Firmness,
                     preceding_market_schedule::Schedule,
                     preceding_tso_schedule::Schedule,
-                    preceding_tso_actions::TSOActions,
                     gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::TSOConfigs
                     )
@@ -409,17 +419,23 @@ function tso_out_fo(network::Networks.Network,
                     scenarios,
                     uncertainties_at_ech,
                     firmness,
-                    get_limitations(preceding_tso_actions),
                     preceding_market_schedule
                     )
 
-    # TODO : check coherence between : preceding_tso_schedule and TSOActions.impositions
+    # TODO : check coherence between : preceding_reference_schedule and TSOActions.impositions cause we do not consider TSOActions
+    if is_market(configs.REF_SCHEDULE_TYPE)
+        reference_schedule = preceding_market_schedule
+    elseif is_tso(configs.REF_SCHEDULE_TYPE)
+        reference_schedule = preceding_tso_schedule
+    else
+        throw( error("Invalid REF_SCHEDULE_TYPE config.") )
+    end
     add_imposables!(model_container_l,
                     network, target_timepoints,
                     scenarios,
                     generators_initial_state,
                     firmness,
-                    preceding_tso_schedule,
+                    reference_schedule,
                     preceding_market_schedule)
 
     add_slacks!(model_container_l,

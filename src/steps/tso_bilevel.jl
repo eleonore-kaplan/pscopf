@@ -23,7 +23,6 @@ function run(runnable::TSOBilevel, ech::Dates.DateTime, firmness, TS::Vector{Dat
                     firmness,
                     get_market_schedule(context),
                     get_tso_schedule(context),
-                    get_tso_actions(context),
                     runnable.configs
                     )
 end
@@ -49,7 +48,7 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
         end
     end
 
-    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
+    for ((gen_id, ts, s), b_on_var) in result.upper.imposable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(tso_schedule, gen_id, ts, s, gen_state_value)
@@ -92,13 +91,15 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     # Limitations : only firm i.e. value is common to all scenarios
     limitations = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
     for ((gen_id, ts, s), p_limit_var) in result.upper.limitable_model.p_limit
-        if (result.upper.limitable_model.b_is_limited[gen_id, ts, s] > 1e-09)
-            if !runnable.configs.LINK_SCENARIOS_LIMIT
-                #FIXME : may encounter problems if runnable.configs.LINK_SCENARIOS_LIMIT==false, cause limitations are firm
+        if (value(result.upper.limitable_model.b_is_limited[gen_id, ts, s]) > 1e-09)
+            if ( get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
+                || runnable.configs.LINK_SCENARIOS_LIMIT )
+                @assert( value(p_limit_var) ≈ get!(limitations, (gen_id, ts), value(p_limit_var)) ) #TODELETE : checks that all values are the same across scenarios
+                set_limitation_value!(tso_actions, gen_id, ts, value(p_limit_var))
+            else
+                #FIXME : may encounter problems if runnable.configs.LINK_SCENARIOS_LIMIT==false, cause limitations are supposed firm
                 @warn "FIXME? : need to fix limitation actions to a by scenario before DP"
             end
-            @assert( value(p_limit_var) ≈ get!(limitations, (gen_id, ts), value(p_limit_var)) ) #TODELETE : checks that all values are the same across scenarios
-            set_limitation_value!(tso_actions, gen_id, ts, value(p_limit_var))
         #else : will remain missing
         end
     end
