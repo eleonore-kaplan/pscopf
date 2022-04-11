@@ -15,7 +15,7 @@ using Dates
         @test ismissing( PSCOPF.get_limitation(tso_actions, "lim_1", ts) )
 
         @test isempty( PSCOPF.get_impositions(tso_actions) )
-        @test ismissing( PSCOPF.get_imposition(tso_actions, "imp", ts) )
+        @test ismissing( PSCOPF.get_imposition(tso_actions, "imp", ts, "S1") )
 
         @test isempty( PSCOPF.get_commitments(tso_actions) )
         @test ismissing( PSCOPF.get_commitment(tso_actions, "imp", ts) )
@@ -25,8 +25,8 @@ using Dates
         tso_actions = PSCOPF.TSOActions()
         PSCOPF.set_limitation_value!(tso_actions, "lim_1", ts, 300.)
         PSCOPF.set_limitation_value!(tso_actions, "lim_2", ts, 90.)
-        PSCOPF.set_imposition_value!(tso_actions, "imp", ts, 2., 10.)
-        PSCOPF.set_imposition_value!(tso_actions, "imp", ts2, 55., 55.)
+        PSCOPF.set_imposition_value!(tso_actions, "imp", ts, "S1", 2., 10.)
+        PSCOPF.set_imposition_value!(tso_actions, "imp", ts2, "S1", 55., 55.)
         PSCOPF.set_commitment_value!(tso_actions, "imp", ts, PSCOPF.OFF) #careful : no coherence check, imposition_value is 2. but generator is off
         PSCOPF.set_commitment_value!(tso_actions, "imp", ts2, PSCOPF.ON)
 
@@ -35,11 +35,11 @@ using Dates
         @test PSCOPF.get_limitation(tso_actions, "lim_2", ts) == 90.
 
         @test length( PSCOPF.get_impositions(tso_actions) ) == 2
-        @test PSCOPF.get_imposition(tso_actions, "imp", ts) == (2., 10.)
-        @test PSCOPF.get_imposition(tso_actions, "imp", ts2) == (55., 55.)
+        @test PSCOPF.get_imposition(tso_actions, "imp", ts, "S1") == (2., 10.)
+        @test PSCOPF.get_imposition(tso_actions, "imp", ts2, "S1") == (55., 55.)
 
-        @test_throws ErrorException PSCOPF.get_imposition_level(tso_actions, "imp", ts)
-        @test PSCOPF.get_imposition_level(tso_actions, "imp", ts2) == 55.
+        @test_throws ErrorException PSCOPF.get_imposition_level(tso_actions, "imp", ts, "S1") #cause imposition[1] !=  imposition[2] => bounds not a level
+        @test PSCOPF.get_imposition_level(tso_actions, "imp", ts2, "S1") == 55.
 
         @test length( PSCOPF.get_commitments(tso_actions) ) == 2
         @test PSCOPF.get_commitment(tso_actions, "imp", ts) == PSCOPF.OFF

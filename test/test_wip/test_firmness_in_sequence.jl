@@ -53,6 +53,7 @@ TS2:                                                    D        X    <--DP=DMO-
         end
         function PSCOPF.run(runnable::MockRunnable, ech, firmness, TS, context::PSCOPF.AbstractContext)
             firmness_history[ech] = firmness
+            return nothing
         end
 
         sequence = PSCOPF.Sequence(SortedDict(

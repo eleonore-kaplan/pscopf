@@ -39,47 +39,13 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
 end
 
 ################################################################################
-####       MARKET
-################################################################################
-
-# EnergyMarket : c.f. energy_market.jl
-# EnergyMarketAtFO : c.f. energy_market_at_fo.jl
-
-
-"""
-utilisé pour les modes 2
-et 3 ?
-"""
-struct BalanceMarket <: AbstractMarket
-end
-function run(runnable::BalanceMarket, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("\tJe me base sur le planning marché (potentiellemnt maj par le TSO) pour les arrets/démarrage des unités : ",
-            get_market_schedule(context).decider_type, ",",get_market_schedule(context).decision_time
-            )
-    println("\tJe ne regarde pas le planning du TSO.")
-    println("\tC'est le dernier lancement du marché => je prends des décision fermes.")
-    return #result
-end
-function update_market_schedule!(context::AbstractContext, ech, result, firmness,
-                                runnable::BalanceMarket)
-    market_schedule = get_market_schedule(context)
-    market_schedule.decider_type = DeciderType(runnable)
-    market_schedule.decision_time = ech
-    println("\tJe mets à jour le planning du marché: ",
-            market_schedule.decider_type, ",",market_schedule.decision_time,
-            " en me basant sur les résultats d'optimisation.",
-            " et je ne touche pas au planning du TSO")
-end
-
-
-################################################################################
 ####       Firmness
 ################################################################################
 
 function compute_firmness(runnable::AbstractRunnable,
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("Initialisation de la fermeté des décisions.")
+    @debug "compute decisions firmness"
     generators = collect(Networks.get_generators(get_network(context)))
     return compute_firmness(ech, next_ech, TS, generators)
 end
@@ -90,7 +56,7 @@ end
 function compute_firmness(runnable::Union{EnergyMarketAtFO,TSOAtFOBiLevel},
                     ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
                     TS::Vector{Dates.DateTime}, context::AbstractContext)
-    println("Initialisation de la fermeté des décisions : DECIDED ou TO_DECIDE")
+    @debug "compute decisions firmness : only firm decisions (DECIDED or TO_DECIDE)"
     next_ech = nothing
     generators = collect(Networks.get_generators(get_network(context)))
     return compute_firmness(ech, next_ech, TS, generators)
@@ -111,6 +77,11 @@ struct EnterFO <: AbstractRunnable
 end
 function run(runnable::EnterFO, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     println("-----Entrée dans la fenêtre opérationnelle-----")
-    return #result
+    return nothing #result
+end
+function compute_firmness(runnable::EnterFO,
+                        ech::Dates.DateTime, next_ech::Union{Nothing,Dates.DateTime},
+                        TS::Vector{Dates.DateTime}, context::AbstractContext)
+    return Firmness()
 end
 

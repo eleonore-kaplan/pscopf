@@ -180,14 +180,20 @@ function get_generators(network::Network)
     return values(network.generators)
 end
 
-function get_generators_of_type(network::Network, type::GeneratorType)
+function get_generators_of_type(generators, type::GeneratorType)
     selected_generators = Vector{Generator}()
-    for generator in get_generators(network)
+    for generator in generators
         if get_type(generator) == type
             push!(selected_generators, generator)
         end
     end
     return selected_generators
+end
+function get_generators_of_type(bus::Bus, type::GeneratorType)
+    return get_generators_of_type(get_generators(bus), type)
+end
+function get_generators_of_type(network::Network, type::GeneratorType)
+    return get_generators_of_type(get_generators(network), type)
 end
 
 ########################

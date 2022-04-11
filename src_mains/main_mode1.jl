@@ -45,8 +45,6 @@ output_path = length(ARGS) > 1 ? ARGS[2] : instance_path
 network = PSCOPF.Data.pscopfdata2network(instance_path)
 uncertainties = PSCOPF.PSCOPFio.read_uncertainties(instance_path)
 generators_init_state = PSCOPF.PSCOPFio.read_initial_state(instance_path)
-println("init_state: ")
-PSCOPF.pretty_print(stdout, generators_init_state)
 
 # Launch mode 1
 mode = PSCOPF.PSCOPF_MODE_1

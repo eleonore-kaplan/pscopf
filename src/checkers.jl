@@ -295,9 +295,9 @@ end
 
 function check(context)
     #TODO replace & with &&
+    check_fo_compatibility(get_network(context), get_fo_length(get_management_mode(context)))
     return (
         check(get_network(context))
-        & check_fo_compatibility(get_network(context), get_fo_length(get_management_mode(context)))
         & check_dmo_compatibility(get_network(context), get_horizon_timepoints(context)[1], get_target_timepoints(context)[1])
         & check_uncertainties(get_uncertainties(context), get_network(context))
         & check_initial_state(get_generators_initial_state(context), get_network(context))
@@ -397,7 +397,7 @@ function check_dmo_compatibility(network::Network, ech_1, ts_1)
     for generator in Networks.get_generators(network)
         dmo = Networks.get_dmo(generator)
         if ts_1 - dmo < ech_1
-            msg = @sprintf("DMO of generator %s (=> %s) must be shorter than the farthest horizon (%s). \
+            msg = @sprintf("DMO of generator %s (corresponds to %s) must be at or after the farthest horizon timepoint (%s). \
                             Otherwise, commitment values of the corresponding generator should have already been decided at the first executed step!",
                             Networks.get_id(generator), ts_1-dmo, ech_1)
             @error(msg)
@@ -417,7 +417,7 @@ function check_fo_compatibility(network::Network, fo::Dates.Period)
         if dp > fo
             msg = @sprintf("DP of generator %s (i.e. %s) should be shorter than the FO length (%s)!",
                             Networks.get_id(generator), dp, fo)
-            @error(msg)
+            @warn(msg)
             checks = false
         end
     end

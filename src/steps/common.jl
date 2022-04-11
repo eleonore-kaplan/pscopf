@@ -154,7 +154,6 @@ function add_p_injected!(generator_model::AbstractGeneratorModel, model::Abstrac
                         force_to_max::Bool
                         )::AbstractVariableRef
     name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-    println(typeof(generator_model.p_injected))
 
     if force_to_max
         generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
@@ -308,19 +307,7 @@ function add_imposable_start_cost!(obj_component::AffExpr,
     return obj_component
 end
 
-function add_limitable_prop_cost!(obj_component::AffExpr,
-                                p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
-    for ((gen_id,_,_), p_injected_var) in p_injected
-        generator = Networks.get_generator(network, gen_id)
-        gen_prop_cost = Networks.get_prop_cost(generator)
-        add_to_expression!(obj_component,
-                            p_injected_var * gen_prop_cost)
-    end
-
-    return obj_component
-end
-
-function add_imposable_prop_cost!(obj_component::AffExpr,
+function add_prop_cost!(obj_component::AffExpr,
                                 p_injected::AbstractDict{T,V}, network)  where T <: Tuple where V <: VariableRef
     for ((gen_id,_,_), p_injected_var) in p_injected
         generator = Networks.get_generator(network, gen_id)
@@ -374,17 +361,21 @@ end
 ##################
 
 function link_scenarios!(model::AbstractModel, vars::AbstractDict{Tuple{String,DateTime,String},V},
-                        gen_id::String, ts::DateTime, scenarios::Vector{String}) where V<:AbstractVariableRef
+                        gen_id::String, ts::DateTime, scenarios::Vector{String};
+                        name=nothing) where V<:AbstractVariableRef
     s1 = scenarios[1]
     for (s_index, s) in enumerate(scenarios)
         if s_index > 1
-            @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
+            cstr_l = @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
+            if !isnothing(name)
+                set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
+            end
         end
     end
     return model
 end
 
-function add_keep_off_constraint(model::AbstractModel, b_on_vars, b_start_vars,
+function add_keep_off_constraint!(model::AbstractModel, b_on_vars, b_start_vars,
                                 gen_id, ts, scenarios)
     for s in scenarios
         @constraint(model, b_on_vars[gen_id, ts, s] == 0)
@@ -393,7 +384,7 @@ function add_keep_off_constraint(model::AbstractModel, b_on_vars, b_start_vars,
     return model
 end
 
-function add_commitment_firmness_constraints!(model::AbstractModel,
+function add_commitment_sequencing_constraints!(model::AbstractModel,
                                             generator::Networks.Generator,
                                             b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
@@ -401,26 +392,21 @@ function add_commitment_firmness_constraints!(model::AbstractModel,
                                             scenarios::Vector{String},
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                                             generator_reference_schedule::GeneratorSchedule,
-                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}(),
-                                            always_link_scenarios::Bool=false
+                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
                                             )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if always_link_scenarios || (commitment_firmness[ts] in [DECIDED, TO_DECIDE])
-            link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
-            link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
-        end
 
         tso_action_commitment = get_commitment(commitment_actions, gen_id, ts)
         if !ismissing(tso_action_commitment)
             #TSO Actions OFF will be applied even if firmness is FREE
             if tso_action_commitment == OFF
-                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         elseif commitment_firmness[ts] == DECIDED
             reference_on_val = safeget_commitment_value(generator_reference_schedule, ts)
             if reference_on_val == OFF
-                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         end
     end
@@ -430,14 +416,45 @@ end
 
 function freeze_vars!(model, p_injected_vars,
                         gen_id, ts, scenarios,
-                        imposed_value::Float64)
+                        imposed_value::Float64;
+                        name=nothing)
     for s in scenarios
         @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value <= upper_bound(p_injected_vars[gen_id, ts, s])) )
-        @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
+        @assert( !has_lower_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value >= lower_bound(p_injected_vars[gen_id, ts, s])) )
+        cstr_l = @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
+        if !isnothing(name)
+            set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
+        end
     end
 end
 
-function add_power_level_firmness_constraints!(model::AbstractModel,
+function add_scenarios_linking_constraints!(model::AbstractModel,
+                                                generator::Networks.Generator,
+                                                vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                                target_timepoints::Vector{Dates.DateTime},
+                                                scenarios::Vector{String},
+                                                gen_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                                always_link::Bool
+                                                )
+    @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
+
+    gen_id = Networks.get_id(generator)
+    for ts in target_timepoints
+        if always_link || (gen_firmness[ts] in [DECIDED, TO_DECIDE])
+            link_scenarios!(model, vars, gen_id, ts, scenarios)
+        end
+    end
+
+    return model
+end
+
+"""
+look at tso_actions commitment
+    if unit is off, impose a level of 0.
+If past DP, impose reference scheduled prod
+else, impose bounds for production level
+"""
+function add_power_level_sequencing_constraints!(model::AbstractModel,
                                                 generator::Networks.Generator,
                                                 p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                                 target_timepoints::Vector{Dates.DateTime},
@@ -450,19 +467,34 @@ function add_power_level_firmness_constraints!(model::AbstractModel,
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if power_level_firmness[ts] in [DECIDED, TO_DECIDE]
-            link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
-        end
-
-        imposition_level = get_imposition_level(tso_actions, gen_id, ts)
         tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
-        if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
-            imposition_level = 0.
-        elseif ( power_level_firmness[ts]==DECIDED && ismissing(imposition_level) )
-            imposition_level = safeget_prod_value(generator_reference_schedule,ts)
-        end
-        if !ismissing(imposition_level)
-            freeze_vars!(model, p_injected_vars, gen_id, ts, scenarios, imposition_level)
+
+        for s in scenarios
+            imposition_bounds = missing
+
+            tso_action_impositions = get_imposition(tso_actions, gen_id, ts, s)
+            if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
+                imposition_bounds = (0., 0.)
+            elseif !ismissing(tso_action_impositions)
+                imposition_bounds = (tso_action_impositions[1], tso_action_impositions[2])
+            end
+
+            if power_level_firmness[ts]==DECIDED
+            # => does not allow unit shutdown after DP cause level is forced
+                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
+                @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
+                @assert( ismissing(imposition_bounds) ||
+                        (imposition_bounds[1] <= scheduled_prod <= imposition_bounds[2]) )
+                c_name = @sprintf("c_decided_level[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_injected_vars[gen_id,ts,s] == scheduled_prod, base_name=c_name)
+            elseif !ismissing(imposition_bounds)
+                c_name = @sprintf("c_min_imposition[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
+                c_name = @sprintf("c_max_imposition[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
+                @debug @sprintf("impositions constraints [%s,%s,%s] : [%s,%s]",
+                                gen_id, ts, s, imposition_bounds[1], imposition_bounds[2])
+            end
         end
     end
 
@@ -492,15 +524,35 @@ function add_prod_vars!(model::AbstractModel,
         throw(error("variable var_a needs to be positive to express the product!"))
     end
 
-    var_a_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
-    c_name = @sprintf("c1_%s",name)
-    @constraint(model, var_a_x_b <= var_a, base_name=c_name)
-    c_name = @sprintf("c2_%s",name)
-    @constraint(model, var_a_x_b <= M * var_binary, base_name=c_name)
-    c_name = @sprintf("c3_%s",name)
-    @constraint(model, M*(1-var_binary) + var_a_x_b >= var_a, base_name=c_name)
+    expr_var_a::AffExpr = var_a
+    var_a_x_b = add_prod_expr_x_b!(model, expr_var_a, var_binary, M, name)
 
     return var_a_x_b
+end
+
+function add_prod_expr_x_b!(model::AbstractModel,
+                        expr_a::AffExpr,
+                        var_binary::AbstractVariableRef,
+                        M,
+                        name
+                        )::AbstractVariableRef
+    if !is_binary(var_binary)
+        throw(error("variable var_binary needs to be binary to express the product!"))
+    end
+    if compute_lb(expr_a, -1) < 0
+        c_name = @sprintf("c0_%s",name)
+        @constraint(model, expr_a >= 0., base_name=c_name)
+    end
+
+    var_expra_x_b = @variable(model, base_name=name, lower_bound=0., upper_bound=M)
+    c_name = @sprintf("c1_%s",name)
+    @constraint(model, var_expra_x_b <= expr_a, base_name=c_name)
+    c_name = @sprintf("c2_%s",name)
+    @constraint(model, var_expra_x_b <= M * var_binary, base_name=c_name)
+    c_name = @sprintf("c3_%s",name)
+    @constraint(model, M*(1-var_binary) + var_expra_x_b >= expr_a, base_name=c_name)
+
+    return var_expra_x_b
 end
 
 function formulate_complementarity_constraints!(model::Model,
@@ -532,6 +584,28 @@ function compute_ub(expr::AffExpr, big_m=nothing)
             expr_ub += coeff * lower_bound(var)
         else
             expr_ub = big_m
+            break;
+        end
+    end
+
+    if isnothing(expr_ub)
+        error("need to specify bound for expression $(expr)")
+    end
+
+    return expr_ub
+end
+
+function compute_lb(expr::AffExpr, default_lb=nothing)
+    expr_ub = expr.constant
+    for (coeff, var) in linear_terms(expr)
+        if coeff == 0
+            continue
+        elseif coeff > 0 && has_lower_bound(var)
+            expr_ub += coeff * lower_bound(var)
+        elseif coeff < 0 && has_upper_bound(var)
+            expr_ub += coeff * upper_bound(var)
+        else
+            expr_ub = default_lb
             break;
         end
     end

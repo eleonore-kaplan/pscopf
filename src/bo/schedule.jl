@@ -400,6 +400,16 @@ function safeget_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTi
         return prod
     end
 end
+function safeget_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Float64
+    prod = get_prod_value(sub_schedule, ts, scenario)
+    if ismissing(prod)
+        msg = @sprintf("Missing production value for (ts=%s,s=%s) in schedule %s",
+                        ts, scenario, sub_schedule.gen_id)
+        throw( error(msg) )
+    else
+        return prod
+    end
+end
 
 function get_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime, scenario::String)::Union{GeneratorState, Missing}
     uncertain_value = get_commitment_uncertain_value(sub_schedule, ts)
@@ -535,6 +545,10 @@ end
 function Base.show(io::IO, schedule::Schedule)
     @printf("schedule decided by %s at %s:\n", schedule.decider_type, schedule.decision_time)
     pretty_print(io, schedule.generator_schedules)
+    println("capping:")
+    pretty_print(io, schedule.capping)
+    println("cut_conso_by_bus:")
+    pretty_print(io, schedule.cut_conso_by_bus)
 end
 
 
