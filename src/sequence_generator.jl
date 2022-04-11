@@ -75,6 +75,7 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
     first_ts = seq_generator.target_timepoints[1]
     fo_startpoint = first_ts - get_fo_length(seq_generator.management_mode)
 
+    preceding_ech = nothing
     for ech in seq_generator.horizon_timepoints
         if ech <  first_ts
             if ech < fo_startpoint
@@ -84,17 +85,21 @@ function gen_seq_mode2(seq_generator::SequenceGenerator)
             elseif ech == fo_startpoint
                 add_step!(sequence, EnergyMarketAtFO, ech)
                 add_step!(sequence, EnterFO, ech)
-                add_step!(sequence, TSOBilevel, ech)
+                add_step!(sequence, TSOOutFO, ech)
 
-            else
+            elseif preceding_ech == fo_startpoint
+                add_step!(sequence, TSOBilevel(TSOBilevelConfigs(REF_SCHEDULE_TYPE_IN_TSO=TSO())), ech)
                 add_step!(sequence, BalanceMarket, ech)
-                add_step!(sequence, TSOBilevel, ech)
+            else
+                add_step!(sequence, TSOBilevel(TSOBilevelConfigs(REF_SCHEDULE_TYPE_IN_TSO=Market())), ech)
+                add_step!(sequence, BalanceMarket, ech)
             end
         elseif first_ts < ech
             msg = @sprintf(("Error when generating sequence: ech (%s) is after target timepoint (%s)."),
                             ech, first_ts)
             throw( error(msg) )
         end
+        preceding_ech = ech
     end
 
     add_step!(sequence, Assessment, seq_generator.horizon_timepoints[end])

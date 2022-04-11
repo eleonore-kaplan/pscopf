@@ -58,6 +58,7 @@ function run(runnable::EnergyMarketAtFO,
                         agg_uncertainties,
                         firmness,
                         get_market_schedule(context), #this uses original scenario names
+                        get_tso_schedule(context),
                         tso_actions,
                         gratis_starts,
                         runnable.configs
