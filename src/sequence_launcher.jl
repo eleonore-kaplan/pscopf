@@ -71,11 +71,16 @@ function init!(context_p::AbstractContext, sequence_p::Sequence, check_context::
         @warn("removing files that start with $(PSCOPFio.OUTPUT_PREFIX) in $(context_p.out_dir)")
         rm_prefixed(context_p.out_dir, PSCOPFio.OUTPUT_PREFIX)
     end
-
-    println("Lancement du mode : ", context_p.management_mode.name)
-    println("Dates d'interet : ", get_target_timepoints(context_p))
     set_horizon_timepoints(context_p, get_timepoints(sequence_p))
-    println("Dates d'échéances : ", get_horizon_timepoints(context_p))
+
+    @info @sprintf("Launching Management Mode : %s", context_p.management_mode.name)
+    @info "Launching sequence :"
+    @info sequence_p
+    @info @sprintf("Interest date (T) : %s", get_target_timepoints(context_p)[1])
+    @info @sprintf("target timepoints (TS) : %s", get_target_timepoints(context_p))
+    @info @sprintf("Horizon timepoints (ECH=T-t) : %s", get_horizon_timepoints(context_p))
+    @info("initial units state: ")
+    @info get_generators_initial_state(context_p)
 
     if check_context && !check(context_p)
         throw( error("Invalid context!") )
@@ -84,7 +89,7 @@ end
 
 function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next_ech)
     println("-"^20)
-    println(typeof(step), " à l'échéance ", ech)
+    println(typeof(step))
     firmness = compute_firmness(step, ech, next_ech,
                             get_target_timepoints(context_p), context_p)
     trace_firmness(firmness)
@@ -93,11 +98,11 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                 context_p)
 
     if affects_market_schedule(step)
-        println("update market schedule based on optimization results")
-        old_market_schedule = deepcopy(get_market_schedule(context_p))
+        @debug "update market schedule based on optimization results"
+        # old_market_schedule = deepcopy(get_market_schedule(context_p))
         update_market_schedule!(context_p, ech, result, firmness, step)
-        println("Changes to the market schedule:")
-        trace_delta_schedules(old_market_schedule, get_market_schedule(context_p))
+        # println("Changes to the market schedule:")
+        # trace_delta_schedules(old_market_schedule, get_market_schedule(context_p))
         #TODO : error if !verify
         verify_firmness(firmness, context_p.market_schedule,
                         excluded_ids=get_limitables_ids(context_p))
@@ -108,11 +113,11 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
     end
 
     if affects_tso_schedule(step)
-        println("update TSO schedule based on optimization results")
-        old_tso_schedule = deepcopy(get_tso_schedule(context_p))
+        @debug "update TSO schedule based on optimization results"
+        # old_tso_schedule = deepcopy(get_tso_schedule(context_p))
         update_tso_schedule!(context_p, ech, result, firmness, step)
-        println("Changes to the TSO schedule:")
-        trace_delta_schedules(old_tso_schedule, get_tso_schedule(context_p))
+        # println("Changes to the TSO schedule:")
+        # trace_delta_schedules(old_tso_schedule, get_tso_schedule(context_p))
         #TODO : error if !verify
         verify_firmness(firmness, context_p.tso_schedule,
                         excluded_ids=get_limitables_ids(context_p))
@@ -123,33 +128,32 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
     end
 
     if affects_tso_actions(step)
-        println("update TSO actions based on optimization results")
+        @debug "update TSO actions based on optimization results"
         update_tso_actions!(context_p,
                             ech, result, firmness, step)
         trace_tso_actions(get_tso_actions(context_p))
     end
     #TODO check coherence between tso schedule and actions
 
-    if ( (affects_market_schedule(step) || affects_tso_schedule(step))
-        && ( !is_utilitary(get_market_schedule(context_p).decider_type)
-            && !is_utilitary(get_tso_schedule(context_p).decider_type) )  )
+    if ( (affects_market_schedule(step) || affects_tso_schedule(step)) )
         schedules_to_delta = sort([get_market_schedule(context_p), get_tso_schedule(context_p)],
                                     by=x->x.decision_time)
         @printf("changes in %s schedule compared to preceding %s schedule:\n",
                 schedules_to_delta[2].decider_type, schedules_to_delta[1].decider_type)
         trace_delta_schedules(schedules_to_delta...)
     end
+
 end
 
 function run!(context_p::AbstractContext, sequence_p::Sequence;
                 check_context=true)
-    println(sequence_p)
     init!(context_p, sequence_p, check_context)
 
     for (steps_index, (ech, steps_at_ech)) in enumerate(get_operations(sequence_p))
         println("-"^50)
         delta = Dates.value(Dates.Minute(get_target_timepoints(context_p)[1]-ech))
-        println("ECH : ", ech, " : M-", delta)
+        println("ECH : ", ech)
+        println("t : M-", delta)
         println("-"^50)
         for step in steps_at_ech
             next_ech = get_next_ech(sequence_p, steps_index, step)
@@ -193,8 +197,9 @@ function trace_firmness(firmness::Firmness)
             end
         end
         if !isempty(TS_to_decide_for)
-            @printf("Firm commitment decision must be issued for generator %s for timesteps %s\n",
-                    gen_id, TS_to_decide_for)
+            msg = @sprintf("TO_DECIDE commitment (Firm) :  %s for %s",
+                            gen_id, TS_to_decide_for)
+            @info msg
         end
     end
 
@@ -206,8 +211,9 @@ function trace_firmness(firmness::Firmness)
             end
         end
         if !isempty(TS_to_decide_for)
-            @printf("Firm production level decision must be issued for generator %s at timesteps %s\n",
-                    gen_id, TS_to_decide_for)
+            msg = @sprintf("TO_DECIDE production level (Firm) :  %s for %s",
+                            gen_id, TS_to_decide_for)
+            @info msg
         end
     end
 end
@@ -227,11 +233,9 @@ end
 function trace_delta_schedules(old_schedule::Schedule, new_schedule::Schedule)
     print_non_firm_changes = false
 
-    @printf("Commitment updates : new %s Vs %s\n",
-            new_schedule.decider_type, old_schedule.decider_type)
+    println("Commitment updates :")
     trace_delta_schedule_component(old_schedule, new_schedule, get_commitment_sub_schedule, print_non_firm_changes)
-    @printf("Production updates : new %s Vs %s\n",
-            new_schedule.decider_type, old_schedule.decider_type)
+    println("Production updates :")
     trace_delta_schedule_component(old_schedule, new_schedule, get_production_sub_schedule, print_non_firm_changes)
 end
 
@@ -243,41 +247,57 @@ function trace_delta_schedule_component(old_schedule::Schedule, new_schedule::Sc
     end
     for (gen_id, _) in new_schedule.generator_schedules
         @assert(haskey(old_schedule.generator_schedules, gen_id))
+
+        #retrieve either commitment or production schedule component
         old_schedule_component = component_accessor(old_schedule, gen_id)
         new_schedule_component = component_accessor(new_schedule, gen_id)
 
-        for (ts, new_uncertain) in new_schedule_component
-            @assert(haskey(old_schedule_component, ts))
-            old_uncertain = old_schedule_component[ts]
-            if is_definitive(new_uncertain) && is_definitive(old_uncertain)
-                if is_different(get_value(new_uncertain), get_value(old_uncertain))
-                    @printf("%s changed %s old firm value for generator %s at timestep %s from %s to %s\n",
-                            new_schedule.decider_type, old_schedule.decider_type,
-                            gen_id, ts, get_value(old_uncertain), get_value(new_uncertain))
-                end
-            elseif is_definitive(new_uncertain) && !is_definitive(old_uncertain)
-                @printf("%s set a firm value for generator %s at timestep %s to %s\n",
-                        new_schedule.decider_type, gen_id, ts, get_value(new_uncertain))
-            elseif !is_definitive(new_uncertain) && is_definitive(old_uncertain)
-                @printf("%s changed the %s firm value for generator %s at timestep %s \
-                        from %s to a by scenario value:\n",
-                        new_schedule.decider_type, old_schedule.decider_type, gen_id, ts, get_value(new_uncertain))
+        trace_delta_genschedule_component(gen_id, old_schedule_component, new_schedule_component,
+                                        print_non_firm_changes)
+    end
+end
+
+function trace_delta_genschedule_component(gen_id::String,
+                                        old_schedule::SortedDict{Dates.DateTime, UncertainValue{T}},
+                                        new_schedule::SortedDict{Dates.DateTime, UncertainValue{T}},
+                                        print_non_firm_changes=false) where T
+    for (ts, new_uncertain) in new_schedule
+        @assert(haskey(old_schedule, ts))
+        old_uncertain = old_schedule[ts]
+        old_firmness_msg = is_definitive(old_uncertain) ? "firm" : "non-firm"
+        new_firmness_msg = is_definitive(new_uncertain) ? "firm" : "non-firm"
+
+        if is_definitive(new_uncertain) && is_definitive(old_uncertain)
+            if is_different(get_value(new_uncertain), get_value(old_uncertain))
+                @printf("%s\t%s\t%s (%s) --> %s (%s)\n",
+                        gen_id, ts, get_value(old_uncertain), old_firmness_msg, get_value(new_uncertain), new_firmness_msg)
+            end
+
+        elseif is_definitive(new_uncertain) && !is_definitive(old_uncertain)
+            @printf("%s\t%s\t%s (%s)\n",
+                    gen_id, ts, get_value(new_uncertain), new_firmness_msg)
+
+        elseif !is_definitive(new_uncertain) && is_definitive(old_uncertain)
+            @printf("%s\t%s\t%s (%s) --> (%s)\n",
+                    gen_id, ts, get_value(old_uncertain), old_firmness_msg, new_firmness_msg)
+            if print_non_firm_changes
                 println(new_uncertain.anticipated_value)
-            elseif print_non_firm_changes
-                for scenario in get_scenarios(new_uncertain)
-                    old_val = get_value(old_uncertain, scenario)
-                    new_val = get_value(new_uncertain, scenario)
-                    if ( (ismissing(new_val) != ismissing(old_val))
-                        || ( !ismissing(old_val) && !ismissing(new_val) && is_different(new_val, old_val) )
-                        )
-                        @printf("gen_id=%s, ts=%s, scenario=%s \
-                                old_value=%s, new_value=%s\n",
-                                gen_id, ts, scenario, old_val, new_val)
-                    end
+            end
+
+        elseif print_non_firm_changes
+            for scenario in get_scenarios(new_uncertain)
+                old_val = get_value(old_uncertain, scenario)
+                new_val = get_value(new_uncertain, scenario)
+                if ( (ismissing(new_val) != ismissing(old_val))
+                    || ( !ismissing(old_val) && !ismissing(new_val) && is_different(new_val, old_val) )
+                    )
+                    @printf("%s\t%s\t%s\t%s --> %s\n",
+                            gen_id, ts, scenario, old_val, new_val)
                 end
             end
         end
     end
+
 end
 
 function trace_tso_actions(tso_actions::TSOActions)
@@ -288,11 +308,11 @@ function trace_tso_actions(tso_actions::TSOActions)
 end
 function trace_limitations(tso_actions)
     for ((gen_id,ts), val_l) in get_limitations(tso_actions)
-        @printf("\tlimited generator %s for timestep %s to %s\n", gen_id, ts, val_l)
+        @printf("\tlimited %s at %s : %.2f\n", gen_id, ts, val_l)
     end
 end
 function trace_impositions(tso_actions)
     for ((gen_id,ts), (val_min_l,val_max_l)) in get_impositions(tso_actions)
-        @printf("\timposed generator %s for timestep %s to [%s,%s]\n", gen_id, ts, val_min_l,val_max_l)
+        @printf("\timposed %s at %s : [%.2f,%.2f]\n", gen_id, ts, val_min_l,val_max_l)
     end
 end
