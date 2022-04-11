@@ -29,7 +29,6 @@ function run(runnable::TSOOutFO, ech::Dates.DateTime, firmness, TS::Vector{Dates
                     firmness,
                     get_market_schedule(context),
                     get_tso_schedule(context),
-                    get_tso_actions(context),
                     gratis_starts,
                     runnable.configs
                     )

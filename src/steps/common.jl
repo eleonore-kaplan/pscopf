@@ -375,7 +375,7 @@ function link_scenarios!(model::AbstractModel, vars::AbstractDict{Tuple{String,D
     return model
 end
 
-function add_keep_off_constraint(model::AbstractModel, b_on_vars, b_start_vars,
+function add_keep_off_constraint!(model::AbstractModel, b_on_vars, b_start_vars,
                                 gen_id, ts, scenarios)
     for s in scenarios
         @constraint(model, b_on_vars[gen_id, ts, s] == 0)
@@ -384,7 +384,7 @@ function add_keep_off_constraint(model::AbstractModel, b_on_vars, b_start_vars,
     return model
 end
 
-function add_commitment_firmness_constraints!(model::AbstractModel,
+function add_commitment_sequencing_constraints!(model::AbstractModel,
                                             generator::Networks.Generator,
                                             b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                             b_start_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
@@ -392,26 +392,21 @@ function add_commitment_firmness_constraints!(model::AbstractModel,
                                             scenarios::Vector{String},
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                                             generator_reference_schedule::GeneratorSchedule,
-                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}(),
-                                            always_link_scenarios::Bool=false
+                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
                                             )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if always_link_scenarios || (commitment_firmness[ts] in [DECIDED, TO_DECIDE])
-            link_scenarios!(model, b_on_vars, gen_id, ts, scenarios)
-            link_scenarios!(model, b_start_vars, gen_id, ts, scenarios)
-        end
 
         tso_action_commitment = get_commitment(commitment_actions, gen_id, ts)
         if !ismissing(tso_action_commitment)
             #TSO Actions OFF will be applied even if firmness is FREE
             if tso_action_commitment == OFF
-                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         elseif commitment_firmness[ts] == DECIDED
             reference_on_val = safeget_commitment_value(generator_reference_schedule, ts)
             if reference_on_val == OFF
-                add_keep_off_constraint(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
+                add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
             end
         end
     end
@@ -433,25 +428,32 @@ function freeze_vars!(model, p_injected_vars,
     end
 end
 
-function add_power_level_firmness_constraints!(model::AbstractModel,
+function add_scenarios_linking_constraints!(model::AbstractModel,
                                                 generator::Networks.Generator,
-                                                p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                                vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                                 target_timepoints::Vector{Dates.DateTime},
                                                 scenarios::Vector{String},
-                                                power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                                gen_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
+                                                always_link::Bool
                                                 )
     @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if power_level_firmness[ts] in [DECIDED, TO_DECIDE]
-            link_scenarios!(model, p_injected_vars, gen_id, ts, scenarios)
+        if always_link || (gen_firmness[ts] in [DECIDED, TO_DECIDE])
+            link_scenarios!(model, vars, gen_id, ts, scenarios)
         end
     end
 
     return model
 end
 
+"""
+look at tso_actions commitment
+    if unit is off, impose a level of 0.
+If past DP, impose reference scheduled prod
+else, impose bounds for production level
+"""
 function add_power_level_sequencing_constraints!(model::AbstractModel,
                                                 generator::Networks.Generator,
                                                 p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
@@ -475,20 +477,23 @@ function add_power_level_sequencing_constraints!(model::AbstractModel,
                 imposition_bounds = (0., 0.)
             elseif !ismissing(tso_action_impositions)
                 imposition_bounds = (tso_action_impositions[1], tso_action_impositions[2])
-            elseif power_level_firmness[ts]==DECIDED
-                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
-                imposition_bounds = (scheduled_prod, scheduled_prod)
             end
 
             if power_level_firmness[ts]==DECIDED
-                @assert(imposition_bounds[1] == imposition_bounds[2])
+            # => does not allow unit shutdown after DP cause level is forced
+                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
+                @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
+                @assert( ismissing(imposition_bounds) ||
+                        (imposition_bounds[1] <= scheduled_prod <= imposition_bounds[2]) )
                 c_name = @sprintf("c_decided_level[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_injected_vars[gen_id,ts,s] == imposition_bounds[1], base_name=c_name)
+                @constraint(model, p_injected_vars[gen_id,ts,s] == scheduled_prod, base_name=c_name)
             elseif !ismissing(imposition_bounds)
                 c_name = @sprintf("c_min_imposition[%s,%s,%s]",gen_id,ts,s)
                 @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
                 c_name = @sprintf("c_max_imposition[%s,%s,%s]",gen_id,ts,s)
                 @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
+                @debug @sprintf("impositions constraints [%s,%s,%s] : [%s,%s]",
+                                gen_id, ts, s, imposition_bounds[1], imposition_bounds[2])
             end
         end
     end

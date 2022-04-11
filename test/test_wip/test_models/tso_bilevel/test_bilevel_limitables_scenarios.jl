@@ -102,6 +102,8 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
+        tso.configs.LINK_SCENARIOS_LIMIT = false
+
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,
                                             TS, context)
@@ -150,7 +152,7 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
-        tso.configs.LINK_SCENARIOS_LIMIT = true
+        #default, tso.configs.LINK_SCENARIOS_LIMIT = true
 
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,
@@ -268,6 +270,8 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
+        tso.configs.LINK_SCENARIOS_LIMIT = false
+
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,
                                             TS, context)
@@ -325,7 +329,7 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
-        tso.configs.LINK_SCENARIOS_LIMIT = true
+        #Default, tso.configs.LINK_SCENARIOS_LIMIT = true
 
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,
@@ -446,6 +450,8 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
+        tso.configs.LINK_SCENARIOS_LIMIT = false
+
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,
                                             TS, context)
@@ -532,7 +538,7 @@ using Printf
                                 35.)
 
         tso = PSCOPF.TSOBilevel()
-        tso.configs.LINK_SCENARIOS_LIMIT = true
+        #Default, tso.configs.LINK_SCENARIOS_LIMIT = true
 
         firmness = PSCOPF.compute_firmness(tso,
                                             ech, next_ech,

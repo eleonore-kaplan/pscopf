@@ -5,7 +5,10 @@ using Dates
 using DataStructures
 using Printf
 using Parameters
-
+"""
+REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for imposables state/levels needed
+                            for sequencing constraints and TSO objective function.
+"""
 @with_kw mutable struct TSOBilevelConfigs
     TSO_LIMIT_PENALTY::Float64 = 1e-3
     TSO_CUT_CONSO_PENALTY::Float64 = 1e5
@@ -16,11 +19,12 @@ using Parameters
     MARKET_CAPPING_COST::Float64 = 1.
     out_path::Union{Nothing,String} = nothing
     problem_name::String = "TSOBilevel"
-    LINK_SCENARIOS_LIMIT::Bool = false
+    LINK_SCENARIOS_LIMIT::Bool = true
     LINK_SCENARIOS_IMPOSABLE_LEVEL::Bool = false
     LINK_SCENARIOS_IMPOSABLE_ON::Bool = false
     LINK_SCENARIOS_IMPOSABLE_LEVEL_MARKET::Bool = false
     big_m = 1e6
+    REF_SCHEDULE_TYPE_IN_TSO::Union{Market,TSO} = Market();
 end
 
 ##########################################################
@@ -176,8 +180,7 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             scenarios::Vector{String},
                             uncertainties_at_ech::UncertaintiesAtEch,
                             firmness::Firmness,
-                            preceding_tso_schedule::Schedule,
-                            preceding_tso_actions::TSOActions,
+                            reference_schedule::Schedule,
                             configs::TSOBilevelConfigs)
     add_limitables!(model_container,
                             network, target_timepoints, scenarios,
@@ -187,8 +190,7 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             network, target_timepoints, scenarios,
                             generators_initial_state,
                             firmness,
-                            preceding_tso_schedule,
-                            preceding_tso_actions,
+                            reference_schedule,
                             configs.LINK_SCENARIOS_IMPOSABLE_ON, configs.LINK_SCENARIOS_IMPOSABLE_LEVEL)
     add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
 end
@@ -250,19 +252,15 @@ function add_limitables!(model_container::TSOBilevelTSOModelContainer,
     return model_container
 end
 
-function add_injection_bounds_firmness_constraints!(imposable_model, model,
-                                                gen_id, ts, scenarios,
+function add_injection_bounds_sequencing_constraints!(imposable_model, model,
+                                                gen_id, target_timepoints, scenarios,
                                                 gen_power_firmness,
-                                                preceding_impositions::Union{TSOActions, SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}}},
-                                                always_link_scenarios::Bool)
-    #maybe need to distinguish market from tso firmness level
-    #this can be the last launch of the tso => firm decisions
-    #but the market still has time
-    #the TSO should not decide the value
-    if always_link_scenarios || (gen_power_firmness[ts] in [DECIDED, TO_DECIDE])
-        link_scenarios!(model, imposable_model.p_tso_min, gen_id, ts, scenarios, name="c_link_scenarios_vals_p_tso_min")
-        link_scenarios!(model, imposable_model.p_tso_max, gen_id, ts, scenarios, name="c_link_scenarios_vals_p_tso_max")
+                                                generator_reference_schedule::GeneratorSchedule,
+                                                )
+    # Sequencing constraints need to be applied on TSO to force them in impositions
+    #to assure they are transmitted to the next market step
 
+    for ts in target_timepoints
         if gen_power_firmness[ts] in [TO_DECIDE, DECIDED]
         # We reached DP => p_tso_min(s) == p_tso_max(s) \forall s
         #since p_tso_min(s) = p_tso_min(s') and p_tso_max(s) = p_tso_max(s')
@@ -275,20 +273,23 @@ function add_injection_bounds_firmness_constraints!(imposable_model, model,
 
             if gen_power_firmness[ts] == DECIDED
             # We're past DP => p_tso_min(s) == p_tso_max(s) == already_decided_level \forall s
-                imposed_value = safeget_imposition_level(preceding_impositions, gen_id, ts)
+                imposed_value = safeget_prod_value(generator_reference_schedule, ts)
                 freeze_vars!(model, imposable_model.p_tso_min, gen_id, ts, scenarios, imposed_value,
                             name="c_decided_level_p_tso_min")
                 freeze_vars!(model, imposable_model.p_tso_max, gen_id, ts, scenarios, imposed_value,
                             name="c_decided_level_p_tso_max")
+                @debug @sprintf("imposed prod level [%s,%s] : %s", gen_id, ts, imposed_value)
             end
         end
     end
 end
 function create_injection_bounds_vars!(imposable_model, model,
-                                    gen_id, target_timepoints, scenarios, p_max,
-                                    gen_power_firmness,
-                                    preceding_impositions::Union{TSOActions, SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}}},
+                                    generator, target_timepoints, scenarios,
+                                    gen_power_firmness::SortedDict{Dates.DateTime, DecisionFirmness},
+                                    generator_reference_schedule::GeneratorSchedule,
                                     always_link_scenarios)
+    gen_id = Networks.get_id(generator)
+    p_max = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
             name =  @sprintf("P_tso_min[%s,%s,%s]", gen_id, ts, s)
@@ -298,20 +299,33 @@ function create_injection_bounds_vars!(imposable_model, model,
             imposable_model.p_tso_max[gen_id, ts, s] = @variable(model, base_name=name,
                                                                 lower_bound=0., upper_bound=p_max)
         end
-
-        add_injection_bounds_firmness_constraints!(imposable_model, model,
-                                                gen_id, ts, scenarios,
-                                                gen_power_firmness,
-                                                preceding_impositions,
-                                                always_link_scenarios)
     end
+
+    add_scenarios_linking_constraints!(model, generator,
+                                        imposable_model.p_tso_min,
+                                        target_timepoints, scenarios,
+                                        gen_power_firmness,
+                                        always_link_scenarios
+                                        )
+    add_scenarios_linking_constraints!(model, generator,
+                                        imposable_model.p_tso_max,
+                                        target_timepoints, scenarios,
+                                        gen_power_firmness,
+                                        always_link_scenarios
+                                        )
+
+    add_injection_bounds_sequencing_constraints!(imposable_model, model,
+                                                gen_id, target_timepoints, scenarios,
+                                                gen_power_firmness,
+                                                generator_reference_schedule
+                                                )
+
 end
 function create_commitment_vars!(imposable_model::TSOBilevelTSOImposableModel, model::Model,
                                 generator, target_timepoints, scenarios,
                                 generator_initial_state,
                                 gen_commitment_firmness,
                                 generator_reference_schedule,
-                                commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState},
                                 always_link_scenarios)
     b_on_vars = imposable_model.b_on
     b_start_vars = imposable_model.b_start
@@ -331,15 +345,19 @@ function create_commitment_vars!(imposable_model::TSOBilevelTSOImposableModel, m
     add_commitment_constraints!(model,
                                 b_on_vars, b_start_vars,
                                 gen_id, target_timepoints, scenarios, generator_initial_state)
-
-    #scenarios and DMO related constraints
-    add_commitment_firmness_constraints!(model, generator,
+    #linking b_on scenarios => linking b_start
+    add_scenarios_linking_constraints!(model,
+                                generator, b_on_vars,
+                                target_timepoints, scenarios,
+                                gen_commitment_firmness, always_link_scenarios
+                                )
+    #DMO related constraints
+    add_commitment_sequencing_constraints!(model, generator,
                                         b_on_vars, b_start_vars,
                                         target_timepoints, scenarios,
                                         gen_commitment_firmness,
-                                        generator_reference_schedule,
-                                        commitment_actions,
-                                        always_link_scenarios)
+                                        generator_reference_schedule
+                                        )
 end
 function add_imposable!(imposable_model::TSOBilevelTSOImposableModel, model::AbstractModel,
                             generator::Networks.Generator,
@@ -349,23 +367,18 @@ function add_imposable!(imposable_model::TSOBilevelTSOImposableModel, model::Abs
                             commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
                             power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                             generator_reference_schedule::GeneratorSchedule,
-                            preceding_tso_actions::TSOActions,
                             always_link_commitment::Bool,
                             always_link_levels::Bool)
-    gen_id = Networks.get_id(generator)
-    p_min = Networks.get_p_min(generator)
-    p_max = Networks.get_p_max(generator)
-    create_injection_bounds_vars!(imposable_model, model, gen_id, target_timepoints, scenarios, p_max,
+    create_injection_bounds_vars!(imposable_model, model, generator, target_timepoints, scenarios,
                                 power_level_firmness,
-                                preceding_tso_actions,
+                                generator_reference_schedule,
                                 always_link_levels)
-    if p_min > 0
+    if Networks.needs_commitment(generator)
         create_commitment_vars!(imposable_model, model,
                                 generator, target_timepoints, scenarios,
                                 generator_initial_state,
                                 commitment_firmness,
                                 generator_reference_schedule,
-                                get_commitments(preceding_tso_actions),
                                 always_link_commitment)
     end
 end
@@ -376,7 +389,6 @@ function add_imposables!(model_container::TSOBilevelTSOModelContainer,
                                 generators_initial_state::SortedDict{String,GeneratorState},
                                 firmness::Firmness,
                                 preceding_tso_schedule::Schedule,
-                                preceding_tso_actions::TSOActions,
                                 always_link_commitment::Bool=false,
                                 always_link_levels::Bool=false
                                 )
@@ -391,7 +403,7 @@ function add_imposables!(model_container::TSOBilevelTSOModelContainer,
         add_imposable!(imposable_model, model,
                         imposable_gen, target_timepoints, scenarios,
                         gen_initial_state, commitment_firmness, power_level_firmness,
-                        generator_reference_schedule, preceding_tso_actions,
+                        generator_reference_schedule,
                         always_link_commitment, always_link_levels)
     end
 end
@@ -746,7 +758,7 @@ function add_imposables!(model_container::TSOBilevelMarketModelContainer,
                         imposable_gen,
                         target_timepoints,
                         scenarios,
-                        get_power_level_firmness(firmness, gen_id), #FIXME? actually this should be the firmness constraints of the next market ech
+                        get_power_level_firmness(firmness, gen_id),
                         #no TSO actions, the upper problem considers them
                         always_link_levels
                         )
@@ -766,11 +778,14 @@ function add_imposable!(imposable_model::TSOBilevelMarketImposableModel, model::
         for s in scenarios
             add_p_injected!(imposable_model, model, gen_id, ts, s, p_max, false)
         end
-
-        if always_link_levels || (power_level_firmness[ts] in [DECIDED, TO_DECIDE])
-            link_scenarios!(model, imposable_model.p_injected, gen_id, ts, scenarios)
-        end
     end
+
+    add_scenarios_linking_constraints!(model, generator,
+                                        imposable_model.p_injected,
+                                        target_timepoints, scenarios,
+                                        power_level_firmness,
+                                        always_link_levels
+                                        )
 
     return imposable_model, model
 end
@@ -1158,7 +1173,6 @@ function tso_bilevel(network::Networks.Network,
                     firmness::Firmness,
                     preceding_market_schedule::Schedule,
                     preceding_tso_schedule::Schedule,
-                    preceding_tso_actions::TSOActions,
                     # gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::TSOBilevelConfigs
                     )
@@ -1169,9 +1183,16 @@ function tso_bilevel(network::Networks.Network,
     all( configs.big_m >= Networks.get_prop_cost(gen)
         for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE) )
 
+    if is_market(configs.REF_SCHEDULE_TYPE_IN_TSO)
+        reference_schedule = preceding_market_schedule
+    elseif is_tso(configs.REF_SCHEDULE_TYPE_IN_TSO)
+        reference_schedule = preceding_tso_schedule
+    else
+        throw( error("Invalid REF_SCHEDULE_TYPE_IN_TSO config.") )
+    end
     create_tso_vars!(bimodel_container_l.upper,
                     network, target_timepoints, generators_initial_state, scenarios,
-                    uncertainties_at_ech, firmness, preceding_tso_schedule, preceding_tso_actions,
+                    uncertainties_at_ech, firmness, reference_schedule,
                     configs)
     create_market_vars!(bimodel_container_l.lower,
                         network, target_timepoints, scenarios, uncertainties_at_ech, firmness, configs)
@@ -1193,7 +1214,7 @@ function tso_bilevel(network::Networks.Network,
 
     create_tso_objectives!(bimodel_container_l.upper,
                         target_timepoints, scenarios, network,
-                        preceding_market_schedule,
+                        reference_schedule, #reference to see which units are currently on
                         configs.TSO_CAPPING_COST, configs.TSO_CUT_CONSO_PENALTY,
                         configs.TSO_LIMIT_PENALTY,
                         configs.TSO_IMPOSABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)

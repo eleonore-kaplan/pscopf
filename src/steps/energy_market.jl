@@ -19,8 +19,14 @@ function run(runnable::EnergyMarket,
 
     problem_name_l = @sprintf("energy_market_%s", ech)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
-    gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
+    tso_actions = filter_tso_actions(get_tso_actions(context),
+                                    keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
+                                    keep_impositions=runnable.configs.CONSIDER_TSOACTIONS_IMPOSITIONS,
+                                    keep_commitments=runnable.configs.CONSIDER_TSOACTIONS_COMMITMENTS)
+    gratis_starts = Set{Tuple{String,Dates.DateTime}}()
+    if runnable.configs.CONSIDER_GRATIS_STARTS
+        gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
+    end
 
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
@@ -32,6 +38,7 @@ function run(runnable::EnergyMarket,
                         get_uncertainties(context, ech),
                         firmness,
                         get_market_schedule(context),
+                        get_tso_schedule(context),
                         tso_actions,
                         gratis_starts,
                         runnable.configs

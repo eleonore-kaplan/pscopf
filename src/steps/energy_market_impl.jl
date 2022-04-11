@@ -6,11 +6,22 @@ using DataStructures
 using Printf
 using Parameters
 
+"""
+REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO schedule as a reference.
+                    The reference schedule is used to get decided commitment and production levels if
+                      tso actions are missing.
+"""
 @with_kw mutable struct EnergyMarketConfigs
     force_limitables::Bool = true
     cut_conso_penalty = 1e7
     out_path = nothing
     problem_name = "EnergyMarket"
+    REF_SCHEDULE_TYPE::Union{Market,TSO} = Market(); # by default the market does not see the preceding tso schedule
+                                                    # cause in mode 1, tso should not affect market
+    CONSIDER_TSOACTIONS_LIMITATIONS::Bool = false
+    CONSIDER_TSOACTIONS_IMPOSITIONS::Bool = false
+    CONSIDER_TSOACTIONS_COMMITMENTS::Bool = true
+    CONSIDER_GRATIS_STARTS::Bool = true
 end
 
 @with_kw struct EnergyMarketLimitableModel <: AbstractLimitableModel
@@ -82,7 +93,8 @@ end
         The considered limitables injections and bus consumption realisations per scenario
          for the current timepoint of execution (i.e. `ech`).
     - `firmness::Firmness` : The required level of firmness for commitment and power level decisions
-    - `reference_schedule::Schedule` : The reference schedule used to set already decided values.
+    - `preceding_market_schedule::Schedule` : The preceding market schedule may be used to set already decided values.
+    - `preceding_tso_schedule::Schedule` : The preceding tso schedule may be used to set already decided values.
     - `gratis_starts::Set{Tuple{String,Dates.DateTime}}` :
         Tuples of (gen_id, ts) giving already paid for starting decisions. So if the market starts
          unit gen_id at timestep ts, it will not pay the starting cost.
@@ -98,7 +110,8 @@ function energy_market(network::Networks.Network,
                     scenarios::Vector{String},
                     uncertainties_at_ech::UncertaintiesAtEch,
                     firmness::Firmness,
-                    reference_schedule::Schedule,
+                    preceding_market_schedule::Schedule,
+                    preceding_tso_schedule::Schedule,
                     tso_actions::TSOActions,
                     gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::EnergyMarketConfigs
@@ -115,9 +128,15 @@ function energy_market(network::Networks.Network,
                     has_global_capping_vars=true,
                     )
 
+    if is_market(configs.REF_SCHEDULE_TYPE)
+        reference_schedule = preceding_market_schedule
+    elseif is_tso(configs.REF_SCHEDULE_TYPE)
+        reference_schedule = preceding_tso_schedule
+    else
+        throw( error("Invalid REF_SCHEDULE_TYPE config.") )
+    end
     add_imposables!(model_container_l,
-                    network, target_timepoints,
-                    scenarios,
+                    network, target_timepoints, scenarios,
                     generators_initial_state,
                     firmness, reference_schedule, tso_actions)
 
@@ -181,10 +200,11 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
         end
     end
 
-    add_power_level_firmness_constraints!(model, generator,
+    add_scenarios_linking_constraints!(model, generator,
                                         imposable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
+                                        false
                                         )
 
     add_power_level_sequencing_constraints!(model, generator,
@@ -199,7 +219,13 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
         add_commitment!(imposable_model, model, generator,
                         target_timepoints, scenarios, generator_initial_state
                         )
-        add_commitment_firmness_constraints!(model, generator,
+        add_scenarios_linking_constraints!(model,
+                        generator, imposable_model.b_on,
+                        target_timepoints, scenarios,
+                        commitment_firmness, false
+                        )
+        #linking b_on => linking b_start
+        add_commitment_sequencing_constraints!(model, generator,
                                             imposable_model.b_on,
                                             imposable_model.b_start,
                                             target_timepoints, scenarios,
