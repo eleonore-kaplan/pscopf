@@ -29,6 +29,8 @@ module PSCOPF
     include("steps/tso.jl")
     include("steps/tso_bilevel_impl.jl")
     include("steps/tso_bilevel.jl")
+    include("steps/assessment/eod_assessment_impl.jl")
+    include("steps/assessment/eod_assessment.jl")
     include("steps/steps.jl")
 
     include("sequence_launcher.jl")
