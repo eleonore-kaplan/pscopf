@@ -320,7 +320,7 @@ function add_prop_cost!(obj_component::AffExpr,
 end
 
 function add_coeffxsum_cost!(obj_component::AffExpr,
-                            vars_dict::AbstractDict{T,V}, coeff::Float64)  where T <: Tuple where V <: VariableRef
+                            vars_dict::AbstractDict{T,V}, coeff::Float64)  where T where V <: VariableRef
     for (_, var_l) in vars_dict
         add_to_expression!(obj_component, coeff * var_l)
     end
