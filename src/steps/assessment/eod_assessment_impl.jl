@@ -208,7 +208,7 @@ function add_eod_constraint!(model_container_p::EODAssessmentModel, network, TS)
     return model_container_p
 end
 
-function create_objective!(model_container, network, TS, cut_conso_coeff, inj_prod_coeff, cut_prod_coeff)
+function create_objective!(model_container::EODAssessmentModel, network, TS, cut_conso_coeff, inj_prod_coeff, cut_prod_coeff)
     @assert(cut_conso_coeff >= 0.)
     @assert(inj_prod_coeff >= 0.)
     @assert(cut_prod_coeff >= 0.)
@@ -225,15 +225,30 @@ function create_objective!(model_container, network, TS, cut_conso_coeff, inj_pr
 
     model_container.prod_obj = AffExpr(0.)
     #exclude limitables to allow setting their uncertainties at a low level
-    for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-        gen_id = Networks.get_id(gen)
-        for ts in TS
-            add_to_expression!(model_container.prod_obj, inj_prod_coeff * model_container.p_injected[gen_id, ts])
-        end
-    end
+    # for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+    #     gen_id = Networks.get_id(gen)
+    #     for ts in TS
+    #         add_to_expression!(model_container.prod_obj, inj_prod_coeff * model_container.p_injected[gen_id, ts])
+    #     end
+    # end
 
     model_container.full_obj = model_container.cut_conso_obj + model_container.cut_prod_obj + model_container.prod_obj
     return model_container.full_obj
+end
+
+#Only cut conso when no possible extra production
+function add_cut_conso_constraint!(model_container::EODAssessmentModel, network, TS, assessment_uncertainties)
+    big_m = 0.
+    for bus_id in Networks.get_id.(Networks.get_buses(network))
+        big_m += get_assessment_uncertainties_ub(assessment_uncertainties, bus_id)
+    end
+
+    for imposable_gen_id in Networks.get_id.(Networks.get_generators_of_type(network, Networks.IMPOSABLE))
+        for ts in TS
+            b_in_var = model_container.b_in[imposable_gen_id, ts]
+            @constraint(model_container.model, model_container.p_cut_conso[ts] <= big_m*b_in_var)
+        end
+    end
 end
 
 function formulate_eod_assessment(network, TS, assessment_uncertainties, tso_actions, configs)
@@ -247,6 +262,7 @@ function formulate_eod_assessment(network, TS, assessment_uncertainties, tso_act
     add_use_limitables_constraints!(model_container_l, network, TS, tso_actions)
     add_cheapest_prod_constraints!(model_container_l, network, TS)
     add_eod_constraint!(model_container_l, network, TS)
+    add_cut_conso_constraint!(model_container_l, network, TS, assessment_uncertainties)
 
     create_objective!(model_container_l, network, TS,
                     configs.cut_conso_coeff, configs.cut_prod_coeff, configs.inj_prod_coeff)
