@@ -208,7 +208,7 @@ function add_eod_constraint!(model_container_p::EODAssessmentModel, network, TS)
     return model_container_p
 end
 
-function create_objective!(model_container, TS, cut_conso_coeff, inj_prod_coeff, cut_prod_coeff)
+function create_objective!(model_container, network, TS, cut_conso_coeff, inj_prod_coeff, cut_prod_coeff)
     @assert(cut_conso_coeff >= 0.)
     @assert(inj_prod_coeff >= 0.)
     @assert(cut_prod_coeff >= 0.)
@@ -224,8 +224,12 @@ function create_objective!(model_container, TS, cut_conso_coeff, inj_prod_coeff,
     end
 
     model_container.prod_obj = AffExpr(0.)
-    for ((gen_id, ts), p_inj_var) in model_container.p_injected
-        add_to_expression!(model_container.prod_obj, inj_prod_coeff * p_inj_var)
+    #exclude limitables to allow setting their uncertainties at a low level
+    for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+        gen_id = Networks.get_id(gen)
+        for ts in TS
+            add_to_expression!(model_container.prod_obj, inj_prod_coeff * model_container.p_injected[gen_id, ts])
+        end
     end
 
     model_container.full_obj = model_container.cut_conso_obj + model_container.cut_prod_obj + model_container.prod_obj
@@ -244,7 +248,7 @@ function formulate_eod_assessment(network, TS, assessment_uncertainties, tso_act
     add_cheapest_prod_constraints!(model_container_l, network, TS)
     add_eod_constraint!(model_container_l, network, TS)
 
-    create_objective!(model_container_l, TS,
+    create_objective!(model_container_l, network, TS,
                     configs.cut_conso_coeff, configs.cut_prod_coeff, configs.inj_prod_coeff)
     @objective(get_model(model_container_l), Max, model_container_l.full_obj)
 
