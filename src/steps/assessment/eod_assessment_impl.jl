@@ -1,5 +1,6 @@
 using .Networks
 
+using DataStructures
 using Dates
 using JuMP
 using Printf
@@ -10,22 +11,30 @@ using Parameters
 
     # Uncertainty model
     #bus,ts
-    uncertain_load = SortedDict{Tuple{String, DateTime},VariableRef}();
+    uncertain_load::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
     #limitableUnit,ts
-    uncertain_prod = SortedDict{Tuple{String, DateTime},VariableRef}();
+    uncertain_prod::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
 
     # Market model
     #unit, ts
-    p_injected = Dict{Tuple{String, DateTime},VariableRef}();
-    b_in = Dict{Tuple{String, DateTime},VariableRef}();
-    b_marg = Dict{Tuple{String, DateTime},VariableRef}();
-    b_out = Dict{Tuple{String, DateTime},VariableRef}();
+    p_injected::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
+    b_in::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
+    b_marg::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
+    b_out::SortedDict{Tuple{String, DateTime},VariableRef} =
+        SortedDict{Tuple{String, DateTime},VariableRef}();
 
     #ts :
     #cut prod
-    p_cut_prod = Dict{DateTime,VariableRef}();
+    p_cut_prod::SortedDict{DateTime,VariableRef} =
+        SortedDict{DateTime,VariableRef}();
     #LoL
-    p_cut_conso = Dict{DateTime,VariableRef}();
+    p_cut_conso::SortedDict{DateTime,VariableRef} =
+        SortedDict{DateTime,VariableRef}();
 
     #objective
     cut_conso_obj =  AffExpr(0.)
@@ -59,7 +68,8 @@ function add_prod_uncertainties_vars!(model_container::EODAssessmentModel,
         for ts in TS
             # this allows to set p_inj[gen_id] == uncertain_prod without needing to express min(uncertain, limit) in the model
             ub_l = min(get_assessment_uncertainties_ub(assessment_uncertainties, gen_id),
-                    get_limitation(tso_actions, gen_id, ts))
+                    get_limitation(tso_actions, gen_id, ts),
+                    Networks.get_p_max(limitable_gen))
             name =  @sprintf("uncertain_prod[%s,%s]", gen_id, ts);
             model_container.uncertain_prod[gen_id, ts] = @variable(model_container.model, base_name=name,
                                                                 lower_bound = lb_l, upper_bound = ub_l)
@@ -121,7 +131,8 @@ function add_imposable_prod_vars!(model_container_p::EODAssessmentModel, network
             name_l =  @sprintf("b_out[%s,%s]", gen_id, ts);
             b_out_l[gen_id,ts] = @variable(model_container_p.model, base_name = name_l, binary = true)
             name_l =  @sprintf("prod[%s,%s]", gen_id, ts);
-            p_injected_l[gen_id,ts] = @variable(model_container_p.model, base_name = name_l, upper_bound = pmax_l);
+            p_injected_l[gen_id,ts] = @variable(model_container_p.model, base_name = name_l,
+                                                lower_bound=0., upper_bound = pmax_l);
 
             @constraint(model_container_p.model,
                         p_injected_l[gen_id,ts] >= ( pmax_l * b_in_l[gen_id,ts] +  pmin_l * b_marg_l[gen_id,ts] ));
@@ -188,21 +199,22 @@ end
 function add_eod_constraint!(model_container_p::EODAssessmentModel, network, TS)
 
     for ts in TS
-        eod_expr_l = AffExpr(0)
 
+        supply_l = AffExpr(0.)
         for gen in Networks.get_generators(network)
             gen_id = Networks.get_id(gen)
-            eod_expr_l += model_container_p.p_injected[gen_id, ts];
+            supply_l += model_container_p.p_injected[gen_id, ts];
         end
-        eod_expr_l -= model_container_p.p_cut_prod[ts];
+        supply_l -= model_container_p.p_cut_prod[ts];
 
+        demand_l = AffExpr(0.)
         for bus in Networks.get_buses(network)
             bus_id = Networks.get_id(bus)
-            eod_expr_l -= model_container_p.uncertain_load[bus_id, ts];
+            demand_l += model_container_p.uncertain_load[bus_id, ts];
         end
-        eod_expr_l += model_container_p.p_cut_conso[ts];
+        demand_l -= model_container_p.p_cut_conso[ts];
 
-        @constraint(model_container_p.model, eod_expr_l == 0.);
+        @constraint(model_container_p.model, supply_l == demand_l);
     end
 
     return model_container_p

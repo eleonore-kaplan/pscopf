@@ -64,7 +64,7 @@ end
 end
 
 function run(runnable::EODAssessment, ech::Dates.DateTime, TS::Vector{Dates.DateTime}, context::AbstractContext)
-    problem_name_l = @sprintf("tso_out_fo_%s", ech)
+    problem_name_l = @sprintf("eod_assessment_%s", ech)
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
 
