@@ -75,13 +75,13 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         [30-50]             |                      | [20-70]
     =#
-    @testset verbose=true "test_calling_with_run" begin
+    @testset verbose=true "test_no_violation" begin
         limit_1 = 75.
         impositions_1 = (0., 0.)
         impositions_2 = (20., 200.)
 
         context = create_instance(limit_1, impositions_1, impositions_2,
-                            35.,"assess")
+                            35.,)
 
         assessment = PSCOPF.EODAssessment()
         result = PSCOPF.run(assessment, ech, TS, context)
@@ -106,13 +106,13 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         [30-50]             |                      | [20-70]
     =#
-    @testset verbose=true "test_calling_with_run" begin
+    @testset verbose=true "test_violation" begin
         limit_1 = 75.
         impositions_1 = (0., 0.)
         impositions_2 = (20., 60.)
 
         context = create_instance(limit_1, impositions_1, impositions_2,
-                            35.,"assess")
+                            35.,)
 
         assessment = PSCOPF.EODAssessment()
         result = PSCOPF.run(assessment, ech, TS, context)
