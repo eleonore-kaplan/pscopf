@@ -251,6 +251,12 @@ function add_cut_conso_constraint!(model_container::EODAssessmentModel, network,
     end
 end
 
+function add_uncertainties_constraints!(model_container_l::EODAssessmentModel, network, TS, assessment_uncertainties, configs)
+    #FIXME constraints on uncertainties go here !
+    #e.g | u[bus1] - u[bus2] | < 5
+    #e.g ( 1 - u[bus1] / ub[limitable_1] ) <  ( 1 - u[limitable_1] / ub[limitable_1] )
+end
+
 function formulate_eod_assessment(network, TS, assessment_uncertainties, tso_actions, configs)
     model_container_l = EODAssessmentModel()
 
@@ -263,6 +269,7 @@ function formulate_eod_assessment(network, TS, assessment_uncertainties, tso_act
     add_cheapest_prod_constraints!(model_container_l, network, TS)
     add_eod_constraint!(model_container_l, network, TS)
     add_cut_conso_constraint!(model_container_l, network, TS, assessment_uncertainties)
+    add_uncertainties_constraints!(model_container_l, network, TS, assessment_uncertainties, configs)
 
     create_objective!(model_container_l, network, TS,
                     configs.cut_conso_coeff, configs.cut_prod_coeff, configs.inj_prod_coeff)
