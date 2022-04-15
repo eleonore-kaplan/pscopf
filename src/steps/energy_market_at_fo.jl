@@ -91,7 +91,8 @@ function update_market_schedule!(context::AbstractContext, ech,
 
     # TODO : may need to adapt cause result handles only one scenario
     # Capping
-    update_schedule_capping!(market_schedule, context, ech, result.limitable_model)
+    distribute_capping_by_uncertainties = runnable.configs.force_limitables
+    update_schedule_capping!(market_schedule, context, ech, result.limitable_model, distribute_capping_by_uncertainties)
 
     # cut_conso (load-shedding)
     update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)

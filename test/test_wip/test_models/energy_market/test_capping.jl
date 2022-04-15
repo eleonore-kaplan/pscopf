@@ -158,7 +158,7 @@ using Printf
 
         @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1", TS[1], "S1"])
         @test 20. ≈ value(result.limitable_model.p_injected["wind_1_2", TS[1], "S1"])
-        @test_broken 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+        @test 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
@@ -166,8 +166,68 @@ using Printf
             @test 60. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
             @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
 
-            @test_broken PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1") < 1e-09
-            @test_broken 20. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_2", TS[1], "S1")
+            @test PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1") < 1e-09
+            @test 20. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_2", TS[1], "S1")
+
+        end
+
+    end
+
+    @testset "energy_market_capping_when_enr_are_imposed_to_uncertainties_and_there_is_a_limit" begin
+        context, firmness = create_instance(ech, TS)
+        println("\n===================")
+
+        market = PSCOPF.EnergyMarket(PSCOPF.EnergyMarketConfigs(CONSIDER_TSOACTIONS_LIMITATIONS=true))
+
+        PSCOPF.set_limitation_value!(context.tso_actions, "wind_1_1", TS[1], 30.)
+
+        result = PSCOPF.run(market, ech, firmness,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+
+        @test 30. ≈ value(result.limitable_model.p_injected["wind_1_1", TS[1], "S1"])
+        @test 40. ≈ value(result.limitable_model.p_injected["wind_1_2", TS[1], "S1"])
+        @test 30. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #due to limitation
+
+        @test 10. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+
+        @testset "schedule_update" begin
+            PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
+
+            @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
+            @test 40. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
+
+            @test (60. / 100. * 30. ) ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
+            @test (40. / 100. * 30. ) ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_2", TS[1], "S1")
+
+        end
+
+
+    end
+
+    @testset "energy_market_capping_when_enr_are_free_and_there_is_a_limit" begin
+        context, firmness = create_instance(ech, TS)
+
+        market = PSCOPF.EnergyMarket(PSCOPF.EnergyMarketConfigs(force_limitables=false, CONSIDER_TSOACTIONS_LIMITATIONS=true))
+
+        PSCOPF.set_limitation_value!(context.tso_actions, "wind_1_1", TS[1], 30.)
+
+        result = PSCOPF.run(market, ech, firmness,
+                    PSCOPF.get_target_timepoints(context),
+                    context)
+
+        @test 30. ≈ value(result.limitable_model.p_injected["wind_1_1", TS[1], "S1"])
+        @test 40. ≈ value(result.limitable_model.p_injected["wind_1_2", TS[1], "S1"])
+        @test 30. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+
+        @testset "schedule_update" begin
+            PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
+
+            @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
+            @test 40. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
+
+            @test 30. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
+            @test PSCOPF.get_capping(context.market_schedule, "wind_1_2", TS[1], "S1") < 1e-09
 
         end
 

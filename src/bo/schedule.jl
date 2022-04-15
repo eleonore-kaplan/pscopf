@@ -240,7 +240,7 @@ function Base.show(io::IO, uncertain_value::UncertainValue{T}) where T
     scenarios = get_scenarios(uncertain_value)
     if is_definitive(uncertain_value)
         @printf(io, "definitive value %s for scenarios %s",
-                get_value(uncertain_value), )
+                get_value(uncertain_value), scenarios)
     else
         for s in scenarios
             @printf(io, "%s:%s,", s, get_value(uncertain_value, s))
