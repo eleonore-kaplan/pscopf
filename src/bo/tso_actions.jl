@@ -12,8 +12,8 @@ using DataStructures
     limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
         SortedDict{Tuple{String, Dates.DateTime}, Float64}()
     # Imposed P bounds of an imposable for a given ts
-    impositions::SortedDict{Tuple{String, Dates.DateTime, String}, Tuple{Float64,Float64}} =
-        SortedDict{Tuple{String, Dates.DateTime, String}, Tuple{Float64,Float64}}()
+    impositions::SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}} =
+        SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}}()
     # Imposed commitment of a generator (with Pmin>0) for a given ts
     commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState} =
         SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
@@ -67,18 +67,52 @@ function get_impositions(tso_actions::TSOActions)
     return tso_actions.impositions
 end
 
-
-function get_impositions(impositions_dict::SortedDict{Tuple{String, Dates.DateTime, String}, Tuple{Float64,Float64}})
-    return impositions_dict
+function get_imposition_uncertain_value(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{Tuple{Float64,Float64}},Missing}
+    impositions = get_impositions(tso_actions)
+    if haskey(impositions, (gen_id, ts))
+        return impositions[gen_id, ts]
+    else
+        msg = @sprintf("impositions is not defined for (%s,%s)", gen_id, ts)
+        @warn msg
+        return missing
+    end
 end
 
-function get_imposition(tso_actions, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Tuple{Float64,Float64}, Missing}
+function get_imposition_uncertain_value!(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{UncertainValue{Tuple{Float64,Float64}},Missing}
     impositions = get_impositions(tso_actions)
-    if !haskey(impositions, (gen_id, ts, scenario))
-        return missing
+    if haskey(impositions, (gen_id, ts))
+        return impositions[gen_id, ts]
     else
-        return impositions[gen_id, ts, scenario]
+        impositions[gen_id, ts] = UncertainValue{Tuple{Float64,Float64}}()
+        return impositions[gen_id, ts]
     end
+end
+
+function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Union{Tuple{Float64,Float64},Missing}
+    uncertain_value = get_imposition_uncertain_value(tso_actions, gen_id, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
+    return get_value(uncertain_value)
+end
+
+function safeget_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime)::Tuple{Float64,Float64}
+    imposition = get_imposition(tso_actions, gen_id, ts)
+    if ismissing(imposition)
+        msg = @sprintf("Missing imposition value for gen_id=%s,ts=%s",
+                        gen_id, ts)
+        throw( error(msg) )
+    else
+        return imposition
+    end
+end
+
+function get_imposition(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Tuple{Float64,Float64}, Missing}
+    uncertain_value = get_imposition_uncertain_value(tso_actions, gen_id, ts)
+    if ismissing(uncertain_value)
+        return missing
+    end
+    return get_value(uncertain_value, scenario)
 end
 
 function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime, scenario::String)::Tuple{Float64,Float64}
@@ -92,11 +126,11 @@ function safeget_imposition(tso_actions, gen_id::String, ts::Dates.DateTime, sce
 end
 
 function get_imposition_level(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime, scenario::String)::Union{Float64, Missing}
-    impositions = get_impositions(tso_actions)
-    if !haskey(impositions, (gen_id, ts, scenario))
+    imposition = get_imposition(tso_actions, gen_id, ts, scenario)
+    if ismissing(imposition)
         return missing
     else
-        value_min,value_max = impositions[gen_id, ts, scenario]
+        value_min, value_max = imposition
         if value_min != value_max
             msg = @sprintf("TSOActions for (gen_id=%s,ts=%s,s=%s) imposes interval [%s,%s] and not a single power level.",
                             gen_id, ts, scenario, value_min, value_max)
@@ -117,9 +151,14 @@ function safeget_imposition_level(tso_actions::TSOActions, gen_id::String, ts::D
     end
 end
 
-function set_imposition_value!(tso_actions, gen_id::String, ts::Dates.DateTime, scenario::String, value_min::Float64, value_max::Float64)
-    impositions = get_impositions(tso_actions)
-    impositions[gen_id, ts, scenario] = (value_min,value_max)
+function set_imposition_definitive_value!(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime, value_min::Float64, value_max::Float64)
+    uncertain_value = get_imposition_uncertain_value!(tso_actions, gen_id, ts)
+    set_definitive_value!(uncertain_value, (value_min, value_max))
+end
+
+function set_imposition_value!(tso_actions::TSOActions, gen_id::String, ts::Dates.DateTime, scenario::String, value_min::Float64, value_max::Float64)
+    uncertain_value = get_imposition_uncertain_value!(tso_actions, gen_id, ts)
+    set_value!(uncertain_value, scenario, (value_min, value_max))
 end
 
 ## Commitment
