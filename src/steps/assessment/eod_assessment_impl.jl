@@ -122,8 +122,7 @@ function add_imposable_prod_vars!(model_container_p::EODAssessmentModel, network
     for imposable_gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
         gen_id = Networks.get_id(imposable_gen)
         for ts in TS
-            pmin_l = get_firm_imposition(tso_actions, gen_id, ts)[1]
-            pmax_l = get_firm_imposition(tso_actions, gen_id, ts)[2]
+            pmin_l, pmax_l = safeget_imposition(tso_actions, gen_id, ts)
             name_l =  @sprintf("b_in[%s,%s]", gen_id, ts);
             b_in_l[gen_id,ts] = @variable(model_container_p.model, base_name = name_l, binary = true)
             name_l =  @sprintf("b_marginal[%s,%s]", gen_id, ts);
@@ -304,8 +303,4 @@ function get_assessment_uncertainties_lb(assessment_uncertainties, bus_or_limita
 end
 function get_assessment_uncertainties_ub(assessment_uncertainties, bus_or_limitable::String)
     return assessment_uncertainties[bus_or_limitable][2]
-end
-
-function get_firm_imposition(tso_actions, gen_id, ts)
-    return get_imposition(tso_actions, gen_id, ts, "S")
 end

@@ -156,6 +156,7 @@ end
 
 function set_value!(uncertain_value::UncertainValue{T}, scenario::String, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
+        #this avoids adding a new scenario with a new value after setting a definitive value for the existing scenarios
         existing_value = get_value(uncertain_value)
         throw( error("A definitive value was already set to the UncertainValue : ", existing_value) )
     else
@@ -232,6 +233,18 @@ function safeget_value(uncertain_value::UncertainValue{T}, scenario::String)::T 
     else
         msg = @sprintf("No decision was made for scenario %s yet", scenario)
         throw( error(msg) )
+    end
+end
+
+function Base.show(io::IO, uncertain_value::UncertainValue{T}) where T
+    scenarios = get_scenarios(uncertain_value)
+    if is_definitive(uncertain_value)
+        @printf(io, "definitive value %s for scenarios %s",
+                get_value(uncertain_value), )
+    else
+        for s in scenarios
+            @printf(io, "%s:%s,", s, get_value(uncertain_value, s))
+        end
     end
 end
 

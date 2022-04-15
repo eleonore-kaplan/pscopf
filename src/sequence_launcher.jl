@@ -301,18 +301,18 @@ function trace_delta_genschedule_component(gen_id::String,
 end
 
 function trace_tso_actions(tso_actions::TSOActions)
-    println("TSO limitation actions :")
     trace_limitations(tso_actions)
-    println("TSO imposition actions :")
     trace_impositions(tso_actions)
 end
 function trace_limitations(tso_actions)
+    println("TSO limitation actions :")
     for ((gen_id,ts), val_l) in get_limitations(tso_actions)
-        @printf("\tlimited %s at %s : %.2f\n", gen_id, ts, val_l)
+        @printf("\t%s at %s : %.2f\n", gen_id, ts, val_l)
     end
 end
 function trace_impositions(tso_actions)
-    for ((gen_id,ts), (val_min_l,val_max_l)) in get_impositions(tso_actions)
-        @printf("\timposed %s at %s : [%.2f,%.2f]\n", gen_id, ts, val_min_l,val_max_l)
+    println("TSO imposition actions :")
+    for ((gen_id,ts), imposition) in get_impositions(tso_actions)
+        @printf("\t%s at %s : %s\n", gen_id, ts, imposition)
     end
 end
