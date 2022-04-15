@@ -30,6 +30,7 @@ include("test_wip//test_models/fixtures.jl")
     # include("test_wip/test_custom_sequence.jl")
     # include("test_wip/test_firmness_in_sequence.jl")
     # include("test_wip/test_seq_generator.jl")
+    include("test_wip/test_models/energy_market/test_capping.jl")
 
     # include("test_wip/test_models/energy_market/test_constraints.jl")
     # include("test_wip/test_models/energy_market/test_unit_priority.jl")
@@ -55,10 +56,10 @@ include("test_wip//test_models/fixtures.jl")
     # include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_start.jl")
     # include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_costing.jl")
 
-    include("test_wip/test_models/eod_assessment/test_simple_call.jl")
-    include("test_wip/test_models/rso_assessment/test_simple_call.jl")
+    # include("test_wip/test_models/eod_assessment/test_simple_call.jl")
+    # include("test_wip/test_models/rso_assessment/test_simple_call.jl")
 
-    # # include("test_wip/test_seq_launch.jl")
+    # # # include("test_wip/test_seq_launch.jl")
     # include("test_wip/example_usecase.jl")
     # include("test_wip/example_usecase_from_folder.jl")
 
