@@ -8,7 +8,7 @@ using Dates
 using DataStructures
 using Printf
 
-@testset verbose=true "test_bilevel_imposables" begin
+@testset verbose=true "test_bileveltso_market" begin
 
     function create_instance(ECH, S, TS,
                             fo::Minute,
@@ -78,10 +78,8 @@ using Printf
 ################################################################################################
 
     #=
-    same as test_1 but only changed predecing start decisions to [ON, OFF] instead of [ON, ON]
-
-        TS: [11h, 11h15]
-        S: [S1,S2]
+        TS: [11h]
+        S: [S1]
                         bus 1                   bus 2
                             |                      |
         (limitable) wind_1_1|       "1_2"          |
@@ -98,7 +96,7 @@ using Printf
                load(bus_1)  |                      |load(bus_2)
         S1: 50              |                      | S1: 70
     =#
-    @testset "test_2" begin
+    @testset "test_two_modes_on_a_single_ech_a_single_ts" begin
         ECH = [DateTime("2015-01-01T07:00:00"), DateTime("2015-01-01T10:00:00")]
         S = ["S1"]
         TS = [DateTime("2015-01-01T11:00:00")]
@@ -112,6 +110,24 @@ using Printf
         test2_preceding_decision_prod_2 = [[PSCOPF.OFF]]
 
         #=
+        TS: [11h]
+        S: [S1]
+                        bus 1                   bus 2
+                            |                      |
+        (limitable) wind_1_1|       "1_2"          |
+        Pmin=0, Pmax=200    |                      |
+        Csta=0, Cprop=1     |                      |
+        S1: 85              |----------------------|
+                            |         35           |
+                            |                      |
+        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        Pmin=20, Pmax=200   |                      | Pmin=20, Pmax=200
+        Csta=10k, Cprop=10  |                      | Csta=50k, Cprop=50
+        OFF->ON             |                      | OFF->OFF
+                            |                      |
+               load(bus_1)  |                      |load(bus_2)
+        S1: 50              |                      | S1: 70
+
         MARKET:
         demand = 120
         market chooses economically,
@@ -192,13 +208,31 @@ using Printf
         end
 
         #=
+        TS: [11h]
+        S: [S1]
+                        bus 1                   bus 2
+                            |                      |
+        (limitable) wind_1_1|       "1_2"          |
+        Pmin=0, Pmax=200    |                      |
+        Csta=0, Cprop=1     |                      |
+        S1: 85              |----------------------|
+                            |         35           |
+                            |                      |
+        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        Pmin=20, Pmax=200   |                      | Pmin=20, Pmax=200
+        Csta=10k, Cprop=10  |                      | Csta=50k, Cprop=50
+        OFF->ON             |                      | OFF->OFF
+                            |                      |
+               load(bus_1)  |                      |load(bus_2)
+        S1: 50              |                      | S1: 70
+
         MARKET:
         demand = 120
         market chooses economically,
         It uses the limitable prod => P_wind_1_1 = 85.
         remaining demand : 120-85 = 35MW
         Then the cheaper unit => prod_1_1 => P_prod_1_1 = 35.
-        This would causes a flow of 70 (>35.) on branch_1_2, the TSO needs to react
+        This would cause a flow of 70 (>35.) on branch_1_2, the TSO needs to react
 
         TSO:
         The TSO needs to anticipate to prevent the market from violating the RSO constraint
@@ -206,8 +240,11 @@ using Printf
 
         option 1 : TSO cost=15.
             produce at least 35.MW on bus 2
-            => P_prod_2_1 \in 35-200 => cost=15
-            to avoid any impositions costs, P_prod_1_1 will stay at [20, 200]
+            => P_prod_2_1 \in 35-200 => (unit was off) cost=35
+            to avoid any impositions costs, P_prod_1_1 will stay at [20, 200] (imposition cost would be 180)
+            Since P_prod_1_1 will produce 20MW but bus 1's production should not exceed 85MW
+            TSO will also limit wind_1_1 to 65MW
+
             The market will need to cap 20MW on wind_1_1
 
         option 2 : cost=180.
@@ -269,14 +306,13 @@ using Printf
             end
 
             @testset "balancemarket" begin
-
                 PSCOPF.run_step!(context, PSCOPF.BalanceMarket(), ECH[1], ECH[2])
 
                 @test 65. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
                 @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
                 @test 35. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[1], "S1")
 
-                @test_broken 20. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
+                @test 20. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
                 @test PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S1") < 1e-09
                 @test PSCOPF.get_cut_conso(context.market_schedule, "bus_2", TS[1], "S1") < 1e-09
             end
