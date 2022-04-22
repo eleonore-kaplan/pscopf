@@ -462,7 +462,7 @@ using DataStructures
         bus1: 20% of 180 => 36
         bus2: 20% of 20  => 4
     =#
-    @testset "energy_market_cutting_load_distribution_by_bus_in_schedule" begin
+    @testset "energy_market_lol_distribution_by_bus_in_schedule" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
