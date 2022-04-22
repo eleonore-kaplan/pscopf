@@ -6,6 +6,9 @@ using Dates
 using DataStructures
 using Printf
 
+"""
+creates a network with 2 buses
+"""
 function network_2buses(;limit::Float64=35., ptdf1=0.5, ptdf2=-0.5)
     network = PSCOPF.Networks.Network()
     # Buses
