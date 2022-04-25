@@ -12,6 +12,10 @@ function compute_prod(schedule, ts, scenario)
     return prod
 end
 
+"""
+Computes EOD (i.e. supply-demand) without specifically considering the capping or the LoL :
+sum(prod_schedule(gen))) - sum(load_uncertainties(bus)))
+"""
 function compute_eod(uncertainties_at_ech,
                     schedule,
                     network,

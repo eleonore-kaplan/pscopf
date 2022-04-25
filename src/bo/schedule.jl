@@ -360,6 +360,9 @@ function get_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime):
     return get_prod_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_prod_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::Float64
+    return safeget_prod_value(schedule.generator_schedules[gen_id], ts)
+end
 function safeget_prod_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::Float64
     prod = get_prod_value(sub_schedule, ts)
     if ismissing(prod)
@@ -382,6 +385,9 @@ function get_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.Date
     return get_commitment_value(schedule.generator_schedules[gen_id], ts)
 end
 
+function safeget_commitment_value(schedule::Schedule, gen_id::String, ts::Dates.DateTime)::GeneratorState
+    return safeget_commitment_value(schedule.generator_schedules[gen_id], ts)
+end
 function safeget_commitment_value(sub_schedule::GeneratorSchedule, ts::Dates.DateTime)::GeneratorState
     commitment = get_commitment_value(sub_schedule, ts)
     if ismissing(commitment)
