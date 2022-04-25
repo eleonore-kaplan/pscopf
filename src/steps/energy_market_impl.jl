@@ -322,8 +322,8 @@ function add_limitables!(model_container::EnergyMarketModel, network::Networks.N
             for s in scenarios
                 uncertain_power = compute_prod(uncertainties_at_ech, network, ts, s)
                 capped_by_limitation = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), network, ts, s)
-                println("capped by limitations :", capped_by_limitation)
-                println("uncertain_power :", uncertain_power)
+                @debug(@sprintf("capped by limitations : %f", capped_by_limitation))
+                @debug(@sprintf("uncertain_power : %f", uncertain_power))
 
                 name =  @sprintf("P_capping[%s,%s]", ts, s)
                 limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
@@ -403,7 +403,7 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
                     distribution_key = Dict{String,Float64}(gen_id_l => get_uncertainties(uncertainties, gen_id_l, ts, s)
                                                             for gen_id_l in limitables_ids)
                     distribution_key = normalize_values(distribution_key)
-                    println("distribution_key:", distribution_key)
+                    @debug(@sprintf("distribution_key : %s", distribution_key))
 
                     for (gen_id, coeff) in distribution_key
                         capped_value = coeff * capped_lim_prod
@@ -441,7 +441,7 @@ function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::
                 distribution_key = Dict{String,Float64}(bus_id_l => get_uncertainties(uncertainties, bus_id_l, ts, s)
                                                         for bus_id_l in bus_ids)
                 distribution_key = normalize_values(distribution_key)
-                println("distribution_key:", distribution_key)
+                @debug(@sprintf("distribution_key : %s", distribution_key))
 
                 for (bus_id, coeff) in distribution_key
                     cut_load_on_bus = coeff * total_cut_conso
@@ -472,7 +472,8 @@ function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
             continue
         else
             gen_capped = ( get_uncertainties(uncertainties_at_ech, gen_id, ts, s) - p_lim )
-            println(gen_id, " capped " ,gen_capped ," : limit is ", p_lim, " out of ", get_uncertainties(uncertainties_at_ech, gen_id, ts, s))
+            @debug(@sprintf("%s capped %f : limit is %f out of %f",
+                            gen_id, gen_capped, p_lim, get_uncertainties(uncertainties_at_ech, gen_id, ts, s)))
             capped += gen_capped
         end
     end
