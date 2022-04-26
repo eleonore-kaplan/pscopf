@@ -470,7 +470,7 @@ function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
 
         if ismissing(p_lim)
             continue
-        else
+        elseif get_uncertainties(uncertainties_at_ech, gen_id, ts, s) > p_lim
             gen_capped = ( get_uncertainties(uncertainties_at_ech, gen_id, ts, s) - p_lim )
             @debug(@sprintf("%s capped %f : limit is %f out of %f",
                             gen_id, gen_capped, p_lim, get_uncertainties(uncertainties_at_ech, gen_id, ts, s)))
