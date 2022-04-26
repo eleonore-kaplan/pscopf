@@ -58,34 +58,38 @@ using DataStructures
                     )
         # Uncertainties
         uncertainties = PSCOPF.Uncertainties()
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 20.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 30.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:15:00"), "S1", 15.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:15:00"), "S2", 30.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 10.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S2", 10.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S1", 17.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:15:00"), "S2", 13.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:00:00"), "S1", 40.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:00:00"), "S2", 45.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S1", 48.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", DateTime("2015-01-01T11:15:00"), "S2", 52.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S1", 20.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S2", 30.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[2], "S1", 15.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[2], "S2", 30.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[1], "S1", 10.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[1], "S2", 10.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[2], "S1", 17.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[2], "S2", 13.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S1", 40.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S2", 45.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[2], "S1", 48.)
+        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[2], "S2", 52.)
         # firmness
-        # firmness = PSCOPF.Firmness(
-        #             SortedDict("prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
-        #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE,),
-        #                         "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.DECIDED,
-        #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.DECIDED,), ),
-        #             SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
-        #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE,),
-        #                         "prod_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
-        #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE,),
-        #                         "prod_2_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.TO_DECIDE,
-        #                                                 Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.TO_DECIDE,), )
-        #             )
-        firmness = PSCOPF.compute_firmness(ech, #7h
-                                        nothing, # corresponds to ECH-DMO
-                                        TS, collect(PSCOPF.Networks.get_generators(network)))
+        expected_firmness = PSCOPF.Firmness(
+                    SortedDict("prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                        TS[2] => PSCOPF.TO_DECIDE,
+                                                        ),
+                                "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
+                                                        TS[2] => PSCOPF.DECIDED,
+                                                        ),
+                                ),
+                    SortedDict("wind_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                        TS[2] => PSCOPF.TO_DECIDE,
+                                                        ),
+                                "prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                        TS[2] => PSCOPF.TO_DECIDE,
+                                                        ),
+                                "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
+                                                        TS[2] => PSCOPF.DECIDED,
+                                                        ),
+                                )
+                    )
 
         context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                         generators_init_state,
@@ -94,32 +98,32 @@ using DataStructures
         context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T07:00:00"), SortedDict(
                                             "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                                 SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
-                                                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
                                                                                                                         SortedDict("S1"=>20., "S2"=>30.)),
-                                                            Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                            TS[2] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
                                                                                                                         SortedDict("S1"=>15., "S2"=>30.))),
                                                 ),
                                             "prod_1_1" => PSCOPF.GeneratorSchedule("prod_1_1",
-                                                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
                                                                                                                         SortedDict("S1"=>PSCOPF.OFF, "S2"=>PSCOPF.OFF)),
-                                                            Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
+                                                            TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
                                                                                                                         SortedDict("S1"=>PSCOPF.OFF, "S2"=>PSCOPF.OFF))
                                                             ),
-                                                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
                                                                                                                         SortedDict("S1"=>20., "S2"=>15.)),
-                                                            Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
+                                                            TS[2] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
                                                                                                                         SortedDict("S1"=>35., "S2"=>20.))
                                                             )
                                                 ),
                                             "prod_2_1" => PSCOPF.GeneratorSchedule("prod_2_1",
-                                                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
                                                                                                                         SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON)),
-                                                            Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
+                                                            TS[2] => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(PSCOPF.ON,
                                                                                                                         SortedDict("S1"=>PSCOPF.ON, "S2"=>PSCOPF.ON))
                                                             ),
-                                                SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(10.,
+                                                SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.Float64}(10.,
                                                                                                                         SortedDict("S1"=>10., "S2"=>10.)),
-                                                            Dates.DateTime("2015-01-01T11:15:00") => PSCOPF.UncertainValue{PSCOPF.Float64}(15.,
+                                                            TS[2] => PSCOPF.UncertainValue{PSCOPF.Float64}(15.,
                                                                                                                         SortedDict("S1"=>15., "S2"=>15.))
                                                             )
                                                 )
@@ -127,6 +131,10 @@ using DataStructures
                                     )
 
         market = PSCOPF.EnergyMarketAtFO()
+
+        next_ech = ech+Minute(1)
+        firmness = PSCOPF.compute_firmness(market, ech, next_ech, TS, context) #firmness for EnergyMarketAtFO is always TO_DECIDE or DECIDED no matter the next_ech
+        @test expected_firmness == firmness
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
