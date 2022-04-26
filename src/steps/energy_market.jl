@@ -8,24 +8,17 @@ using Printf
     configs = EnergyMarketConfigs()
 end
 
-@with_kw mutable struct BalanceMarket <: AbstractMarket
-    configs = EnergyMarketConfigs(problem_name = "BalanceMarket",
-                                CONSIDER_TSOACTIONS_LIMITATIONS=true,
-                                CONSIDER_TSOACTIONS_IMPOSITIONS=true,
-                                CONSIDER_TSOACTIONS_COMMITMENTS=true,
-                                REF_SCHEDULE_TYPE=PSCOPF.TSO())
-end
-
 function run(runnable::Union{EnergyMarket,BalanceMarket},
             ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime},
             context::AbstractContext)
     fo_start_time = TS[1] - get_fo_length(get_management_mode(context))
-    if fo_start_time <= ech
-        msg = @sprintf("invalid step at ech=%s : step needs to be launched before FO start (ie %s)", ech, fo_start_time)
+    if (fo_start_time <= ech) && isa(runnable, EnergyMarket)
+        msg = @sprintf("invalid %s step at ech=%s : EnergyMarket step needs to be launched before FO start (ie %s)",
+                        typeof(EnergyMarket), ech, fo_start_time)
         throw( error(msg) )
     end
 
-    problem_name_l = @sprintf("energy_market_%s", ech)
+    problem_name_l = @sprintf("%s_%s", typeof(runnable), ech)
 
     tso_actions = filter_tso_actions(get_tso_actions(context),
                                     keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
