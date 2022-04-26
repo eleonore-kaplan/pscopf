@@ -23,6 +23,7 @@ module PSCOPF
     include("steps/common.jl")
     include("steps/defs.jl")
     include("steps/energy_market_impl.jl")
+    include("steps/balance_market.jl")
     include("steps/energy_market.jl")
     include("steps/energy_market_at_fo.jl")
     include("steps/tso_impl.jl")
