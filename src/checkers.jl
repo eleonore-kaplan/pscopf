@@ -410,6 +410,17 @@ end
 ####    FO-related
 ##################################
 
+"""
+FIXME
+In mode 1, if DP>FO, energy market won't see the decided values at DP.
+It is the TSO (in mode 1 before FO) who would make the production level decision,
+ but market model will refer to the energy market schedule.
+
+This might be solved if TSO updates market schedule, but this way :
+    1 - TSO will hide the market schedule
+    2 - In mode 1, TSO will affect the market
+    3 - the solution would be equivalent to use tso schedule as a reference schedule when needed
+"""
 function check_fo_compatibility(network::Network, fo::Dates.Period)
     checks = true
     for generator in Networks.get_generators(network)
