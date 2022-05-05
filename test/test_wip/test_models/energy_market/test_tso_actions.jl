@@ -234,7 +234,8 @@ using DataStructures
         #=
         TSOActions::commitments are supposed to only be indicated when we reach a unit's DMO.
            DMO
-            |                  no tso launched here   market    market
+            |
+            TSO          no tso launched afterwards   market    market
         unit 1 : ON                                   ON        ON
         unit 2 : ON                                   OFF       ON       => market_2 restarted unit 2 after DMO!
 

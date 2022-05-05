@@ -10,92 +10,37 @@ using DataStructures
 @testset verbose=true "test_energy_market_at_fo" begin
 
     #=
-    ECH = 10h
-    TS: [11h, 11h15]
-    S: [S1,S2]
-                        bus 1                   bus 2
-                        |                      |
-    (limitable) wind_1_1|       "1_2"          |
-    Pmin=0, Pmax=100    |                      |
-    Csta=0, Cprop=1     |                      |
-      S1: 20    S1: 15  |----------------------|
-      S2: 30    S2: 30  |         35           |
-                        |                      |
-                        |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
-    Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
-    Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
-    ON    ON       ON   |                      | ON  ON      ON
-                        |                      |
-           load(bus_1)  |                      |load(bus_2)
-      S1: 10     S1: 17 |                      | S1: 40  S1: 48
-      S2: 10     S2: 13 |                      | S2: 45  S2: 52
+        ECH = 10h
+        TS: [11h, 11h15]
+        S: [S1,S2]
+                            bus 1                   bus 2
+                            |                      |
+        (limitable) wind_1_1|       "1_2"          |
+        Pmin=0, Pmax=100    |                      |
+        Csta=0, Cprop=1     |                      |
+        S1: 20    S1: 15    |----------------------|
+        S2: 30    S2: 30    |         35           |
+                            |                      |
+                            |                      |
+        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
+        Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
+    INIT: ON                |                      |INIT: ON
+                            |                      | DP=DMO=2h
+                            |                      |
+            load(bus_1)     |                      |load(bus_2)
+        S1: 10     S1: 17   |                      | S1: 40  S1: 48
+        S2: 10     S2: 13   |                      | S2: 45  S2: 52
 
-
-    prod_2_1 is started at 10MW in TS1 and 15MW in TS2
+    prod_2_1's level was already decided for TS1 and TS2 : 10 and 15MW
 
     =#
-    function create_instance(ech,TS)
-        network = PSCOPFFixtures.network_2buses()
-        # Limitables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
-                                                0., 100.,
-                                                0., 1.,
-                                                Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
-                                                10., 100.,
-                                                45000., 10.,
-                                                Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
-                                                10., 100.,
-                                                80000., 15.,
-                                                Dates.Second(4*60*60), Dates.Second(4*60*60))
-        # initial generators state
-        generators_init_state = SortedDict(
-                        "prod_1_1" => PSCOPF.ON,
-                        "prod_2_1" => PSCOPF.ON
-                    )
-        # Uncertainties
-        uncertainties = PSCOPF.Uncertainties()
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S1", 20.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[1], "S2", 30.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[2], "S1", 15.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", TS[2], "S2", 30.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[1], "S1", 10.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[1], "S2", 10.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[2], "S1", 17.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", TS[2], "S2", 13.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S1", 40.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[1], "S2", 45.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[2], "S1", 48.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_2", TS[2], "S2", 52.)
-        # firmness
-        expected_firmness = PSCOPF.Firmness(
-                    SortedDict("prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
-                                                        TS[2] => PSCOPF.TO_DECIDE,
-                                                        ),
-                                "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
-                                                        TS[2] => PSCOPF.DECIDED,
-                                                        ),
-                                ),
-                    SortedDict("wind_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
-                                                        TS[2] => PSCOPF.TO_DECIDE,
-                                                        ),
-                                "prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
-                                                        TS[2] => PSCOPF.TO_DECIDE,
-                                                        ),
-                                "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
-                                                        TS[2] => PSCOPF.DECIDED,
-                                                        ),
-                                )
-                    )
 
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
-                                        generators_init_state,
-                                        uncertainties, nothing)
 
-        context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T07:00:00"), SortedDict(
+    TS = [DateTime("2015-01-01T11:00:00"), DateTime("2015-01-01T11:15:00")]
+    ech = DateTime("2015-01-01T10:00:00")
+    context = PSCOPFFixtures.context_2buses_2TS_2S(TS, ech)
+    context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T09:00:00"), SortedDict(
                                             "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                                 SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
                                                 SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,
@@ -130,22 +75,37 @@ using DataStructures
                                             )
                                     )
 
-        market = PSCOPF.EnergyMarketAtFO()
+    market = PSCOPF.EnergyMarketAtFO()
+    next_ech = DateTime("2015-01-01T10:01:00") # does not matter : all decisions will be DECIDED or TODECIDE
+    result, firmness = PSCOPF.run_step!(context, market, ech, next_ech)
 
-        next_ech = ech+Minute(1)
-        firmness = PSCOPF.compute_firmness(market, ech, next_ech, TS, context) #firmness for EnergyMarketAtFO is always TO_DECIDE or DECIDED no matter the next_ech
-        @test expected_firmness == firmness
-        result = PSCOPF.run(market, ech, firmness,
-                    PSCOPF.get_target_timepoints(context),
-                    context)
-        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
-
-        return context, result
+    @testset "energy_market_at_fo_is_launched_at_fo" begin
+        @test ech == (TS[1] - PSCOPF.get_fo_length(PSCOPF.get_management_mode(context)))
     end
 
-    ech = DateTime("2015-01-01T10:00:00")
-    TS = [DateTime("2015-01-01T11:00:00"), DateTime("2015-01-01T11:15:00")]
-    context, result = create_instance(ech, TS)
+    @testset "energy_market_required_decisions_are_all_firm" begin
+        println(firmness)
+        expected_firmness = PSCOPF.Firmness(
+                        SortedDict("prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                            TS[2] => PSCOPF.TO_DECIDE,
+                                                            ),
+                                    "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
+                                                            TS[2] => PSCOPF.DECIDED,
+                                                            ),
+                                    ),
+                        SortedDict("wind_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                            TS[2] => PSCOPF.TO_DECIDE,
+                                                            ),
+                                    "prod_1_1" => SortedDict(TS[1] => PSCOPF.TO_DECIDE,
+                                                            TS[2] => PSCOPF.TO_DECIDE,
+                                                            ),
+                                    "prod_2_1" => SortedDict(TS[1] => PSCOPF.DECIDED,
+                                                            TS[2] => PSCOPF.DECIDED,
+                                                            ),
+                                    )
+                        )
+        @test expected_firmness == firmness
+    end
 
     @testset "energy_market_at_fo_successful_launch" begin
         # Solution is optimal
