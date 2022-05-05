@@ -481,7 +481,7 @@ function add_power_level_sequencing_constraints!(model::AbstractModel,
 
             if power_level_firmness[ts]==DECIDED
             # => does not allow unit shutdown after DP cause level is forced
-                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
+                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts)
                 @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
                 @assert( ismissing(imposition_bounds) ||
                         (imposition_bounds[1] <= scheduled_prod <= imposition_bounds[2]) )
