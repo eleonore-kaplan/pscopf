@@ -320,7 +320,7 @@ function add_prop_cost!(obj_component::AffExpr,
 end
 
 function add_coeffxsum_cost!(obj_component::AffExpr,
-                            vars_dict::AbstractDict{T,V}, coeff::Float64)  where T <: Tuple where V <: VariableRef
+                            vars_dict::AbstractDict{T,V}, coeff::Float64)  where T where V <: VariableRef
     for (_, var_l) in vars_dict
         add_to_expression!(obj_component, coeff * var_l)
     end
@@ -481,7 +481,7 @@ function add_power_level_sequencing_constraints!(model::AbstractModel,
 
             if power_level_firmness[ts]==DECIDED
             # => does not allow unit shutdown after DP cause level is forced
-                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts,s)
+                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts)
                 @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
                 @assert( ismissing(imposition_bounds) ||
                         (imposition_bounds[1] <= scheduled_prod <= imposition_bounds[2]) )

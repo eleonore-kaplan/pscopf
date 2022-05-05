@@ -13,6 +13,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
 """
 @with_kw mutable struct TSOConfigs
     cut_conso_penalty = 1e7
+    limitation_penalty = 1e-03
     out_path = nothing
     problem_name = "TSO"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
@@ -344,7 +345,7 @@ function add_tso_limitable_prop_cost!(obj_component::AffExpr,
 end
 
 function create_objectives!(model_container::TSOModel,
-                            network, uncertainties_at_ech, gratis_starts, cut_conso_cost)
+                            network, uncertainties_at_ech, gratis_starts, cut_conso_cost, limitation_penalty)
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,
@@ -352,7 +353,7 @@ function create_objectives!(model_container::TSOModel,
 
     # avoid limiting when not necessary
     for (_, var_is_limited) in model_container.limitable_model.b_is_limited
-        model_container.objective_model.penalty += 1e-03 * var_is_limited
+        model_container.objective_model.penalty += limitation_penalty * var_is_limited
     end
 
     ## Objective 1 :
@@ -454,7 +455,8 @@ function tso_out_fo(network::Networks.Network,
 
     create_objectives!(model_container_l,
                         network, uncertainties_at_ech,
-                        gratis_starts, configs.cut_conso_penalty)
+                        gratis_starts,
+                        configs.cut_conso_penalty, configs.limitation_penalty)
 
     obj = model_container_l.objective_model.full_obj_1
     @objective(get_model(model_container_l), Min, obj)

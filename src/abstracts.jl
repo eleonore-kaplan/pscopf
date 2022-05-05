@@ -25,7 +25,11 @@ Determines the firmnes of commitment and powerlevel decisions for each timestep
 """
 function compute_firmness(runnable::AbstractRunnable, ech, next_ech, TS, context::AbstractContext) error("unimplemented") end
 """
-Launches the runnable
+Launches the runnable :
+    get relevant data from context
+    build the optimization model
+    solve the model
+    return a result object to be exploited by the updating methods
 """
 function run(runnable::AbstractRunnable, ech, firmness, TS, context::AbstractContext) error("unimplemented") end
 """
