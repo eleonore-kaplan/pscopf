@@ -97,10 +97,6 @@ using DataStructures
         return context, result
     end
 
-    function in_bounds(value, lower, upper, eps=1e-09)::Bool
-        return (lower - eps) <= value <= (upper + eps)
-    end
-
     ech = DateTime("2015-01-01T10:00:00")
     TS = [DateTime("2015-01-01T11:00:00")]
 
@@ -315,10 +311,10 @@ using DataStructures
             # Imposable respects impositions
             @test 80. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S1"])
             @test 80. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
             @test 90. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S2"])
             @test 90. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
 
             @test 10. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1")
             @test 10. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")
@@ -384,10 +380,10 @@ using DataStructures
             # Imposable respects impositions
             @test 75. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S1"])
             @test 75. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
             @test 80. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S2"])
             @test 80. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
 
             @test 15. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1")
             @test 20. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")
@@ -456,10 +452,10 @@ using DataStructures
 
             @test value(result.imposable_model.p_injected["prod_2_1",TS[1], "S1"]) < 1e-09
             @test PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1") < 1e-09
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1"), impos_2_s1_l[1], impos_2_s1_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1"), impos_2_s1_l[1], impos_2_s1_l[2])
             @test value(result.imposable_model.p_injected["prod_2_1",TS[1], "S2"])  < 1e-09
             @test PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")  < 1e-09
-            @test in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2"), impos_2_s2_l[1], impos_2_s2_l[2])
+            @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2"), impos_2_s2_l[1], impos_2_s2_l[2])
 
             # Limitable is used at maximum allowed
             @test 50. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
