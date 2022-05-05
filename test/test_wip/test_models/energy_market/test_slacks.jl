@@ -95,11 +95,11 @@ using DataStructures
     (limitable) wind_1_1|
     Pmin=0, Pmax=100    |
     Csta=0, Cprop=1     |     load_1
-      S1: 20            | S1: 15
-      S2: 25            | S2: 25
+      S1: 20            | S1: 15       => need to cap 5MW
+      S2: 25            | S2: 25       => no capping
                         |
     =#
-    @testset "energy_market_does_not_need_capping_if_not_forced_limitables" begin
+    @testset "energy_market_reports_needed_capping_if_not_forced_limitables" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
@@ -139,7 +139,7 @@ using DataStructures
         @test 15. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1") < 20.
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         # Limitable didn't need capping
-        @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
+        @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
         @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
         # No penalty and we only pay for what we used
         @test value(result.objective_model.penalty) < 1e-09
@@ -462,7 +462,7 @@ using DataStructures
         bus1: 20% of 180 => 36
         bus2: 20% of 20  => 4
     =#
-    @testset "energy_market_cutting_load_distribution_by_bus_in_schedule" begin
+    @testset "energy_market_lol_distribution_by_bus_in_schedule" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()

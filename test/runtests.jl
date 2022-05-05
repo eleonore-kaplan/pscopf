@@ -1,3 +1,5 @@
+module PSCOPFTest
+
 using Test
 
 using PSCOPF
@@ -37,7 +39,12 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/energy_market/test_dmo.jl")
     include("test_wip/test_models/energy_market/test_dp.jl")
     include("test_wip/test_models/energy_market/test_slacks.jl")
+    include("test_wip/test_models/energy_market/test_capping.jl")
+    include("test_wip/test_models/energy_market/test_tso_actions.jl")
+
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
+
+    include("test_wip/test_models/energy_market/test_balance_market.jl")
 
     include("test_wip/test_models/tso_out_fo/test_dp_imposable.jl")
     include("test_wip/test_models/tso_out_fo/test_dp_limitable.jl")
@@ -55,6 +62,9 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_start.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_costing.jl")
 
+    include("test_wip/test_models/eod_assessment/test_simple_call.jl")
+    include("test_wip/test_models/rso_assessment/test_simple_call.jl")
+
     # include("test_wip/test_seq_launch.jl")
     include("test_wip/example_usecase.jl")
     include("test_wip/example_usecase_from_folder.jl")
@@ -63,3 +73,5 @@ include("test_wip//test_models/fixtures.jl")
 
 
 end
+
+end #module PSCOPFTest

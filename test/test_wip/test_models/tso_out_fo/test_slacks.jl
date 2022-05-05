@@ -11,13 +11,16 @@ using DataStructures
     Currently
     Pinj = min(Plim, uncertainties)
     so Pinj cannot be fixed to a level lower than uncertainties
+    ie. if limit is 25, uncertainty is 20 and demand is 15
+    the expression above would cause a production of min(25,20)=20MW
+    So an extra 5MW (which is not allowed in the model)
                     S1   S2
     Load            15    25
     prod            20    25
     we could have (Not what we want, injection should = min(uncertainty, Plimit)) :
     Plim         =     25
     Pinj         = [15 , 25]
-    B_islim      = [0  , 0]
+    B_islim      = [1  , 0]
     Pislim_x_lim = [0  , 0]
     cut_conso    = [0  , 0]
     We have what we want :
