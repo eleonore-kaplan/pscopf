@@ -262,14 +262,6 @@ function add_injection_bounds_sequencing_constraints!(imposable_model, model,
 
     for ts in target_timepoints
         if gen_power_firmness[ts] in [TO_DECIDE, DECIDED]
-        # We reached DP => p_tso_min(s) == p_tso_max(s) \forall s
-        #since p_tso_min(s) = p_tso_min(s') and p_tso_max(s) = p_tso_max(s')
-        # we simply need p_tso_min(s1) == p_tso_max(s1)
-            s1 = scenarios[1]
-            name = @sprintf("c_firm_level_at_DP[%s,%s]",gen_id,ts)
-            @constraint(model,
-                        imposable_model.p_tso_min[gen_id,ts,s1] == imposable_model.p_tso_max[gen_id,ts,s1],
-                        base_name=name)
 
             if gen_power_firmness[ts] == DECIDED
             # We're past DP => p_tso_min(s) == p_tso_max(s) == already_decided_level \forall s
