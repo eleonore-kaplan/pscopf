@@ -143,6 +143,7 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         trace_delta_schedules(schedules_to_delta...)
     end
 
+    return result, firmness
 end
 
 function run!(context_p::AbstractContext, sequence_p::Sequence;
