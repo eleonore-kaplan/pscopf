@@ -145,6 +145,11 @@ function has_positive_slack(model_container)::Bool
     error("unimplemented")
 end
 
+function requires_linking(firmness::DecisionFirmness, do_link::Bool=false)::Bool
+    return do_link || (firmness in [DECIDED, TO_DECIDE])
+end
+
+
 # AbstractGeneratorModel
 ############################
 
@@ -228,7 +233,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
     # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
     #       p_limit can always be changed in the future horizons (it is not really decided)
     #DECIDED indicates that we are past the limitable's DP => need a common decision for all scenarios
-    if always_link_scenarios || (decision_firmness in [DECIDED, TO_DECIDE])
+    if requires_linking(decision_firmness, always_link_scenarios)
         link_scenarios!(model, p_limit, gen_id, ts, scenarios)
     end
 
@@ -440,7 +445,7 @@ function add_scenarios_linking_constraints!(model::AbstractModel,
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if always_link || (gen_firmness[ts] in [DECIDED, TO_DECIDE])
+        if requires_linking(gen_firmness[ts], always_link)
             link_scenarios!(model, vars, gen_id, ts, scenarios)
         end
     end
