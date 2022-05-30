@@ -61,6 +61,7 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_imposables.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_start.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_costing.jl")
+    include("test_wip/test_models/tso_bilevel/test_bilevel_imposables_scenarios.jl")
 
     include("test_wip/test_models/eod_assessment/test_simple_call.jl")
     include("test_wip/test_models/rso_assessment/test_simple_call.jl")
