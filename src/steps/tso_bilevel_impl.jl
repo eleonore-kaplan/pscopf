@@ -139,6 +139,8 @@ end
     cut_conso_indicators::SortedDict{Tuple{DateTime,String},VariableRef} =
         SortedDict{Tuple{DateTime,String},VariableRef}()
     #imposable_id,ts,s
+    firmness_duals::SortedDict{Tuple{String,DateTime,String},VariableRef} =
+        SortedDict{Tuple{String,DateTime,String},VariableRef}()
     pmin_duals::SortedDict{Tuple{String,DateTime,String},VariableRef} =
         SortedDict{Tuple{String,DateTime,String},VariableRef}()
     pmin_indicators::SortedDict{Tuple{String,DateTime,String},VariableRef} =
@@ -800,6 +802,29 @@ function add_slacks!(model_container::TSOBilevelMarketModelContainer,
     return slack_model
 end
 
+function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
+                            target_timepoints, scenarios,
+                            network,
+                            firmness,
+                            link_scenarios_imposable_level_market)
+    for gen_imposable in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+        gen_id = Networks.get_id(gen_imposable)
+        for ts in target_timepoints
+            decision_firmness_l = get_power_level_firmness(firmness, gen_id, ts)
+            for s in scenarios
+                name = @sprintf("c_firmness[%s,%s,%s]",gen_id,ts,s)
+
+                if requires_linking(decision_firmness_l, link_scenarios_imposable_level_market)
+                    #create duals relative to firmness constraints of injected imposable power in market
+                    add_dual!(kkt_model_container.model, kkt_model_container.firmness_duals,
+                                (gen_id,ts,s), name, false)
+                end
+            end
+        end
+    end
+    return kkt_model_container
+end
+
 function add_eod_constraints!(market_model_container::TSOBilevelMarketModelContainer,
                             kkt_model_container::TSOBilevelKKTModelContainer,
                             target_timepoints, scenarios,
@@ -1033,21 +1058,38 @@ function add_capping_stationarity_constraints!(kkt_model::TSOBilevelKKTModelCont
     end
 end
 
+function firmness_duals_sationarity_expr(kkt_model,
+                                        gen_id, ts, scenario,
+                                        scenarios)::AffExpr
+    if length(scenarios) == 1
+        result_l = 0.
+    elseif scenario == scenarios[1]
+        sum_l = sum( get(kkt_model.firmness_duals, (gen_id,ts,s), 0.) for s in scenarios[2:end])
+        result_l = -sum_l
+    else
+        result_l = get(kkt_model.firmness_duals, (gen_id,ts,scenario), 0.)
+    end
+    return result_l
+end
 function add_imposable_stationarity_constraints!(kkt_model::TSOBilevelKKTModelContainer,
                                                 target_timepoints, scenarios, network)
-    for ts in target_timepoints
-        for s in scenarios
-            for imposable_gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-                gen_id = Networks.get_id(imposable_gen)
-                gen_prop_cost = Networks.get_prop_cost(imposable_gen)
+    for imposable_gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+        gen_id = Networks.get_id(imposable_gen)
+        gen_prop_cost = Networks.get_prop_cost(imposable_gen)
+        for ts in target_timepoints
+            for s in scenarios
                 # @assert ( imposable_bounding_cost ≈ coefficient(market_model.objective_model.full_obj,
                 #                                             market_model.imposable_model.p_injected[gen_id,ts,s]) )
                 name = @sprintf("c_stationarity_imposable_p[%s,%s,%s]",gen_id,ts,s)
+                firmness_sationarity_expr = firmness_duals_sationarity_expr(kkt_model,
+                                                                                gen_id, ts, s,
+                                                                                scenarios)
                 @constraint(kkt_model.model,
                             0 == gen_prop_cost
                                     + kkt_model.eod_duals[ts,s]
                                     - kkt_model.pmin_duals[gen_id,ts,s]
-                                    + kkt_model.pmax_duals[gen_id,ts,s],
+                                    + kkt_model.pmax_duals[gen_id,ts,s]
+                                    + firmness_sationarity_expr,
                             base_name=name)
             end
         end
@@ -1196,6 +1238,9 @@ function tso_bilevel(network::Networks.Network,
     #constraints may use upper and lower vars at the same time
     add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
     #kkt primal feasibility + variables creation
+    add_firmness_duals(bimodel_container_l.kkt_model,
+                        target_timepoints, scenarios, network, firmness,
+                        configs.LINK_SCENARIOS_IMPOSABLE_LEVEL_MARKET)
     add_market_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
     #kkt stationarity
     add_kkt_stationarity_constraints!(bimodel_container_l.kkt_model,
