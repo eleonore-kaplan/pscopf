@@ -62,8 +62,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
     # Capping : upper problem (TSO) locates cappings
     update_schedule_capping!(tso_schedule, result.upper.limitable_model)
 
-    # cut_conso (load-shedding) : upper problem (TSO) locates load shedding
-    update_schedule_cut_conso!(tso_schedule, result.upper.slack_model)
+    # loss_of_load (load-shedding) : upper problem (TSO) locates load shedding
+    update_schedule_loss_of_load!(tso_schedule, result.upper.lol_model)
 
     return tso_schedule
 end
@@ -76,11 +76,11 @@ function update_schedule_capping!(tso_schedule, limitable_model::TSOBilevelTSOLi
     end
 end
 
-function update_schedule_cut_conso!(tso_schedule, slack_model::TSOBilevelTSOSlackModel)
-    reset_cut_conso_by_bus!(tso_schedule)
+function update_schedule_loss_of_load!(tso_schedule, lol_model::TSOBilevelTSOLoLModel)
+    reset_loss_of_load_by_bus!(tso_schedule)
 
-    for ((bus_id, ts, s), p_cut_conso_var) in slack_model.p_cut_conso
-        tso_schedule.cut_conso_by_bus[bus_id, ts, s] = value(p_cut_conso_var)
+    for ((bus_id, ts, s), p_loss_of_load_var) in lol_model.p_loss_of_load
+        tso_schedule.loss_of_load_by_bus[bus_id, ts, s] = value(p_loss_of_load_var)
     end
 end
 

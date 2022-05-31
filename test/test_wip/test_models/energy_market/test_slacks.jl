@@ -133,23 +133,23 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
-        @test 50. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+        @test 50. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
         # S2 : load < pmin => cannot start the unit for such load
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2") < 1e-09
-        @test 15. ≈ value(result.slack_model.p_cut_conso[TS[1], "S2"])
+        @test 15. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S2"])
         # S3 : works fine
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S3")
-        @test value(result.slack_model.p_cut_conso[TS[1], "S3"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load[TS[1], "S3"]) < 1e-09
         # penalize cutting consumption
-        @test 1e7 ≈ market.configs.cut_conso_penalty
+        @test 1e7 ≈ market.configs.loss_of_load_penalty
         @test (50. * 1e7 + 15. * 1e7 + 0. ) ≈ value(result.objective_model.penalty)
         @test (1e5 + 0. + 1e5) ≈ value(result.objective_model.start_cost)
         @test (100. + 0. + 25. ) ≈ value(result.objective_model.prop_cost)
 
         #cut conso is localized in the ranscripted schedule:
-        @test 50. ≈ PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S1")
-        @test 15. ≈ PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S2")
-        @test PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S3") < 1e-09
+        @test 50. ≈ PSCOPF.get_loss_of_load(context.market_schedule, "bus_1", TS[1], "S1")
+        @test 15. ≈ PSCOPF.get_loss_of_load(context.market_schedule, "bus_1", TS[1], "S2")
+        @test PSCOPF.get_loss_of_load(context.market_schedule, "bus_1", TS[1], "S3") < 1e-09
     end
 
     #=
@@ -169,7 +169,7 @@ using DataStructures
         prod_1_1 at 25MW
     Retrieved solution with low penalization (1e3):
         prod_1_1 at 0
-        cut_conso : 25MW
+        loss_of_load : 25MW
     =#
     @testset "energy_market_careful_for_cuts_consumption_penalty" begin
         penalty = 1e3
@@ -198,7 +198,7 @@ using DataStructures
                                         generators_init_state,
                                         uncertainties, nothing)
         market = PSCOPF.EnergyMarket()
-        market.configs.cut_conso_penalty = penalty
+        market.configs.loss_of_load_penalty = penalty
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
                     context)
@@ -207,13 +207,13 @@ using DataStructures
         # Desired Solution
         @test !( PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL )
         @test !( 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") )
-        @test !( value(result.slack_model.p_cut_conso[TS[1], "S1"]) < 1e-09 )
+        @test !( value(result.lol_model.p_loss_of_load[TS[1], "S1"]) < 1e-09 )
         @test !( value(result.objective_model.penalty) < 1e-09 )
 
         # retrieved solution
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 25. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+        @test 25. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
         @test (25. * 1e3) ≈ value(result.objective_model.penalty)
 
     end
@@ -290,14 +290,14 @@ using DataStructures
         @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
         @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-        @test 5. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+        @test 5. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
 
         # In S2 : Load=25, wind provides 10 => still missing 15 but pmin=20
         # imposable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
         @test 5. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])
-        @test value(result.slack_model.p_cut_conso[TS[1], "S2"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load[TS[1], "S2"]) < 1e-09
     end
 
     #=
@@ -451,12 +451,12 @@ using DataStructures
         @test 160. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
 
         # Total cut conso
-        @test 40. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+        @test 40. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
 
         # cut conso distributed on buses
-        @test 0.2 ≈ 40 / 200 # 40:cut_conso, 200:total load
-        @test (0.2 * 180) ≈ context.market_schedule.cut_conso_by_bus["bus_1", TS[1], "S1"]
-        @test (0.2 * 20.) ≈ context.market_schedule.cut_conso_by_bus["bus_2", TS[1], "S1"]
+        @test 0.2 ≈ 40 / 200 # 40:loss_of_load, 200:total load
+        @test (0.2 * 180) ≈ context.market_schedule.loss_of_load_by_bus["bus_1", TS[1], "S1"]
+        @test (0.2 * 20.) ≈ context.market_schedule.loss_of_load_by_bus["bus_2", TS[1], "S1"]
     end
 
     #TODO : illustrate ptdf effect

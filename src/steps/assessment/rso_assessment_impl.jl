@@ -363,8 +363,8 @@ function is_validated(model_container::RSOAssessmentModel)
 end
 
 function has_positive_slack(model_container::RSOAssessmentModel)::Bool
-    return false # ( has_positive_value(model_container.lower.slack_model.p_cut_conso)
-           #  || has_positive_value(model_container.lower.slack_model.p_cut_prod) )
+    return false # ( has_positive_value(model_container.lower.lol_model.p_loss_of_load)
+           #  || has_positive_value(model_container.lower.lol_model.p_cut_prod) )
 end
 
 function get_assessment_uncertainties_lb(assessment_uncertainties, bus_or_limitable::String)

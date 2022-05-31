@@ -65,12 +65,12 @@ using Printf
             Market : use wind_1_1 at 40.
             This satisfies the EOD constraint
                 e = p_capping = 0.
-                lol = p_cut_conso = 0.
+                lol = p_loss_of_load = 0.
             This does not induce any RSO constraint violation
 
             The TSO does not need to take any actions :
                 e_min = p_capping_min = 0.
-                lol_min = p_cut_conso_min = 0.
+                lol_min = p_loss_of_load_min = 0.
                 no limitation
 
             TSO cost : 0
@@ -82,7 +82,7 @@ using Printf
         function  test_ts1_values(result, TS)
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #no limitation
             @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]) > 40. - 1e-09
@@ -90,7 +90,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
 
         end
 
@@ -118,12 +118,12 @@ using Printf
             Market : use wind_1_1 at 60.
             This satisfies the EOD constraint
                 e = p_capping = 0.
-                lol = p_cut_conso = 0.
+                lol = p_loss_of_load = 0.
             This does not induce any RSO constraint violation
 
             The TSO does not need to take any actions :
                 e_min = p_capping_min = 0.
-                lol_min = p_cut_conso_min = 0.
+                lol_min = p_loss_of_load_min = 0.
                 no limitation
 
             TSO cost : 0
@@ -152,11 +152,11 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
-            @test value(result.lower.slack_model.p_cut_conso[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"]) < 1e-09
 
             # no limitation
             @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"]) > 60. - 1e-09
@@ -191,14 +191,14 @@ using Printf
             Market :
                 The market needs to satisfy EOD constraint => only option is to cap 20MW of limitable production.
                     e = p_capping = 20.
-                    lol = p_cut_conso = 0.
+                    lol = p_loss_of_load = 0.
 
             The TSO locates the capping to avoid RSO constraints (even if there is no risk of violating RSO here)
                 p_capping[wind_1_1]=20, plim[wind1]=40, p_injected[wind_1_1]=40
 
             The TSO takes a limitation action:
             e_min = p_capping_min = 0.
-            lol_min = p_cut_conso_min = 0.
+            lol_min = p_loss_of_load_min = 0.
             plim[wind1] = 40 (due to locating capping)
 
             TSO cost : 0.001 (one limitation)
@@ -239,7 +239,7 @@ using Printf
 
             #TSO RSO constraints are OK => no minimum capping or cut conso
             @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             # TSO needs to limit because it is him who locates capping
             @test 40. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"])
@@ -248,7 +248,7 @@ using Printf
 
             # EOD problem in TS2 : lots of prod
             @test 20. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-            @test value(result.lower.slack_model.p_cut_conso[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"]) < 1e-09
 
             #costs
             @test (1*tso.configs.TSO_LIMIT_PENALTY) ≈ value(PSCOPF.get_upper_obj_expr(result)) #one limitation
@@ -280,15 +280,15 @@ using Printf
             Market :
                 The market needs to satisfy EOD => reduces the consumption to 40
                     e = p_capping = 0.
-                    lol = p_cut_conso = 20.
+                    lol = p_loss_of_load = 20.
 
             The TSO locates the LoL to avoid RSO constraints
                 Here, there is no risk of violating the RSO constraint => any option will do:
-                    p_cut_conso[bus_1]+p_cut_conso[bus_2] = 20
+                    p_loss_of_load[bus_1]+p_loss_of_load[bus_2] = 20
 
             The TSO takes no further actions
             e_min = p_capping_min = 0.
-            lol_min = p_cut_conso_min = 0.
+            lol_min = p_loss_of_load_min = 0.
             no limitation
 
             TSO cost : 0
@@ -317,7 +317,7 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #no limitation
             @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"]) > 40. - 1e-09
@@ -326,15 +326,15 @@ using Printf
 
             # EOD problem in TS2 : lot of conso
             @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
-            @test 20. ≈ value(result.lower.slack_model.p_cut_conso[TS[2],"S1"])
+            @test 20. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
-            @test 20. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1", TS[2],"S1"])
-                        + value(result.upper.slack_model.p_cut_conso["bus_2", TS[2],"S1"]) )
+            @test 20. ≈ ( value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"])
+                        + value(result.upper.lol_model.p_loss_of_load["bus_2", TS[2],"S1"]) )
 
             #costs
             @test value(PSCOPF.get_upper_obj_expr(result)) < 1e-09
-            @test (20*tso.configs.MARKET_CUT_CONSO_PENALTY) ≈ value(PSCOPF.get_lower_obj_expr(result))
+            @test (20*tso.configs.MARKET_LOL_PENALTY) ≈ value(PSCOPF.get_lower_obj_expr(result))
 
         end
 
@@ -374,17 +374,17 @@ using Printf
 
             TSO adopts the cheaper option : option 1
                 e_min = p_capping_min = 5.
-                lol_min = p_cut_conso_min = 0.
+                lol_min = p_loss_of_load_min = 0.
                 plimit[wind_1_1] = 45
 
             Market
             The market is now constrained by the TSO decisions:
                 e = p_capping = 5. (due to TSO decisions)
-                lol = p_cut_conso = 5. (due to EOD)
+                lol = p_loss_of_load = 5. (due to EOD)
 
             The TSO locates the capping and LoL:
                 p_capping[wind_1_1]=5
-                p_cut_conso[bus_1]=0, p_cut_conso[bus_2]=5
+                p_loss_of_load[bus_1]=0, p_loss_of_load[bus_2]=5
 
             TSO cost : 5.001
             Market cost : 5 + 5*1e5
@@ -412,7 +412,7 @@ using Printf
 
             #TSO RSO constraints are violated in TS2 => need to limit flow to 35
             @test 5. ≈ value(result.upper.limitable_model.p_capping_min[TS[2],"S1"])
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #limit wind_1_1 at TS2
             @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"])
@@ -421,15 +421,15 @@ using Printf
 
             # EOD problem in TS2 due to TSO action solved by cutting conso
             @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-            @test 5. ≈ value(result.lower.slack_model.p_cut_conso[TS[2],"S1"])
+            @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
-            @test value(result.upper.slack_model.p_cut_conso["bus_1", TS[2],"S1"]) < 1e-09
-            @test 5. ≈ value(result.upper.slack_model.p_cut_conso["bus_2", TS[2],"S1"])
+            @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"]) < 1e-09
+            @test 5. ≈ value(result.upper.lol_model.p_loss_of_load["bus_2", TS[2],"S1"])
 
             #costs
             @test  (5*tso.configs.TSO_CAPPING_COST + 1*tso.configs.TSO_LIMIT_PENALTY) ≈ value(PSCOPF.get_upper_obj_expr(result))
-            @test (5*tso.configs.MARKET_CAPPING_COST + 5*tso.configs.MARKET_CUT_CONSO_PENALTY) ≈ value(PSCOPF.get_lower_obj_expr(result))
+            @test (5*tso.configs.MARKET_CAPPING_COST + 5*tso.configs.MARKET_LOL_PENALTY) ≈ value(PSCOPF.get_lower_obj_expr(result))
         end
 
     end
@@ -470,17 +470,17 @@ using Printf
 
         TSO adopts the cheaper option : option 1
             e_min = p_capping_min = 10.
-            lol_min = p_cut_conso_min = 0.
+            lol_min = p_loss_of_load_min = 0.
             plimit[wind_1_1] = 50
 
         Market
         The market is now constrained by the TSO decisions:
             e = p_capping = 10. (due to TSO decisions)
-            lol = p_cut_conso = 10. (due to EOD)
+            lol = p_loss_of_load = 10. (due to EOD)
 
         The TSO locates the capping and LoL:
             p_capping[wind_1_1]=10
-            p_cut_conso[bus_1]=0, p_cut_conso[bus_2]=10
+            p_loss_of_load[bus_1]=0, p_loss_of_load[bus_2]=10
 
         TSO cost : 10.001
         Market cost : 10 + 10*1e5
@@ -518,7 +518,7 @@ using Printf
 
         #TSO RSO constraints are violated in TS1 => need to limit flow to 35
         @test 10. ≈ value(result.upper.limitable_model.p_capping_min[TS[1],"S1"])
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #limit wind_1_1 at TS1
         @test 50. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"])
@@ -527,17 +527,17 @@ using Printf
 
         # EOD problem in TS1 due to TSO action solved by cutting conso
         @test 10. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
-        @test 10. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+        @test 10. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
 
         #TSO distributes the cut conso assuring RSO
-        @test value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"]) < 1e-09
-        @test 10. ≈ value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"])
+        @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"]) < 1e-09
+        @test 10. ≈ value(result.upper.lol_model.p_loss_of_load["bus_2", TS[1],"S1"])
 
         #TS2
 
         #TSO RSO constraints are violated in TS2 => need to limit flow to 35
         @test 5. ≈ value(result.upper.limitable_model.p_capping_min[TS[2],"S1"])
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[2],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
         #limit wind_1_1 at TS2
         @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"])
@@ -546,11 +546,11 @@ using Printf
 
         # EOD problem in TS2 due to TSO action solved by cutting conso
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-        @test 5. ≈ value(result.lower.slack_model.p_cut_conso[TS[2],"S1"])
+        @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
 
         #TSO distributes the cut conso assuring RSO
-        @test value(result.upper.slack_model.p_cut_conso["bus_1", TS[2],"S1"]) < 1e-09
-        @test 5. ≈ value(result.upper.slack_model.p_cut_conso["bus_2", TS[2],"S1"])
+        @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"]) < 1e-09
+        @test 5. ≈ value(result.upper.lol_model.p_loss_of_load["bus_2", TS[2],"S1"])
 
 
         #costs
@@ -559,8 +559,8 @@ using Printf
                     + 5*tso.configs.TSO_CAPPING_COST + 1*tso.configs.TSO_LIMIT_PENALTY #TS2
                     )
         @test value(PSCOPF.get_lower_obj_expr(result)) ≈ (
-                    10*tso.configs.MARKET_CAPPING_COST + 10*tso.configs.MARKET_CUT_CONSO_PENALTY #TS1
-                    + 5*tso.configs.MARKET_CAPPING_COST + 5*tso.configs.MARKET_CUT_CONSO_PENALTY #TS1
+                    10*tso.configs.MARKET_CAPPING_COST + 10*tso.configs.MARKET_LOL_PENALTY #TS1
+                    + 5*tso.configs.MARKET_CAPPING_COST + 5*tso.configs.MARKET_LOL_PENALTY #TS1
                     )
 
     end

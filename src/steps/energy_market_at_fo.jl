@@ -110,8 +110,8 @@ function update_market_schedule!(context::AbstractContext, ech,
         end
     end
 
-    # cut_conso (load-shedding)
-    update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
+    # loss_of_load (load-shedding)
+    update_schedule_loss_of_load!(market_schedule, context, ech, result.lol_model)
 
     return market_schedule
 end
