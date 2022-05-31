@@ -12,7 +12,6 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct EnergyMarketConfigs
-    force_limitables::Bool = true
     cut_conso_penalty = 1e7
     out_path = nothing
     problem_name = "EnergyMarket"
@@ -23,8 +22,6 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
 end
 
 @with_kw struct EnergyMarketLimitableModel <: AbstractLimitableModel
-    #gen,ts,s
-    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #ts,s
     p_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
     #firmness_constraints
@@ -128,9 +125,7 @@ function energy_market(network::Networks.Network,
                     network, target_timepoints,
                     scenarios,
                     uncertainties_at_ech,
-                    tso_actions,
-                    force_limitables=configs.force_limitables,
-                    has_global_capping_vars=true,
+                    tso_actions
                     )
 
     if is_market(configs.REF_SCHEDULE_TYPE)
@@ -167,9 +162,7 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
     add_imposable_start_cost!(model_container.objective_model.start_cost,
                             model_container.imposable_model.b_start, network, gratis_starts)
 
-    # cost for using limitables : but most of the times these are fixed
-    add_prop_cost!(model_container.objective_model.prop_cost,
-                    model_container.limitable_model.p_injected, network)
+    # No limitable cost
 
     # cost for using imposables
     add_prop_cost!(model_container.objective_model.prop_cost,
@@ -242,27 +235,6 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
     return imposable_model, model
 end
 
-function add_limitable!(limitable_model::EnergyMarketLimitableModel, model::Model,
-                        generator::Networks.Generator,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        inject_uncertainties::InjectionUncertainties,
-                        tso_actions::TSOActions,
-                        force_limitables::Bool,
-                        )
-    gen_id = Networks.get_id(generator)
-    gen_pmax = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        p_limit = ismissing(get_limitation(tso_actions, gen_id, ts)) ? gen_pmax : get_limitation(tso_actions, gen_id, ts)
-        for s in scenarios
-            p_enr = min(gen_pmax, inject_uncertainties[ts][s], p_limit)
-            add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, force_limitables)
-        end
-    end
-
-    return limitable_model, model
-end
-
 function add_imposables!(model_container::EnergyMarketModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
@@ -294,44 +266,22 @@ function add_limitables!(model_container::EnergyMarketModel, network::Networks.N
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         uncertainties_at_ech::UncertaintiesAtEch,
-                        tso_actions::TSOActions;
-                        force_limitables::Bool=false,
-                        has_global_capping_vars::Bool=false,
+                        tso_actions::TSOActions
                         )
     limitable_model = model_container.limitable_model
     model = model_container.model
 
-    limitable_generators = Networks.get_generators_of_type(network, Networks.LIMITABLE)
-    for limitable_gen in limitable_generators
-        gen_id = Networks.get_id(limitable_gen)
-        add_limitable!(limitable_model, model,
-                        limitable_gen,
-                        target_timepoints,
-                        scenarios,
-                        get_uncertainties(uncertainties_at_ech, gen_id),
-                        tso_actions,
-                        force_limitables,
-                        )
-    end
+    for ts in target_timepoints
+        for s in scenarios
+            uncertain_power = compute_prod(uncertainties_at_ech, network, ts, s)
+            capped_by_limitation = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), network, ts, s)
+            @debug(@sprintf("capped by limitations : %f", capped_by_limitation))
+            @debug(@sprintf("uncertain_power : %f", uncertain_power))
 
-    if has_global_capping_vars
-        for ts in target_timepoints
-            for s in scenarios
-                uncertain_power = compute_prod(uncertainties_at_ech, network, ts, s)
-                capped_by_limitation = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), network, ts, s)
-                @debug(@sprintf("capped by limitations : %f", capped_by_limitation))
-                @debug(@sprintf("uncertain_power : %f", uncertain_power))
-
-                name =  @sprintf("P_capping[%s,%s]", ts, s)
-                limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
-                @constraint(model, limitable_model.p_capping[ts, s] <= uncertain_power)
-                @constraint(model, capped_by_limitation <= limitable_model.p_capping[ts, s])
-
-                if !force_limitables
-                    limitable_injections = sum_injections(limitable_model, ts, s)
-                    @constraint(model, limitable_model.p_capping[ts, s] == uncertain_power - limitable_injections)
-                end
-            end
+            name =  @sprintf("P_capping[%s,%s]", ts, s)
+            limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
+            @constraint(model, limitable_model.p_capping[ts, s] <= uncertain_power)
+            @constraint(model, capped_by_limitation <= limitable_model.p_capping[ts, s])
         end
     end
 
@@ -381,36 +331,37 @@ end
 # Context-update
 ###########################
 
-function update_schedule_capping!(market_schedule, context, ech, limitable_model::EnergyMarketLimitableModel,
-                                distribute_by_uncertainties::Bool)
+function update_schedule_capping!(market_schedule, context, ech, limitable_model::EnergyMarketLimitableModel, consider_limitations::Bool)
     reset_capping!(market_schedule)
     uncertainties = get_uncertainties(context, ech)
 
     for ((ts, scenario), p_capping_var) in limitable_model.p_capping
-        capped_lim_prod = value(p_capping_var)
+        capped_power = value(p_capping_var)
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
         #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
             limitables_ids = Networks.get_id.(Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE))
 
-            if capped_lim_prod > 1e-09
+            if capped_power > 1e-09
             #distribute the capped power on limitables
-                @printf("capped %f power in scenario %s at ts %s\n", capped_lim_prod, s, ts)
-                if distribute_by_uncertainties
-                    distribution_key = Dict{String,Float64}(gen_id_l => get_uncertainties(uncertainties, gen_id_l, ts, s)
-                                                            for gen_id_l in limitables_ids)
-                    distribution_key = normalize_values(distribution_key)
-                    @debug(@sprintf("distribution_key : %s", distribution_key))
+                limitations = consider_limitations ? get_limitations(get_tso_actions(context)) : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
+                capped_by_limitations = compute_capped(uncertainties, limitations, get_network(context), ts, s)
+                capped_by_eod = capped_power - capped_by_limitations
 
-                    for (gen_id, coeff) in distribution_key
-                        capped_value = coeff * capped_lim_prod
-                        market_schedule.capping[gen_id, ts, s] = capped_value
-                    end
-                else
-                    for gen_id in limitables_ids
-                        capped_value = value(get_uncertainties(uncertainties, gen_id, ts, s) - limitable_model.p_injected[gen_id, ts, s])
-                        market_schedule.capping[gen_id, ts, s] = capped_value
-                    end
+                @printf("capped %f power in scenario %s at ts %s\n", capped_power, s, ts)
+                @printf("capped %f power for eod reasons in scenario %s at ts %s\n", capped_by_eod, s, ts)
+                distribution_key = Dict{String,Float64}(gen_id_l => get_capacity(gen_id_l, ts, s,
+                                                                                limitations,
+                                                                                uncertainties)
+                                                        for gen_id_l in limitables_ids)
+                distribution_key = normalize_values(distribution_key)
+                @debug(@sprintf("distribution_key : %s", distribution_key))
+
+                for (gen_id, coeff) in distribution_key
+                    capped_value = ( get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties)
+                                    + coeff * capped_by_eod )
+                    market_schedule.capping[gen_id, ts, s] = capped_value
+                    @printf("%s,%s,%s : capped %f\n", gen_id, ts, s, capped_value)
                 end
             else
                 for gen_id in limitables_ids
@@ -453,6 +404,28 @@ function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::
     end
 end
 
+function get_capacity(gen_id, ts, s, limitations, uncertainties_at_ech)
+    p_lim = get_limitation(limitations, gen_id, ts)
+
+    if ismissing(p_lim)
+        return get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
+    else
+        return min(p_lim, get_uncertainties(uncertainties_at_ech, gen_id, ts, s))
+    end
+end
+
+function get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties_at_ech)
+    p_lim = get_limitation(limitations, gen_id, ts)
+
+    gen_capped = 0.
+    if !ismissing(p_lim) && get_uncertainties(uncertainties_at_ech, gen_id, ts, s) > p_lim
+        gen_capped = ( get_uncertainties(uncertainties_at_ech, gen_id, ts, s) - p_lim )
+        @debug(@sprintf("%s capped %f : limit is %f out of %f",
+                        gen_id, gen_capped, p_lim, get_uncertainties(uncertainties_at_ech, gen_id, ts, s)))
+    end
+    return gen_capped
+end
+
 function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
                         limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64},
                         network, ts, s)
@@ -463,16 +436,7 @@ function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
     capped = 0.
     for limitable_gen in Networks.get_generators_of_type(network, Networks.LIMITABLE)
         gen_id = Networks.get_id(limitable_gen)
-        p_lim = get_limitation(limitations, gen_id, ts)
-
-        if ismissing(p_lim)
-            continue
-        elseif get_uncertainties(uncertainties_at_ech, gen_id, ts, s) > p_lim
-            gen_capped = ( get_uncertainties(uncertainties_at_ech, gen_id, ts, s) - p_lim )
-            @debug(@sprintf("%s capped %f : limit is %f out of %f",
-                            gen_id, gen_capped, p_lim, get_uncertainties(uncertainties_at_ech, gen_id, ts, s)))
-            capped += gen_capped
-        end
+        capped += get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties_at_ech)
     end
     return capped
 end

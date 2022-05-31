@@ -97,7 +97,6 @@ using DataStructures
         TS, ech, firmness, context = create_instance_with_expensive_wind()
 
         market = PSCOPF.EnergyMarket()
-        @test market.configs.force_limitables
 
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
@@ -116,77 +115,16 @@ using DataStructures
     end
 
     #=
-    If force_limitables is False,
-      limitables are no longer chosen first but
-      units are entirely chosen economically
-
-    TS: [11h]
-    S: [S1]
-                        bus 1
-                        |
-    (limitable) wind_1_1|load_2
-    Pmin=0, Pmax=100    | S1: 55
-    Csta=0, Cprop=150   |
-      S1: 20            |
-                        |
-    (limitable) wind_1_2|
-    Pmin=0, Pmax=100    |
-    Csta=0, Cprop=1     |
-      S1: 25            |
-                        |
-    (imposable) prod_1_1|
-    Pmin=0, Pmax=100    |
-    Csta=0, Cprop=15    |
-                        |
-    (imposable) prod_1_2|
-     Pmin=0, Pmax=100   |
-     Csta=0, Cprop=10   |
-                        |
-
-    Demand : 55
-    Available limitable power : 45
-
-    units priority according to their proportional cost :
-     wind_1_1 -> prod_1_2 -> prod_1_1 -> wind_1_2
-
-    => wind_1_2 = 25
-       prod_1_2 = 30
-    =#
-    @testset "energy_market_picks_units_by_cheapest" begin
-        TS, ech, firmness, context = create_instance_with_expensive_wind()
-
-        market = PSCOPF.EnergyMarket(PSCOPF.EnergyMarketConfigs(force_limitables = false))
-        # Changed default configs
-        @test !market.configs.force_limitables
-
-        result = PSCOPF.run(market, ech, firmness,
-                    PSCOPF.get_target_timepoints(context),
-                    context)
-        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
-
-        # Solution is optimal
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
-        @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
-        @test 30. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
-        @test PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1") < 1e-09
-        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-
-        # pmin = 0 for prod_1_1 & prod_2_1
-        @test ismissing( PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S1") )
-        @test ismissing( PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1") )
-    end
-
-    #=
     In S1:
       load = 55, wind=45 => missing 10
       prod_1_1 has a pmin=20 => we produce 20 costing 200 (20MW*10)
-                                + we cap 10MW of wind (which here we paid for cause Cprop(wind)=1)
+                                + we cap 10MW of wind
       prod_1_2 has a pmin=5 => we produce 10 costing 150 (10MW*15)
     => use prod_1_2
     In S2:
       load = 60, wind=45 => missing 15
       prod_1_1 has a pmin=20 => we produce 20 costing 200 (20MW*10)
-                                + we cap 5MW of wind (which here we paid for cause Cprop(wind)=1)
+                                + we cap 5MW of wind
       prod_1_2 has a pmin=5 => we produce 15 costing 225 (15MW*15)
     => use prod_1_1
     TS: [11h]
@@ -208,7 +146,7 @@ using DataStructures
      Csta=0, Cprop=15   |
                         |
     =#
-    @testset "energy_market_picks_cheapest_respecting_pmin_and_capping" begin
+    @testset "energy_market_may_cap_due_to_imposables_pmin" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
@@ -270,7 +208,7 @@ using DataStructures
         @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
 
         #S2
-        @test 45. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
+        @test 40. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S2")
@@ -279,8 +217,8 @@ using DataStructures
 
         @test value(result.objective_model.start_cost) < 1e-09
         @test value(result.objective_model.prop_cost) ≈ (
-              (45. * 1 + 0. * 10. + 10. * 15) #S1
-            + (45. * 1 + 20. * 10. + 0. * 15) #S2
+              (0. * 10. + 10. * 15) #S1
+            + (20. * 10. + 0. * 15) #S2
         )
     end
 
