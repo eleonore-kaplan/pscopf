@@ -16,11 +16,9 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
     cut_conso_penalty = 1e7
     out_path = nothing
     problem_name = "EnergyMarket"
-    REF_SCHEDULE_TYPE::Union{Market,TSO} = Market(); # by default the market does not see the preceding tso schedule
-                                                    # cause in mode 1, tso should not affect market
+    REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
     CONSIDER_TSOACTIONS_LIMITATIONS::Bool = false
     CONSIDER_TSOACTIONS_IMPOSITIONS::Bool = false
-    CONSIDER_TSOACTIONS_COMMITMENTS::Bool = true
     CONSIDER_GRATIS_STARTS::Bool = true
 end
 
@@ -97,7 +95,7 @@ end
     - `preceding_tso_schedule::Schedule` : The preceding tso schedule may be used to set already decided values.
     - `tso_actions::TSOActions` : The preceding tso actions maybe used for additional constraints.
         The behaviour of the model wit hrespect to the TSO actions is defined by the parameters
-         `CONSIDER_TSOACTIONS_LIMITATIONS`, `CONSIDER_TSOACTIONS_IMPOSITIONS`, and `CONSIDER_TSOACTIONS_COMMITMENTS`
+         `CONSIDER_TSOACTIONS_LIMITATIONS` and `CONSIDER_TSOACTIONS_IMPOSITIONS`
          of `configs::EnergyMarketConfigs`
     - `gratis_starts::Set{Tuple{String,Dates.DateTime}}` :
         Tuples of (gen_id, ts) giving already paid for starting decisions. So if the market starts
@@ -238,7 +236,6 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             generator_reference_schedule,
-                                            get_commitments(tso_actions)
                                             )
     end
 
