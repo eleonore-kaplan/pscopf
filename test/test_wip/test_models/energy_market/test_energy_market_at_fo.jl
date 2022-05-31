@@ -40,7 +40,7 @@ using DataStructures
     TS = [DateTime("2015-01-01T11:00:00"), DateTime("2015-01-01T11:15:00")]
     ech = DateTime("2015-01-01T10:00:00")
     context = PSCOPFFixtures.context_2buses_2TS_2S(TS, ech)
-    context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T09:00:00"), SortedDict(
+    context.tso_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T09:00:00"), SortedDict(
                                             "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                                                 SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
                                                 SortedDict(TS[1] => PSCOPF.UncertainValue{PSCOPF.Float64}(missing,

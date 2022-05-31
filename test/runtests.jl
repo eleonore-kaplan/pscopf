@@ -40,7 +40,6 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/energy_market/test_dp.jl")
     include("test_wip/test_models/energy_market/test_slacks.jl")
     include("test_wip/test_models/energy_market/test_capping.jl")
-    include("test_wip/test_models/energy_market/test_tso_actions.jl")
 
     include("test_wip/test_models/energy_market/test_energy_market_at_fo.jl")
 

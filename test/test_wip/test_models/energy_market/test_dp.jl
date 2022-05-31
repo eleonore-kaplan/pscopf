@@ -80,7 +80,7 @@ using DataStructures
         prod_1_definitive_level = (PSCOPF.get_power_level_firmness(firmness, "prod_1_1", ts) == PSCOPF.DECIDED) ? prod_1_level : missing
         prod_2_definitive_state = (prod_2_level < 1e-09) ? PSCOPF.OFF : PSCOPF.ON
         prod_2_definitive_level = (PSCOPF.get_power_level_firmness(firmness, "prod_1_2", ts) == PSCOPF.DECIDED) ? prod_2_level : missing
-        context.market_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
+        context.tso_schedule = PSCOPF.Schedule(PSCOPF.Market(), Dates.DateTime("2015-01-01T06:00:00"), SortedDict(
                 "wind_1_1" => PSCOPF.GeneratorSchedule("wind_1_1",
                     SortedDict{Dates.DateTime, PSCOPF.UncertainValue{PSCOPF.GeneratorState}}(),
                     # SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.UncertainValue{PSCOPF.GeneratorState}(missing,
