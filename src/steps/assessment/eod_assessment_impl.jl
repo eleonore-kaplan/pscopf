@@ -113,14 +113,14 @@ function add_use_limitables_constraints!(model_container::EODAssessmentModel, ne
     return model_container
 end
 
-function add_imposable_prod_vars!(model_container_p::EODAssessmentModel, network, TS, tso_actions)
+function add_pilotable_prod_vars!(model_container_p::EODAssessmentModel, network, TS, tso_actions)
     p_injected_l = model_container_p.p_injected
     b_in_l = model_container_p.b_in
     b_marg_l = model_container_p.b_marg
     b_out_l = model_container_p.b_out
 
-    for imposable_gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-        gen_id = Networks.get_id(imposable_gen)
+    for pilotable_gen in Networks.get_generators_of_type(network, Networks.PILOTABLE)
+        gen_id = Networks.get_id(pilotable_gen)
         for ts in TS
             pmin_l, pmax_l = safeget_imposition(tso_actions, gen_id, ts)
             name_l =  @sprintf("b_in[%s,%s]", gen_id, ts);
@@ -147,7 +147,7 @@ end
 
 function add_market_vars!(model_container::EODAssessmentModel, network, TS, assessment_uncertainties, tso_actions)
     add_limitable_prod_vars!(model_container, network, TS)
-    add_imposable_prod_vars!(model_container, network, TS, tso_actions)
+    add_pilotable_prod_vars!(model_container, network, TS, tso_actions)
 end
 
 function add_cut_prod_vars!(model_container::EODAssessmentModel, network, TS)
@@ -177,11 +177,11 @@ function add_loss_of_load_vars!(model_container::EODAssessmentModel, network, TS
 end
 
 function add_cheapest_prod_constraints!(model_container::EODAssessmentModel, network, TS)
-    imposables = Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-    for (index, gen_1) in enumerate(imposables)
+    pilotables = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    for (index, gen_1) in enumerate(pilotables)
         cost_1 = Networks.get_prop_cost(gen_1)
         gen_id_1 = Networks.get_id(gen_1)
-        for gen_2 in imposables[index:end]
+        for gen_2 in pilotables[index:end]
             cost_2 = Networks.get_prop_cost(gen_2)
             if cost_1 < cost_2
                 gen_id_2 = Networks.get_id(gen_2)
@@ -236,7 +236,7 @@ function create_objective!(model_container::EODAssessmentModel, network, TS, los
 
     model_container.prod_obj = AffExpr(0.)
     #exclude limitables to allow setting their uncertainties at a low level
-    # for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE)
+    # for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE)
     #     gen_id = Networks.get_id(gen)
     #     for ts in TS
     #         add_to_expression!(model_container.prod_obj, inj_prod_coeff * model_container.p_injected[gen_id, ts])
@@ -254,9 +254,9 @@ function add_loss_of_load_constraint!(model_container::EODAssessmentModel, netwo
         big_m += get_assessment_uncertainties_ub(assessment_uncertainties, bus_id)
     end
 
-    for imposable_gen_id in Networks.get_id.(Networks.get_generators_of_type(network, Networks.IMPOSABLE))
+    for pilotable_gen_id in Networks.get_id.(Networks.get_generators_of_type(network, Networks.PILOTABLE))
         for ts in TS
-            b_in_var = model_container.b_in[imposable_gen_id, ts]
+            b_in_var = model_container.b_in[pilotable_gen_id, ts]
             @constraint(model_container.model, model_container.p_loss_of_load[ts] <= big_m*b_in_var)
         end
     end

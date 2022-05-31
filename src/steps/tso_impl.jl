@@ -33,7 +33,7 @@ end
     p_limit_x_is_limited = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
 
-@with_kw struct TSOImposableModel <: AbstractImposableModel
+@with_kw struct TSOPilotableModel <: AbstractPilotableModel
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -67,7 +67,7 @@ end
 @with_kw mutable struct TSOModel <: AbstractModelContainer
     model::Model = Model()
     limitable_model::TSOLimitableModel = TSOLimitableModel()
-    imposable_model::TSOImposableModel = TSOImposableModel()
+    pilotable_model::TSOPilotableModel = TSOPilotableModel()
     lol_model::TSOLoLModel = TSOLoLModel()
     objective_model::TSOObjectiveModel = TSOObjectiveModel()
     #ts,s
@@ -150,7 +150,7 @@ function add_limitables!(model_container::TSOModel, network::Networks.Network,
     return model_container.limitable_model
 end
 
-function add_imposable!(imposable_model::TSOImposableModel, model::Model,
+function add_pilotable!(pilotable_model::TSOPilotableModel, model::Model,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
@@ -166,22 +166,22 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
     p_max = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
-            add_p_injected!(imposable_model, model, gen_id, ts, s, p_max, false)
+            add_p_injected!(pilotable_model, model, gen_id, ts, s, p_max, false)
             p_ref = get_prod_value(preceding_market_subschedule, ts, s)
             p_ref = ismissing(p_ref) ? 0. : p_ref
-            add_p_delta!(imposable_model, model, gen_id, ts, s, p_ref)
+            add_p_delta!(pilotable_model, model, gen_id, ts, s, p_ref)
         end
     end
 
     add_scenarios_linking_constraints!(model, generator,
-                                        imposable_model.p_injected,
+                                        pilotable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
                                         false
                                         )
 
     add_power_level_sequencing_constraints!(model, generator,
-                                        imposable_model.p_injected,
+                                        pilotable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
                                         reference_subschedule
@@ -189,29 +189,29 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                                         )
 
     if p_min > 0
-        add_commitment!(imposable_model, model, generator,
+        add_commitment!(pilotable_model, model, generator,
                         target_timepoints, scenarios, generator_initial_state
                         )
         #linking b_on scenarios => linking b_start
         add_scenarios_linking_constraints!(model,
-                                        generator, imposable_model.b_on,
+                                        generator, pilotable_model.b_on,
                                         target_timepoints, scenarios,
                                         commitment_firmness, false
                                         )
 
         add_commitment_sequencing_constraints!(model, generator,
-                                            imposable_model.b_on,
-                                            imposable_model.b_start,
+                                            pilotable_model.b_on,
+                                            pilotable_model.b_start,
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             reference_subschedule
                                             )
     end
 
-    return imposable_model, model
+    return pilotable_model, model
 end
 
-function add_imposables!(model_container::TSOModel, network::Networks.Network,
+function add_pilotables!(model_container::TSOModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         generators_initial_state::SortedDict{String,GeneratorState},
@@ -219,12 +219,12 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
                         reference_schedule::Schedule,
                         preceding_market_schedule::Schedule
                         )
-    imposable_generators = Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-    for imposable_gen in imposable_generators
-        gen_id = Networks.get_id(imposable_gen)
-        gen_initial_state = get_initial_state(generators_initial_state, imposable_gen)
-        add_imposable!(model_container.imposable_model, model_container.model,
-                        imposable_gen,
+    pilotable_generators = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    for pilotable_gen in pilotable_generators
+        gen_id = Networks.get_id(pilotable_gen)
+        gen_initial_state = get_initial_state(generators_initial_state, pilotable_gen)
+        add_pilotable!(model_container.pilotable_model, model_container.model,
+                        pilotable_gen,
                         target_timepoints,
                         scenarios,
                         gen_initial_state,
@@ -234,7 +234,7 @@ function add_imposables!(model_container::TSOModel, network::Networks.Network,
                         get_sub_schedule(preceding_market_schedule, gen_id)
                         )
     end
-    return model_container.imposable_model
+    return model_container.pilotable_model
 end
 
 function add_slacks!(model_container::TSOModel,
@@ -264,7 +264,7 @@ function add_eod_constraint!(model_container::TSOModel,
     end
 
     prod = ( sum_injections(model_container.limitable_model, ts, scenario) +
-                sum_injections(model_container.imposable_model, ts, scenario) )
+                sum_injections(model_container.pilotable_model, ts, scenario) )
 
     model_container.eod_constraint[ts,scenario] = @constraint(model_container.model,
                                                     prod == load - loss_of_load )
@@ -358,7 +358,7 @@ function create_objectives!(model_container::TSOModel,
     ## Objective 1 :
 
     # cost for deviating from market schedule
-    for (_, var_delta) in model_container.imposable_model.delta_p
+    for (_, var_delta) in model_container.pilotable_model.delta_p
         model_container.objective_model.deltas += var_delta
     end
     for (_, var_delta) in model_container.limitable_model.delta_p
@@ -367,18 +367,18 @@ function create_objectives!(model_container::TSOModel,
 
     ## Objective 2 :
 
-    # cost for starting imposables
-    add_imposable_start_cost!(model_container.objective_model.start_cost,
-                            model_container.imposable_model.b_start, network, gratis_starts)
+    # cost for starting pilotables
+    add_pilotable_start_cost!(model_container.objective_model.start_cost,
+                            model_container.pilotable_model.b_start, network, gratis_starts)
 
     # cost for limitables : cost of capped limitable power
     add_tso_limitable_prop_cost!(model_container.objective_model.prop_cost,
                                 uncertainties_at_ech,
                                 model_container.limitable_model.p_injected, network)
 
-    # cost for using imposables
+    # cost for using pilotables
     add_prop_cost!(model_container.objective_model.prop_cost,
-                            model_container.imposable_model.p_injected, network)
+                            model_container.pilotable_model.p_injected, network)
 
     # Objective 1 :
     model_container.objective_model.full_obj_1 = ( model_container.objective_model.deltas +
@@ -430,7 +430,7 @@ function tso_out_fo(network::Networks.Network,
     else
         throw( error("Invalid REF_SCHEDULE_TYPE config.") )
     end
-    add_imposables!(model_container_l,
+    add_pilotables!(model_container_l,
                     network, target_timepoints,
                     scenarios,
                     generators_initial_state,

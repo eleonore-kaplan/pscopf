@@ -55,8 +55,8 @@ function update_market_schedule!(context::AbstractContext, ech,
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-    # Imposables levels
-    for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
+    # Pilotables levels
+    for ((gen_id, ts, s), p_injected_var) in result.pilotable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) == FREE
             set_prod_value!(market_schedule, gen_id, ts, s, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
@@ -69,7 +69,7 @@ function update_market_schedule!(context::AbstractContext, ech,
     end
 
     # Commitment
-    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
+    for ((gen_id, ts, s), b_on_var) in result.pilotable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(market_schedule, gen_id, ts, s, gen_state_value)

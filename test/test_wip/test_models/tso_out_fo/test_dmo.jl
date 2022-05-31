@@ -12,7 +12,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    ?
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -33,8 +33,8 @@ using DataStructures
         network = PSCOPF.Networks.Network()
         # Buses
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 10.,
                                                 Dates.Second(3*60*60), Dates.Second(0))
@@ -92,7 +92,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -148,7 +148,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -198,7 +198,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -253,7 +253,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -307,7 +307,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |

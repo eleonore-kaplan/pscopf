@@ -37,8 +37,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
     for ((gen_id, ts, s), p_injected_var) in result.upper.limitable_model.p_injected
         set_prod_value!(tso_schedule, gen_id, ts, s, value(p_injected_var))
     end
-    # lower problem (Market) decides imposable injections
-    for ((gen_id, ts, s), p_injected_var) in result.lower.imposable_model.p_injected
+    # lower problem (Market) decides pilotable injections
+    for ((gen_id, ts, s), p_injected_var) in result.lower.pilotable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) == FREE
             set_prod_value!(tso_schedule, gen_id, ts, s, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
@@ -50,7 +50,7 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
         end
     end
 
-    for ((gen_id, ts, s), b_on_var) in result.upper.imposable_model.b_on
+    for ((gen_id, ts, s), b_on_var) in result.upper.pilotable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(tso_schedule, gen_id, ts, s, gen_state_value)
@@ -108,9 +108,9 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
 
     # Impositions
     impositions = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
-    for ((gen_id, ts, s), p_injected_var) in result.lower.imposable_model.p_injected
-        p_min_var = result.upper.imposable_model.p_tso_min[gen_id, ts, s]
-        p_max_var = result.upper.imposable_model.p_tso_max[gen_id, ts, s]
+    for ((gen_id, ts, s), p_injected_var) in result.lower.pilotable_model.p_injected
+        p_min_var = result.upper.pilotable_model.p_tso_min[gen_id, ts, s]
+        p_max_var = result.upper.pilotable_model.p_tso_max[gen_id, ts, s]
 
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios

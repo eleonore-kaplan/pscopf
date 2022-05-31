@@ -27,7 +27,7 @@ end
     #firmness_constraints
 end
 
-@with_kw struct EnergyMarketImposableModel <: AbstractImposableModel
+@with_kw struct EnergyMarketPilotableModel <: AbstractPilotableModel
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -55,7 +55,7 @@ end
 @with_kw mutable struct EnergyMarketModel <: AbstractModelContainer
     model::Model = Model()
     limitable_model::EnergyMarketLimitableModel = EnergyMarketLimitableModel()
-    imposable_model::EnergyMarketImposableModel = EnergyMarketImposableModel()
+    pilotable_model::EnergyMarketPilotableModel = EnergyMarketPilotableModel()
     lol_model::EnergyMarketLoLModel = EnergyMarketLoLModel()
     objective_model::EnergyMarketObjectiveModel = EnergyMarketObjectiveModel()
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
@@ -135,7 +135,7 @@ function energy_market(network::Networks.Network,
     else
         throw( error("Invalid REF_SCHEDULE_TYPE config.") )
     end
-    add_imposables!(model_container_l,
+    add_pilotables!(model_container_l,
                     network, target_timepoints, scenarios,
                     generators_initial_state,
                     firmness, reference_schedule, tso_actions)
@@ -158,15 +158,15 @@ function energy_market(network::Networks.Network,
 end
 
 function add_objective!(model_container::EnergyMarketModel, network, gratis_starts, loss_of_load_cost)
-    # cost for starting imposables
-    add_imposable_start_cost!(model_container.objective_model.start_cost,
-                            model_container.imposable_model.b_start, network, gratis_starts)
+    # cost for starting pilotables
+    add_pilotable_start_cost!(model_container.objective_model.start_cost,
+                            model_container.pilotable_model.b_start, network, gratis_starts)
 
     # No limitable cost
 
-    # cost for using imposables
+    # cost for using pilotables
     add_prop_cost!(model_container.objective_model.prop_cost,
-                    model_container.imposable_model.p_injected, network)
+                    model_container.pilotable_model.p_injected, network)
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,
@@ -179,7 +179,7 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
     return model_container
 end
 
-function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Model,
+function add_pilotable!(pilotable_model::EnergyMarketPilotableModel, model::Model,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
@@ -194,19 +194,19 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
     p_max = Networks.get_p_max(generator)
     for ts in target_timepoints
         for s in scenarios
-            add_p_injected!(imposable_model, model, gen_id, ts, s, p_max, false)
+            add_p_injected!(pilotable_model, model, gen_id, ts, s, p_max, false)
         end
     end
 
     add_scenarios_linking_constraints!(model, generator,
-                                        imposable_model.p_injected,
+                                        pilotable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
                                         false
                                         )
 
     add_power_level_sequencing_constraints!(model, generator,
-                                        imposable_model.p_injected,
+                                        pilotable_model.p_injected,
                                         target_timepoints, scenarios,
                                         power_level_firmness,
                                         generator_reference_schedule,
@@ -214,28 +214,28 @@ function add_imposable!(imposable_model::EnergyMarketImposableModel, model::Mode
                                         )
 
     if p_min > 0
-        add_commitment!(imposable_model, model, generator,
+        add_commitment!(pilotable_model, model, generator,
                         target_timepoints, scenarios, generator_initial_state
                         )
         add_scenarios_linking_constraints!(model,
-                        generator, imposable_model.b_on,
+                        generator, pilotable_model.b_on,
                         target_timepoints, scenarios,
                         commitment_firmness, false
                         )
         #linking b_on => linking b_start
         add_commitment_sequencing_constraints!(model, generator,
-                                            imposable_model.b_on,
-                                            imposable_model.b_start,
+                                            pilotable_model.b_on,
+                                            pilotable_model.b_start,
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             generator_reference_schedule,
                                             )
     end
 
-    return imposable_model, model
+    return pilotable_model, model
 end
 
-function add_imposables!(model_container::EnergyMarketModel, network::Networks.Network,
+function add_pilotables!(model_container::EnergyMarketModel, network::Networks.Network,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         generators_initial_state::SortedDict{String,GeneratorState},
@@ -243,13 +243,13 @@ function add_imposables!(model_container::EnergyMarketModel, network::Networks.N
                         reference_schedule::Schedule,
                         tso_actions::TSOActions
                         )
-    imposable_generators = Networks.get_generators_of_type(network, Networks.IMPOSABLE)
-    for imposable_gen in imposable_generators
-        gen_id = Networks.get_id(imposable_gen)
+    pilotable_generators = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    for pilotable_gen in pilotable_generators
+        gen_id = Networks.get_id(pilotable_gen)
         # gen_commitment = get_commitment_firmness(firmness, gen_id)
-        gen_initial_state = get_initial_state(generators_initial_state, imposable_gen)
-        add_imposable!(model_container.imposable_model, model_container.model,
-                        imposable_gen,
+        gen_initial_state = get_initial_state(generators_initial_state, pilotable_gen)
+        add_pilotable!(model_container.pilotable_model, model_container.model,
+                        pilotable_gen,
                         target_timepoints,
                         scenarios,
                         gen_initial_state,
@@ -259,7 +259,7 @@ function add_imposables!(model_container::EnergyMarketModel, network::Networks.N
                         tso_actions
                         )
     end
-    return model_container.imposable_model
+    return model_container.pilotable_model
 end
 
 function add_limitables!(model_container::EnergyMarketModel, network::Networks.Network,
@@ -317,7 +317,7 @@ function add_eod_constraint!(model_container::EnergyMarketModel,
             loss_of_load = model_container.lol_model.p_loss_of_load[ts,s]
 
             supply_l = AffExpr(0.)
-            supply_l += sum_injections(model_container.imposable_model, ts, s)
+            supply_l += sum_injections(model_container.pilotable_model, ts, s)
             supply_l += compute_prod(uncertainties_at_ech, network, ts, s)
             supply_l -= model_container.limitable_model.p_capping[ts,s]
 

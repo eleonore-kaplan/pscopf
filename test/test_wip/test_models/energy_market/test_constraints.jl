@@ -23,7 +23,7 @@ using Printf
         S2: 30    S2: 30    |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
     INIT: ON                |                      |INIT: ON
