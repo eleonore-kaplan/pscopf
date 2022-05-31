@@ -12,7 +12,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct EnergyMarketConfigs
-    cut_conso_penalty = 1e7
+    loss_of_load_penalty = 1e7
     out_path = nothing
     problem_name = "EnergyMarket"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
@@ -38,9 +38,9 @@ end
     #firmness_constraints
 end
 
-@with_kw struct EnergyMarketSlackModel <: AbstractSlackModel
+@with_kw struct EnergyMarketLoLModel <: AbstractLoLModel
     #ts,s
-    p_cut_conso = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_loss_of_load = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct EnergyMarketObjectiveModel <: AbstractObjectiveModel
@@ -56,7 +56,7 @@ end
     model::Model = Model()
     limitable_model::EnergyMarketLimitableModel = EnergyMarketLimitableModel()
     imposable_model::EnergyMarketImposableModel = EnergyMarketImposableModel()
-    slack_model::EnergyMarketSlackModel = EnergyMarketSlackModel()
+    lol_model::EnergyMarketLoLModel = EnergyMarketLoLModel()
     objective_model::EnergyMarketObjectiveModel = EnergyMarketObjectiveModel()
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
         SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
@@ -73,7 +73,7 @@ function aggregate_scenario_name(context::AbstractContext, ech::Dates.DateTime)
 end
 
 function has_positive_slack(model_container::EnergyMarketModel)::Bool
-    return has_positive_value(model_container.slack_model.p_cut_conso)
+    return has_positive_value(model_container.lol_model.p_loss_of_load)
 end
 
 """
@@ -116,7 +116,7 @@ function energy_market(network::Networks.Network,
     #if gratis_starts is not empty, we should CONSIDER_GRATIS_STARTS
     @assert( configs.CONSIDER_GRATIS_STARTS | isempty(gratis_starts) )
     #if not there a risk of cutting conso instead of using a generator
-    @assert all(configs.cut_conso_penalty > Networks.get_prop_cost(gen)
+    @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen)
                 for gen in Networks.get_generators(network))
 
     model_container_l = EnergyMarketModel()
@@ -150,14 +150,14 @@ function energy_market(network::Networks.Network,
                         uncertainties_at_ech
                         )
 
-    add_objective!(model_container_l, network, gratis_starts, configs.cut_conso_penalty)
+    add_objective!(model_container_l, network, gratis_starts, configs.loss_of_load_penalty)
 
     solve!(model_container_l, configs.problem_name, configs.out_path)
 
     return model_container_l
 end
 
-function add_objective!(model_container::EnergyMarketModel, network, gratis_starts, cut_conso_cost)
+function add_objective!(model_container::EnergyMarketModel, network, gratis_starts, loss_of_load_cost)
     # cost for starting imposables
     add_imposable_start_cost!(model_container.objective_model.start_cost,
                             model_container.imposable_model.b_start, network, gratis_starts)
@@ -170,7 +170,7 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,
-                        model_container.slack_model.p_cut_conso, cut_conso_cost)
+                        model_container.lol_model.p_loss_of_load, loss_of_load_cost)
 
     model_container.objective_model.full_obj = ( model_container.objective_model.start_cost +
                                                 model_container.objective_model.prop_cost +
@@ -294,16 +294,16 @@ function add_slacks!(model_container::EnergyMarketModel,
                     scenarios::Vector{String},
                     uncertainties_at_ech::UncertaintiesAtEch)
     model = model_container.model
-    slack_model = model_container.slack_model
+    lol_model = model_container.lol_model
     for ts in target_timepoints
         for s in scenarios
-            name =  @sprintf("P_cut_conso[%s,%s]", ts, s)
+            name =  @sprintf("P_loss_of_load[%s,%s]", ts, s)
             load = compute_load(uncertainties_at_ech, network, ts, s)
-            slack_model.p_cut_conso[ts, s] = @variable(model, base_name=name,
+            lol_model.p_loss_of_load[ts, s] = @variable(model, base_name=name,
                                                         lower_bound=0., upper_bound=load)
         end
     end
-    return model_container.slack_model
+    return model_container.lol_model
 end
 
 function add_eod_constraint!(model_container::EnergyMarketModel,
@@ -314,7 +314,7 @@ function add_eod_constraint!(model_container::EnergyMarketModel,
     for ts in target_timepoints
         for s in scenarios
             load = compute_load(uncertainties_at_ech, network, ts, s)
-            cut_conso = model_container.slack_model.p_cut_conso[ts,s]
+            loss_of_load = model_container.lol_model.p_loss_of_load[ts,s]
 
             supply_l = AffExpr(0.)
             supply_l += sum_injections(model_container.imposable_model, ts, s)
@@ -322,7 +322,7 @@ function add_eod_constraint!(model_container::EnergyMarketModel,
             supply_l -= model_container.limitable_model.p_capping[ts,s]
 
             model_container.eod_constraint[ts,s] = @constraint(model_container.model,
-                                                            supply_l == load - cut_conso )
+                                                            supply_l == load - loss_of_load )
         end
     end
 end
@@ -372,32 +372,32 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
     end
 end
 
-function update_schedule_cut_conso!(market_schedule, context, ech, slack_model::EnergyMarketSlackModel)
-    reset_cut_conso_by_bus!(market_schedule)
+function update_schedule_loss_of_load!(market_schedule, context, ech, lol_model::EnergyMarketLoLModel)
+    reset_loss_of_load_by_bus!(market_schedule)
     uncertainties = get_uncertainties(context, ech)
 
-    for ((ts, scenario), p_cut_conso_var) in slack_model.p_cut_conso
-        total_cut_conso = value(p_cut_conso_var)
+    for ((ts, scenario), p_loss_of_load_var) in lol_model.p_loss_of_load
+        total_loss_of_load = value(p_loss_of_load_var)
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
         #for EnergyMarketAtFO, this allows handling aggregate scenarios "S1_+_S2"
             bus_ids = Networks.get_id.(Networks.get_buses(get_network(context)))
 
-            if total_cut_conso > 1e-09
+            if total_loss_of_load > 1e-09
             #distribute the cut conso on buses
-                @printf("cut conso %f in scenario %s at ts %s\n", total_cut_conso, s, ts)
+                @printf("cut conso %f in scenario %s at ts %s\n", total_loss_of_load, s, ts)
                 distribution_key = Dict{String,Float64}(bus_id_l => get_uncertainties(uncertainties, bus_id_l, ts, s)
                                                         for bus_id_l in bus_ids)
                 distribution_key = normalize_values(distribution_key)
                 @debug(@sprintf("distribution_key : %s", distribution_key))
 
                 for (bus_id, coeff) in distribution_key
-                    cut_load_on_bus = coeff * total_cut_conso
-                    market_schedule.cut_conso_by_bus[bus_id, ts, s] = cut_load_on_bus
+                    cut_load_on_bus = coeff * total_loss_of_load
+                    market_schedule.loss_of_load_by_bus[bus_id, ts, s] = cut_load_on_bus
                 end
             else
                 for bus_id in bus_ids
-                    market_schedule.cut_conso_by_bus[bus_id, ts, s] = 0.
+                    market_schedule.loss_of_load_by_bus[bus_id, ts, s] = 0.
                 end
             end
         end

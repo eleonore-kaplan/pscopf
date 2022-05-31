@@ -120,11 +120,11 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO does not need to bound imposables because there is no risk of breaking RSO constraints
             #prod_1_1 is not bound
@@ -202,12 +202,12 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test_broken value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
-            @test 60 ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+            @test_broken value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
 
             #TSO impositions
             #prod_1_1
@@ -227,7 +227,7 @@ using Printf
             @test_broken value(PSCOPF.get_upper_obj_expr(result)) ≈ 20.
             @test_broken value(PSCOPF.get_lower_obj_expr(result)) ≈ (60 * 10.)
             @test value(PSCOPF.get_upper_obj_expr(result))  < 1e-09
-            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_CUT_CONSO_PENALTY
+            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_LOL_PENALTY
 
         end
 
@@ -286,12 +286,12 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test_broken value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
-            @test 60 ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+            @test_broken value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
 
             #TSO impositions
             #prod_1_1
@@ -311,7 +311,7 @@ using Printf
             @test_broken value(PSCOPF.get_upper_obj_expr(result)) ≈ 20.
             @test_broken value(PSCOPF.get_lower_obj_expr(result)) ≈ (60 * 10.)
             @test value(PSCOPF.get_upper_obj_expr(result))  < 1e-09
-            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_CUT_CONSO_PENALTY
+            @test value(PSCOPF.get_lower_obj_expr(result)) ≈ 60. *tso.configs.MARKET_LOL_PENALTY
 
         end
 
@@ -361,11 +361,11 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO impositions
             #prod_1_1
@@ -427,11 +427,11 @@ using Printf
 
             #TSO RSO constraints are OK
             @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-            @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO does not need to bound imposables
             #prod_1_1 is not bound
@@ -505,11 +505,11 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #TSO sets the bounds for imposable production respecting units' pmin and pmax
         #prod_1_1 is not bound
@@ -557,7 +557,7 @@ using Printf
     option 1 is adopted.
     This however will cause an EOD disbalance in market
      cause demand=310, capacity=245
-     => market needs to cut_conso by 65
+     => market needs to loss_of_load by 65
     =#
     @testset "rso_constraint_requires_setting_imposables_bounds_max" begin
 
@@ -578,15 +578,15 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test 65. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+        @test 65. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
 
         # RSO locates cut conso on bus 2 to assure flow limit
-        @test value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"]) < 1e-09
-        @test 65. ≈ value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"])
+        @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"]) < 1e-09
+        @test 65. ≈ value(result.upper.lol_model.p_loss_of_load["bus_2", TS[1],"S1"])
 
         #TSO sets the bounds for imposable production respecting units' pmin and pmax
         #prod_1_1 is not bound
@@ -642,15 +642,15 @@ using Printf
 
         #TSO RSO constraints can be respected without capping or losing load OK
         @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market needs to cut conso to assure EOD constraint
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test 20. ≈ value(result.lower.slack_model.p_cut_conso[TS[1],"S1"])
+        @test 20. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
 
         # RSO locates cut conso : here any combination will do
-        @test 20. ≈ ( value(result.upper.slack_model.p_cut_conso["bus_1", TS[1],"S1"])
-                    + value(result.upper.slack_model.p_cut_conso["bus_2", TS[1],"S1"]) )
+        @test 20. ≈ ( value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"])
+                    + value(result.upper.lol_model.p_loss_of_load["bus_2", TS[1],"S1"]) )
 
         #TSO sets the bounds for imposable production respecting units' pmin and pmax
         #prod_1_1 is not bound

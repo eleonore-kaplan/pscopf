@@ -11,11 +11,11 @@ REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for impo
 """
 @with_kw mutable struct TSOBilevelConfigs
     TSO_LIMIT_PENALTY::Float64 = 1e-3
-    TSO_CUT_CONSO_PENALTY::Float64 = 1e5
+    TSO_LOL_PENALTY::Float64 = 1e5
     TSO_CAPPING_COST::Float64 = 1.
     TSO_IMPOSABLE_BOUNDING_COST::Float64 = 1.
     USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST::Bool = false
-    MARKET_CUT_CONSO_PENALTY::Float64 = 1e5
+    MARKET_LOL_PENALTY::Float64 = 1e5
     MARKET_CAPPING_COST::Float64 = 1.
     out_path::Union{Nothing,String} = nothing
     problem_name::String = "TSOBilevel"
@@ -57,11 +57,11 @@ end
     b_on = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
 
-@with_kw struct TSOBilevelTSOSlackModel <: AbstractSlackModel
+@with_kw struct TSOBilevelTSOLoLModel <: AbstractLoLModel
     #bus,ts,s #Loss of Load
-    p_cut_conso = SortedDict{Tuple{String,DateTime,String},VariableRef}();
+    p_loss_of_load = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #ts,s
-    p_cut_conso_min = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_loss_of_load_min = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct TSOBilevelTSOObjectiveModel <: AbstractObjectiveModel
@@ -88,9 +88,9 @@ end
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
 
-@with_kw struct TSOBilevelMarketSlackModel <: AbstractSlackModel
+@with_kw struct TSOBilevelMarketLoLModel <: AbstractLoLModel
     #ts,s
-    p_cut_conso = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_loss_of_load = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct TSOBilevelMarketObjectiveModel <: AbstractObjectiveModel
@@ -110,14 +110,14 @@ end
     model::Model
     limitable_model::TSOBilevelTSOLimitableModel = TSOBilevelTSOLimitableModel()
     imposable_model::TSOBilevelTSOImposableModel = TSOBilevelTSOImposableModel()
-    slack_model::TSOBilevelTSOSlackModel = TSOBilevelTSOSlackModel()
+    lol_model::TSOBilevelTSOLoLModel = TSOBilevelTSOLoLModel()
     objective_model::TSOBilevelTSOObjectiveModel = TSOBilevelTSOObjectiveModel()
 end
 @with_kw struct TSOBilevelMarketModelContainer <: AbstractModelContainer
     model::Model
     limitable_model::TSOBilevelMarketLimitableModel = TSOBilevelMarketLimitableModel()
     imposable_model::TSOBilevelMarketImposableModel = TSOBilevelMarketImposableModel()
-    slack_model::TSOBilevelMarketSlackModel = TSOBilevelMarketSlackModel()
+    lol_model::TSOBilevelMarketLoLModel = TSOBilevelMarketLoLModel()
     objective_model::TSOBilevelMarketObjectiveModel = TSOBilevelMarketObjectiveModel()
 end
 @with_kw struct TSOBilevelKKTModelContainer <: AbstractModelContainer
@@ -134,9 +134,9 @@ end
         SortedDict{Tuple{DateTime,String},VariableRef}()
     capping_indicators::SortedDict{Tuple{DateTime,String},VariableRef} =
         SortedDict{Tuple{DateTime,String},VariableRef}()
-    cut_conso_duals::SortedDict{Tuple{DateTime,String},VariableRef} =
+    loss_of_load_duals::SortedDict{Tuple{DateTime,String},VariableRef} =
         SortedDict{Tuple{DateTime,String},VariableRef}()
-    cut_conso_indicators::SortedDict{Tuple{DateTime,String},VariableRef} =
+    loss_of_load_indicators::SortedDict{Tuple{DateTime,String},VariableRef} =
         SortedDict{Tuple{DateTime,String},VariableRef}()
     #imposable_id,ts,s
     firmness_duals::SortedDict{Tuple{String,DateTime,String},VariableRef} =
@@ -161,7 +161,7 @@ end
 
 
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
-    return has_positive_value(model_container.lower.slack_model.p_cut_conso) #If TSO cut => market did too
+    return has_positive_value(model_container.lower.lol_model.p_loss_of_load) #If TSO cut => market did too
 end
 
 function get_upper_obj_expr(bilevel_model::TSOBilevelModel)
@@ -409,23 +409,23 @@ function add_slacks!(model_container::TSOBilevelTSOModelContainer,
                             uncertainties_at_ech::UncertaintiesAtEch)
     #TODO: for now same as add_slacks!(::TSOModel,...)
     model = model_container.model
-    slack_model = model_container.slack_model
-    p_cut_conso = slack_model.p_cut_conso
-    p_cut_conso_min = slack_model.p_cut_conso_min
+    lol_model = model_container.lol_model
+    p_loss_of_load = lol_model.p_loss_of_load
+    p_loss_of_load_min = lol_model.p_loss_of_load_min
 
     for ts in target_timepoints
         for s in scenarios
             conso_max = compute_load(uncertainties_at_ech, network, ts, s)
-            name =  @sprintf("P_cut_conso_min[%s,%s]", ts, s)
-            p_cut_conso_min[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=conso_max)
+            name =  @sprintf("P_loss_of_load_min[%s,%s]", ts, s)
+            p_loss_of_load_min[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=conso_max)
         end
     end
 
     buses = Networks.get_buses(network)
-    add_cut_conso_by_bus!(model, p_cut_conso,
+    add_loss_of_load_by_bus!(model, p_loss_of_load,
                         buses, target_timepoints, scenarios, uncertainties_at_ech)
 
-    return slack_model
+    return lol_model
 end
 
 function add_rso_constraints!(model_container::TSOBilevelModel,
@@ -469,7 +469,7 @@ function add_rso_constraints!(model_container::TSOBilevelModel,
                     flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
 
                     # + cutting loads (i.e. LoL) ~ injections
-                    flow_l += ptdf * tso_model_container.slack_model.p_cut_conso[bus_id, ts, s]
+                    flow_l += ptdf * tso_model_container.lol_model.p_loss_of_load[bus_id, ts, s]
                 end
 
                 name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
@@ -480,18 +480,18 @@ function add_rso_constraints!(model_container::TSOBilevelModel,
     end
 end
 
-function add_cut_conso_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
-                                            market_slack_model::TSOBilevelMarketSlackModel,
+function add_loss_of_load_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
+                                            market_lol_model::TSOBilevelMarketLoLModel,
                                             target_timepoints, scenarios, network)
     tso_model = tso_model_container.model
-    tso_slack_model = tso_model_container.slack_model
+    tso_lol_model = tso_model_container.lol_model
     buses_ids = Networks.get_id.(Networks.get_buses(network))
     for ts in target_timepoints
         for s in scenarios
             name = @sprintf("c_dist_LOL[%s,%s]",ts,s)
-            vars_sum = sum(tso_slack_model.p_cut_conso[bus_id, ts, s]
+            vars_sum = sum(tso_lol_model.p_loss_of_load[bus_id, ts, s]
                             for bus_id in buses_ids)
-            @constraint(tso_model, market_slack_model.p_cut_conso[ts, s] == vars_sum, base_name=name)
+            @constraint(tso_model, market_lol_model.p_loss_of_load[ts, s] == vars_sum, base_name=name)
         end
     end
     return tso_model_container
@@ -572,8 +572,8 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     add_rso_constraints!(bimodel_container,
                         network, target_timepoints, scenarios,
                         uncertainties_at_ech)
-    add_cut_conso_distribution_constraint!(tso_model_container,
-                                        market_model_container.slack_model,
+    add_loss_of_load_distribution_constraint!(tso_model_container,
+                                        market_model_container.lol_model,
                                         target_timepoints, scenarios, network)
     add_enr_distribution_constraint!(tso_model_container,
                                     market_model_container.limitable_model,
@@ -591,7 +591,7 @@ end
 function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
                                 target_timepoints, scenarios, network,
                                 preceding_market_schedule::Schedule,
-                                capping_cost, cut_conso_cost,
+                                capping_cost, loss_of_load_cost,
                                 limit_penalty,
                                 imposable_bounding_cost,
                                 use_prop_cost_for_bounding::Bool)
@@ -608,7 +608,7 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping_min, capping_cost)
 
     # cost for cutting consumption (lol) and avoid limiting for no reason
-    objective_model.penalty += coeffxsum(model_container.slack_model.p_cut_conso_min, cut_conso_cost)
+    objective_model.penalty += coeffxsum(model_container.lol_model.p_loss_of_load_min, loss_of_load_cost)
     objective_model.penalty += coeffxsum(model_container.limitable_model.b_is_limited, limit_penalty)
 
     objective_model.full_obj = ( objective_model.imposable_cost +
@@ -790,16 +790,16 @@ function add_slacks!(model_container::TSOBilevelMarketModelContainer,
                     scenarios::Vector{String},
                     uncertainties_at_ech::UncertaintiesAtEch)
     model = model_container.model
-    slack_model = model_container.slack_model
+    lol_model = model_container.lol_model
     for ts in target_timepoints
         for s in scenarios
             conso_max = compute_load(uncertainties_at_ech, network, ts, s)
-            name =  @sprintf("P_cut_conso[%s,%s]", ts, s)
-            slack_model.p_cut_conso[ts, s] = @variable(model, base_name=name,
+            name =  @sprintf("P_loss_of_load[%s,%s]", ts, s)
+            lol_model.p_loss_of_load[ts, s] = @variable(model, base_name=name,
                                                         lower_bound=0., upper_bound=conso_max)
         end
     end
-    return slack_model
+    return lol_model
 end
 
 function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
@@ -838,7 +838,7 @@ function add_eod_constraints!(market_model_container::TSOBilevelMarketModelConta
             prod += sum_injections(market_model_container.imposable_model, ts, s)
 
             conso = compute_load(uncertainties_at_ech, network, ts, s)
-            conso -= market_model_container.slack_model.p_cut_conso[ts,s]
+            conso -= market_model_container.lol_model.p_loss_of_load[ts,s]
 
             name = @sprintf("c_EOD[%s,%s]",ts,s)
             @constraint(market_model_container.model, prod == conso, base_name=name)
@@ -872,22 +872,22 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
     return market_model_container
 end
 
-function add_link_cut_conso_constraint!(market_model_container::TSOBilevelMarketModelContainer,
+function add_link_loss_of_load_constraint!(market_model_container::TSOBilevelMarketModelContainer,
                                         kkt_model_container::TSOBilevelKKTModelContainer,
-                                    tso_slack_model::TSOBilevelTSOSlackModel,
+                                    tso_lol_model::TSOBilevelTSOLoLModel,
                                     target_timepoints, scenarios, network)
     market_model = market_model_container.model
-    market_slack_model = market_model_container.slack_model
+    market_lol_model = market_model_container.lol_model
     for ts in target_timepoints
         for s in scenarios
             name = @sprintf("c_min_lol[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_slack_model.p_cut_conso_min[ts,s] <= market_slack_model.p_cut_conso[ts,s],
+                        tso_lol_model.p_loss_of_load_min[ts,s] <= market_lol_model.p_loss_of_load[ts,s],
                         base_name=name)
 
             #create duals and indicators relative to RSO min LoL constraint
             add_dual_and_indicator!(kkt_model_container.model,
-                                    kkt_model_container.cut_conso_duals, kkt_model_container.cut_conso_indicators, (ts,s),
+                                    kkt_model_container.loss_of_load_duals, kkt_model_container.loss_of_load_indicators, (ts,s),
                                     name, true)
         end
     end
@@ -952,7 +952,7 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
     kkt_model_container::TSOBilevelKKTModelContainer = bimodel_container.kkt_model
 
     # @constraint(market_model_container.model,
-    #             market_model_container.slack_model.p_cut_conso[target_timepoints[1], scenarios[1]]==0.,
+    #             market_model_container.lol_model.p_loss_of_load[target_timepoints[1], scenarios[1]]==0.,
     #             base_name = "DBG_temp_constraint")
 
     add_eod_constraints!(market_model_container, kkt_model_container,
@@ -961,8 +961,8 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
     add_link_capping_constraint!(market_model_container, kkt_model_container,
                                 tso_model_container.limitable_model,
                                 target_timepoints, scenarios, network)
-    add_link_cut_conso_constraint!(market_model_container, kkt_model_container,
-                                tso_model_container.slack_model,
+    add_link_loss_of_load_constraint!(market_model_container, kkt_model_container,
+                                tso_model_container.lol_model,
                                 target_timepoints, scenarios, network)
     add_imposables_constraints!(market_model_container, kkt_model_container,
                             tso_model_container.imposable_model,
@@ -973,7 +973,7 @@ end
 
 function create_market_objectives!(model_container::TSOBilevelMarketModelContainer,
                                 network,
-                                capping_cost, cut_conso_cost)
+                                capping_cost, loss_of_load_cost)
     objective_model = model_container.objective_model
 
     # model_container.imposable_cost
@@ -984,7 +984,7 @@ function create_market_objectives!(model_container::TSOBilevelMarketModelContain
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping, capping_cost)
 
     # cost for cutting load/consumption
-    objective_model.penalty += coeffxsum(model_container.slack_model.p_cut_conso, cut_conso_cost)
+    objective_model.penalty += coeffxsum(model_container.lol_model.p_loss_of_load, loss_of_load_cost)
 
     objective_model.full_obj = ( objective_model.imposable_cost +
                                 objective_model.limitable_cost +
@@ -1022,23 +1022,23 @@ end
 
 function add_kkt_stationarity_constraints!(kkt_model::TSOBilevelKKTModelContainer,
                                             target_timepoints, scenarios, network,
-                                            capping_cost, cut_conso_cost)
+                                            capping_cost, loss_of_load_cost)
     #FIXME can be generic by iterating on lower variables to construct each stationarity constraint
     # iterate on the objective and lower constraints to extract their coefficients, but need to link each cnstraint to its dual var
     add_capping_stationarity_constraints!(kkt_model, target_timepoints, scenarios, capping_cost)
-    add_cut_conso_stationarity_constraints!(kkt_model, target_timepoints, scenarios, cut_conso_cost)
+    add_loss_of_load_stationarity_constraints!(kkt_model, target_timepoints, scenarios, loss_of_load_cost)
     add_imposable_stationarity_constraints!(kkt_model, target_timepoints, scenarios, network)
 end
 
-function add_cut_conso_stationarity_constraints!(kkt_model::TSOBilevelKKTModelContainer,
-                                                target_timepoints, scenarios, cut_conso_cost)
+function add_loss_of_load_stationarity_constraints!(kkt_model::TSOBilevelKKTModelContainer,
+                                                target_timepoints, scenarios, loss_of_load_cost)
     for ts in target_timepoints
         for s in scenarios
             # @assert ( capping_cost ≈ coefficient(market_model.objective_model.full_obj,
-            #                                                 market_model.slack_model.p_cut_conso[ts,s]) )
+            #                                                 market_model.lol_model.p_loss_of_load[ts,s]) )
             name = @sprintf("c_stationarity_lol[%s,%s]",ts,s)
             @constraint(kkt_model.model,
-                        cut_conso_cost + kkt_model.eod_duals[ts,s] - kkt_model.cut_conso_duals[ts,s] == 0,
+                        loss_of_load_cost + kkt_model.eod_duals[ts,s] - kkt_model.loss_of_load_duals[ts,s] == 0,
                         base_name=name)
         end
     end
@@ -1125,15 +1125,15 @@ end
 
 function add_lolmin_complementarity_constraints!(model_container::TSOBilevelModel,
                                                 big_m, target_timepoints, scenarios)
-    tso_slack_model = model_container.upper.slack_model
-    market_slack_model = model_container.lower.slack_model
+    tso_lol_model = model_container.upper.lol_model
+    market_lol_model = model_container.lower.lol_model
     kkt_model = model_container.kkt_model
 
     for ts in target_timepoints
         for s in scenarios
-            kkt_var = kkt_model.cut_conso_duals[ts,s]
-            cstr_expr = market_slack_model.p_cut_conso[ts,s] - tso_slack_model.p_cut_conso_min[ts,s]
-            b_indicator = kkt_model.cut_conso_indicators[ts,s]
+            kkt_var = kkt_model.loss_of_load_duals[ts,s]
+            cstr_expr = market_lol_model.p_loss_of_load[ts,s] - tso_lol_model.p_loss_of_load_min[ts,s]
+            b_indicator = kkt_model.loss_of_load_indicators[ts,s]
             ub_cstr = compute_ub(cstr_expr, big_m)
             formulate_complementarity_constraints!(kkt_model.model, kkt_var, cstr_expr, b_indicator, big_m, ub_cstr)
         end
@@ -1212,7 +1212,7 @@ function tso_bilevel(network::Networks.Network,
                     )
 
     bimodel_container_l = TSOBilevelModel()
-    @assert(configs.big_m >= configs.MARKET_CUT_CONSO_PENALTY)
+    @assert(configs.big_m >= configs.MARKET_LOL_PENALTY)
     @assert(configs.big_m >= configs.MARKET_CAPPING_COST)
     all( configs.big_m >= Networks.get_prop_cost(gen)
         for gen in Networks.get_generators_of_type(network, Networks.IMPOSABLE) )
@@ -1233,7 +1233,7 @@ function tso_bilevel(network::Networks.Network,
 
     #this is the expression no objective is added to the jump model
     create_market_objectives!(bimodel_container_l.lower, network,
-                            configs.MARKET_CAPPING_COST, configs.MARKET_CUT_CONSO_PENALTY)
+                            configs.MARKET_CAPPING_COST, configs.MARKET_LOL_PENALTY)
 
     #constraints may use upper and lower vars at the same time
     add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
@@ -1245,14 +1245,14 @@ function tso_bilevel(network::Networks.Network,
     #kkt stationarity
     add_kkt_stationarity_constraints!(bimodel_container_l.kkt_model,
                                     target_timepoints, scenarios, network,
-                                    configs.MARKET_CAPPING_COST, configs.MARKET_CUT_CONSO_PENALTY)
+                                    configs.MARKET_CAPPING_COST, configs.MARKET_LOL_PENALTY)
     #kkt complementarity
     add_kkt_complementarity_constraints!(bimodel_container_l, configs.big_m, target_timepoints, scenarios, network)
 
     create_tso_objectives!(bimodel_container_l.upper,
                         target_timepoints, scenarios, network,
                         reference_schedule, #reference to see which units are currently on
-                        configs.TSO_CAPPING_COST, configs.TSO_CUT_CONSO_PENALTY,
+                        configs.TSO_CAPPING_COST, configs.TSO_LOL_PENALTY,
                         configs.TSO_LIMIT_PENALTY,
                         configs.TSO_IMPOSABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)
 

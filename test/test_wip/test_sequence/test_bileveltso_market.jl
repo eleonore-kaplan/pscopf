@@ -295,8 +295,8 @@ using Printf
                 @test 200. ≈ PSCOPF.get_imposition(context.tso_actions, "prod_2_1", TS[1], "S1")[2]
 
                 @test 20. ≈ PSCOPF.get_capping(context.tso_schedule, "wind_1_1", TS[1], "S1")
-                @test PSCOPF.get_cut_conso(context.tso_schedule, "bus_1", TS[1], "S1") < 1e-09
-                @test PSCOPF.get_cut_conso(context.tso_schedule, "bus_2", TS[1], "S1") < 1e-09
+                @test PSCOPF.get_loss_of_load(context.tso_schedule, "bus_1", TS[1], "S1") < 1e-09
+                @test PSCOPF.get_loss_of_load(context.tso_schedule, "bus_2", TS[1], "S1") < 1e-09
             end
 
             @testset "balancemarket" begin
@@ -307,8 +307,8 @@ using Printf
                 @test 35. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_2_1", TS[1], "S1")
 
                 @test 20. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
-                @test PSCOPF.get_cut_conso(context.market_schedule, "bus_1", TS[1], "S1") < 1e-09
-                @test PSCOPF.get_cut_conso(context.market_schedule, "bus_2", TS[1], "S1") < 1e-09
+                @test PSCOPF.get_loss_of_load(context.market_schedule, "bus_1", TS[1], "S1") < 1e-09
+                @test PSCOPF.get_loss_of_load(context.market_schedule, "bus_2", TS[1], "S1") < 1e-09
             end
 
         end

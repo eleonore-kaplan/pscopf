@@ -12,7 +12,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct TSOConfigs
-    cut_conso_penalty = 1e7
+    loss_of_load_penalty = 1e7
     limitation_penalty = 1e-03
     out_path = nothing
     problem_name = "TSO"
@@ -46,9 +46,9 @@ end
     #firmness_constraints
 end
 
-@with_kw struct TSOSlackModel <: AbstractSlackModel
+@with_kw struct TSOLoLModel <: AbstractLoLModel
     #bus,ts,s
-    p_cut_conso = SortedDict{Tuple{String,DateTime,String},VariableRef}();
+    p_loss_of_load = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct TSOObjectiveModel <: AbstractObjectiveModel
@@ -68,7 +68,7 @@ end
     model::Model = Model()
     limitable_model::TSOLimitableModel = TSOLimitableModel()
     imposable_model::TSOImposableModel = TSOImposableModel()
-    slack_model::TSOSlackModel = TSOSlackModel()
+    lol_model::TSOLoLModel = TSOLoLModel()
     objective_model::TSOObjectiveModel = TSOObjectiveModel()
     #ts,s
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
@@ -79,7 +79,7 @@ end
 end
 
 function has_positive_slack(model_container::TSOModel)::Bool
-    return has_positive_value(model_container.slack_model.p_cut_conso)
+    return has_positive_value(model_container.lol_model.p_loss_of_load)
 end
 
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
@@ -243,13 +243,13 @@ function add_slacks!(model_container::TSOModel,
                     scenarios::Vector{String},
                     uncertainties_at_ech::UncertaintiesAtEch)
     model = model_container.model
-    p_cut_conso = model_container.slack_model.p_cut_conso
+    p_loss_of_load = model_container.lol_model.p_loss_of_load
     buses = Networks.get_buses(network)
 
-    add_cut_conso_by_bus!(model, p_cut_conso,
+    add_loss_of_load_by_bus!(model, p_loss_of_load,
                         buses, target_timepoints, scenarios, uncertainties_at_ech)
 
-    return model_container.slack_model
+    return model_container.lol_model
 end
 
 function add_eod_constraint!(model_container::TSOModel,
@@ -257,17 +257,17 @@ function add_eod_constraint!(model_container::TSOModel,
                             ts::Dates.DateTime,
                             scenario::String,
                             load::Float64)
-    cut_conso = AffExpr(0)
+    loss_of_load = AffExpr(0)
     for bus in Networks.get_buses(network)
         bus_id = Networks.get_id(bus)
-        cut_conso += model_container.slack_model.p_cut_conso[bus_id, ts, scenario]
+        loss_of_load += model_container.lol_model.p_loss_of_load[bus_id, ts, scenario]
     end
 
     prod = ( sum_injections(model_container.limitable_model, ts, scenario) +
                 sum_injections(model_container.imposable_model, ts, scenario) )
 
     model_container.eod_constraint[ts,scenario] = @constraint(model_container.model,
-                                                    prod == load - cut_conso )
+                                                    prod == load - loss_of_load )
 
     return model_container
 end
@@ -317,7 +317,7 @@ function add_flows!(model_container::TSOModel,
                     flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
 
                     # + cutting loads ~ injections
-                    flow_l += ptdf * model_container.slack_model.p_cut_conso[bus_id, ts, s]
+                    flow_l += ptdf * model_container.lol_model.p_loss_of_load[bus_id, ts, s]
                 end
                 @constraint(model_container.model, model_container.flows[branch_id, ts, s] == flow_l )
             end
@@ -344,11 +344,11 @@ function add_tso_limitable_prop_cost!(obj_component::AffExpr,
 end
 
 function create_objectives!(model_container::TSOModel,
-                            network, uncertainties_at_ech, gratis_starts, cut_conso_cost, limitation_penalty)
+                            network, uncertainties_at_ech, gratis_starts, loss_of_load_cost, limitation_penalty)
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,
-                        model_container.slack_model.p_cut_conso, cut_conso_cost)
+                        model_container.lol_model.p_loss_of_load, loss_of_load_cost)
 
     # avoid limiting when not necessary
     for (_, var_is_limited) in model_container.limitable_model.b_is_limited
@@ -455,7 +455,7 @@ function tso_out_fo(network::Networks.Network,
     create_objectives!(model_container_l,
                         network, uncertainties_at_ech,
                         gratis_starts,
-                        configs.cut_conso_penalty, configs.limitation_penalty)
+                        configs.loss_of_load_penalty, configs.limitation_penalty)
 
     obj = model_container_l.objective_model.full_obj_1
     @objective(get_model(model_container_l), Min, obj)

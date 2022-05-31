@@ -116,7 +116,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test value(result.objective_model.deltas) < 1e-09 # followed the market
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1")
@@ -172,7 +172,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test 5. ≈ value(result.objective_model.deltas)
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1")
@@ -206,7 +206,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test 55. ≈ value(result.objective_model.deltas)
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1") #Cprop=150 : Highlu penalized if not used
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1") #Cprop=1
@@ -296,7 +296,7 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         @test 20. ≈ value(result.objective_model.deltas)
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
         @test 35. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")

@@ -47,7 +47,7 @@ abstract type AbstractGeneratorModel end
 abstract type AbstractImposableModel <: AbstractGeneratorModel end
 abstract type AbstractLimitableModel <: AbstractGeneratorModel end
 
-abstract type AbstractSlackModel end
+abstract type AbstractLoLModel end
 
 abstract type AbstractObjectiveModel end
 
@@ -334,7 +334,7 @@ function add_coeffxsum_cost!(obj_component::AffExpr,
 end
 
 
-# AbstractSlackModel
+# AbstractLoLModel
 ############################
 
 function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: AbstractVariableRef
@@ -342,7 +342,7 @@ function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: Abs
     #e.g. 1e-15 is supposed to be 0.
 end
 
-function add_cut_conso_by_bus!(model::AbstractModel, p_cut_conso,
+function add_loss_of_load_by_bus!(model::AbstractModel, p_loss_of_load,
                                 buses,
                                 target_timepoints::Vector{Dates.DateTime},
                                 scenarios::Vector{String},
@@ -352,14 +352,14 @@ function add_cut_conso_by_bus!(model::AbstractModel, p_cut_conso,
         for s in scenarios
             for bus in buses
                 bus_id = Networks.get_id(bus)
-                name =  @sprintf("P_cut_conso[%s,%s,%s]", bus_id, ts, s)
+                name =  @sprintf("P_loss_of_load[%s,%s,%s]", bus_id, ts, s)
                 load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-                p_cut_conso[bus_id, ts, s] = @variable(model, base_name=name,
+                p_loss_of_load[bus_id, ts, s] = @variable(model, base_name=name,
                                                             lower_bound=0., upper_bound=load)
             end
         end
     end
-    return p_cut_conso
+    return p_loss_of_load
 end
 
 # Utils

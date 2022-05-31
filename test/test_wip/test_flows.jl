@@ -152,9 +152,9 @@ using DataStructures
         @test 50. ≈ PSCOPF.compute_flow("branch_1_2", uncertainties, schedule, network, ech, TS[2], "S2")
     end
 
-    @testset "test_flows_cut_conso" begin
+    @testset "test_flows_loss_of_load" begin
         schedule = create_schedule()
-        PSCOPF.set_cut_conso_value!(schedule, "bus_2", TS[1], "S1", 15.)
+        PSCOPF.set_loss_of_load_value!(schedule, "bus_2", TS[1], "S1", 15.)
 
         # cut a 15MW conso on bus2 => 40-15
         @test ( PSCOPF.compute_flow("branch_1_2", uncertainties, schedule, network, ech, TS[1], "S1")

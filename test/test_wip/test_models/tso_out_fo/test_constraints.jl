@@ -80,7 +80,7 @@ using Printf
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_2_1", TS[2], "S2")
         #prod_1_1 might be used to deviate the least from market schedule
 
-        # Note : compute_flow does not consider cut_conso (valid here cause cut_conso=0, proven by pscopf_OPTIMAL)
+        # Note : compute_flow does not consider loss_of_load (valid here cause loss_of_load=0, proven by pscopf_OPTIMAL)
         for ts in TS
             for s in ["S1", "S2"]
                 flow = PSCOPF.compute_flow("branch_1_2",

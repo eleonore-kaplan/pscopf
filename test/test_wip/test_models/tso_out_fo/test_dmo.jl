@@ -137,7 +137,7 @@ using DataStructures
         # we started prod_1_1
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
     #=
@@ -187,7 +187,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 20. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 20. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
     end
 
     #=
@@ -242,7 +242,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 20. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 20. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
     end
 
     #=
@@ -296,7 +296,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
     #=
@@ -346,7 +346,7 @@ using DataStructures
         # 0 demand => we shutdown the unit
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
 end
