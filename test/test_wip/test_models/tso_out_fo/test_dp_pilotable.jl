@@ -5,14 +5,14 @@ using JuMP
 using Dates
 using DataStructures
 
-@testset verbose=true "test_tso_out_fo_dp_imposable" begin
+@testset verbose=true "test_tso_out_fo_dp_pilotable" begin
 
     #=
     TS: [11h]
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    ?
     Csta=0, Cprop=10    |
     DP => 10h30         |
@@ -24,7 +24,7 @@ using DataStructures
         ON?     ?(?)    |
         PROD    ?(?)    |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=15    |
     DP => 10h45         |
@@ -46,12 +46,12 @@ using DataStructures
         network = PSCOPF.Networks.Network()
         # Buses
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 10.,
                                                 Dates.Second(3*60*60), Dates.Second(30*60))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 15.,
                                                 Dates.Second(3*60*60), Dates.Second(15*60))

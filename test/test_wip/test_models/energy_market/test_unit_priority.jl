@@ -22,12 +22,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 0., 100.,
                                                 0., 15.,
                                                 Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 0., 100.,
                                                 0., 10.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -72,11 +72,11 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 25            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=0, Pmax=100    |
     Csta=0, Cprop=15    |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=0, Pmax=100   |
      Csta=0, Cprop=10   |
                         |
@@ -137,16 +137,16 @@ using DataStructures
       S1: 45            |
       S2: 45            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=20, Pmax=100   |
     Csta=0, Cprop=10    |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=5, Pmax=100   |
      Csta=0, Cprop=15   |
                         |
     =#
-    @testset "energy_market_may_cap_due_to_imposables_pmin" begin
+    @testset "energy_market_may_cap_due_to_pilotables_pmin" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
@@ -157,12 +157,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables : have a Pmin but no start cost
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables : have a Pmin but no start cost
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 0., 10.,
                                                 Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 5., 100.,
                                                 0., 15.,
                                                 Dates.Second(0), Dates.Second(0))

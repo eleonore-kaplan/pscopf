@@ -23,12 +23,12 @@ using Printf
                                                 0., 200.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 200.,
                                                 10000., 10.,
                                                 Dates.Second(4*60*60), Dates.Second(15*60))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 200.,
                                                 50000., 50.,
                                                 Dates.Second(1*60*60), Dates.Second(15*60))
@@ -88,7 +88,7 @@ using Printf
         S1: 85              |----------------------|
                             |         35           |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=20, Pmax=200   |                      | Pmin=20, Pmax=200
         Csta=10k, Cprop=10  |                      | Csta=50k, Cprop=50
         OFF->ON             |                      | OFF->OFF
@@ -120,7 +120,7 @@ using Printf
         S1: 85              |----------------------|
                             |         35           |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=20, Pmax=200   |                      | Pmin=20, Pmax=200
         Csta=10k, Cprop=10  |                      | Csta=50k, Cprop=50
         OFF->ON             |                      | OFF->OFF
@@ -215,7 +215,7 @@ using Printf
         S1: 85              |----------------------|
                             |         35           |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=20, Pmax=200   |                      | Pmin=20, Pmax=200
         Csta=10k, Cprop=10  |                      | Csta=50k, Cprop=50
         OFF->ON             |                      | OFF->OFF

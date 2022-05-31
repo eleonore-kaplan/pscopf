@@ -92,7 +92,7 @@ using DataStructures
     S: [S1]
                         bus 1
                          |
-    (imposable) prod_1_1 |    load_1
+    (pilotable) prod_1_1 |    load_1
     Pmin=20, Pmax=100    |  S1: 150
     Csta=100k, Cprop=1   |  S2: 15
                          |  S3: 25
@@ -102,8 +102,8 @@ using DataStructures
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 100000., 1.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -161,7 +161,7 @@ using DataStructures
     S: [S1]
                         bus 1
                          |
-    (imposable) prod_1_1 |    load_1
+    (pilotable) prod_1_1 |    load_1
     Pmin=20, Pmax=100    |  S1: 25
     Csta=100k, Cprop=1   |
 
@@ -178,8 +178,8 @@ using DataStructures
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 100000., 1.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -239,22 +239,22 @@ using DataStructures
          S1 : 10         |
          S1 : 10         |
                          |
-    (imposable) prod_1_1 |
+    (pilotable) prod_1_1 |
     Pmin=20, Pmax=100    |
     Csta=100k, Cprop=100 |
     =#
-    @testset "energy_market_capping_limitables_due_to_imposable_pmin" begin
+    @testset "energy_market_capping_limitables_due_to_pilotable_pmin" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
+        # Pilotables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 100000., 100.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -293,7 +293,7 @@ using DataStructures
         @test 5. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
 
         # In S2 : Load=25, wind provides 10 => still missing 15 but pmin=20
-        # imposable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
+        # pilotable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
         @test 5. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])

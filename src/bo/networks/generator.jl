@@ -3,12 +3,12 @@ using Printf
 
 @enum GeneratorType begin
     LIMITABLE
-    IMPOSABLE
+    PILOTABLE
 end
 
 function Base.string(g::GeneratorType)
-    if g==IMPOSABLE
-        return "Imposable"
+    if g==PILOTABLE
+        return "Pilotable"
     elseif g==LIMITABLE
         return "Limitable"
     else
@@ -19,8 +19,8 @@ end
 function Base.parse(::Type{GeneratorType}, str::String)
     if lowercase(str) == "limitable"
         return LIMITABLE
-    elseif  lowercase(str) == "imposable"
-        return IMPOSABLE
+    elseif  lowercase(str) == "pilotable"
+        return PILOTABLE
     else
         throw( error("Unable to convert `", str, "` to a GeneratorType") )
     end
@@ -87,8 +87,8 @@ function is_limitable(generator::Generator)::Bool
     return get_type(generator) == LIMITABLE
 end
 
-function is_imposable(generator::Generator)::Bool
-    return get_type(generator) == IMPOSABLE
+function is_pilotable(generator::Generator)::Bool
+    return get_type(generator) == PILOTABLE
 end
 
 function needs_commitment(generator::Generator)::Bool

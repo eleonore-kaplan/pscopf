@@ -78,7 +78,7 @@ function update_market_schedule!(context::AbstractContext, ech,
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-    for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
+    for ((gen_id, ts, s), p_injected_var) in result.pilotable_model.p_injected
         set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         if get_power_level_firmness(firmness, gen_id, ts) == DECIDED
             @assert( ismissing(get_prod_value(market_schedule, gen_id, ts))
@@ -87,7 +87,7 @@ function update_market_schedule!(context::AbstractContext, ech,
         end
     end
 
-    for ((gen_id, ts, _), b_on_var) in result.imposable_model.b_on
+    for ((gen_id, ts, _), b_on_var) in result.pilotable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         set_commitment_definitive_value!(market_schedule, gen_id, ts, gen_state_value)
     end

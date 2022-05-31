@@ -37,7 +37,7 @@ TS2:                                                    D        X    <--DP=DMO-
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_0", PSCOPF.Networks.LIMITABLE,
                                                 0., 100., 0., 0.,
                                                 Dates.Second(20*60), Dates.Second(20*60))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "fuel_1_0", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "fuel_1_0", PSCOPF.Networks.PILOTABLE,
                                                 10., 100., 0., 0.,
                                                 Dates.Second(4*60*60), Dates.Second(50*60))
 

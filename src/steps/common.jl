@@ -44,7 +44,7 @@ end
 abstract type AbstractModelContainer end
 
 abstract type AbstractGeneratorModel end
-abstract type AbstractImposableModel <: AbstractGeneratorModel end
+abstract type AbstractPilotableModel <: AbstractGeneratorModel end
 abstract type AbstractLimitableModel <: AbstractGeneratorModel end
 
 abstract type AbstractLoLModel end
@@ -54,8 +54,8 @@ abstract type AbstractObjectiveModel end
 # TODO : use a proper struct for by scenario variables
 # eg: UncertainValue{VariableRef}
 # or maybe a similar other struct cause depending on "ech"
-#    we either will need by scenario vars (eg. injection/commitment before DP/DMO for imposables)
-#    or we will need one variable (eg. injection at or after DP for imposables)
+#    we either will need by scenario vars (eg. injection/commitment before DP/DMO for pilotables)
+#    or we will need one variable (eg. injection at or after DP for pilotables)
 # if need a firm value (at/after DP or DMO) call a link_scenarios(::AbstractModel, ::)
 # which adds @constraint(model, by_scenario_vars[s] == firm_variable)
 # or maybe no need to if we create a single variable for scenarios right from the beginning
@@ -135,8 +135,8 @@ end
 function get_p_injected(model_container, type::Networks.GeneratorType)
     if type == Networks.LIMITABLE
         return model_container.limitable_model.p_injected
-    elseif type == Networks.IMPOSABLE
-        return model_container.imposable_model.p_injected
+    elseif type == Networks.PILOTABLE
+        return model_container.pilotable_model.p_injected
     end
     return nothing
 end
@@ -240,7 +240,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
     return limitable_model, model
 end
 
-# AbstractImposableModel
+# AbstractPilotableModel
 ############################
 function add_commitment_constraints!(model::AbstractModel,
                                     b_on_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
@@ -259,15 +259,15 @@ function add_commitment_constraints!(model::AbstractModel,
     end
     return model
 end
-function add_commitment!(imposable_model::AbstractImposableModel, model::AbstractModel,
+function add_commitment!(pilotable_model::AbstractPilotableModel, model::AbstractModel,
                         generator::Networks.Generator,
                         target_timepoints::Vector{Dates.DateTime},
                         scenarios::Vector{String},
                         generator_initial_state::GeneratorState
                         )
-    p_injected_vars = imposable_model.p_injected
-    b_on_vars = imposable_model.b_on
-    b_start_vars = imposable_model.b_start
+    p_injected_vars = pilotable_model.p_injected
+    b_on_vars = pilotable_model.b_on
+    b_start_vars = pilotable_model.b_start
 
     gen_id = Networks.get_id(generator)
     p_max = Networks.get_p_max(generator)
@@ -290,13 +290,13 @@ function add_commitment!(imposable_model::AbstractImposableModel, model::Abstrac
                                 b_on_vars, b_start_vars,
                                 gen_id, target_timepoints, scenarios, generator_initial_state)
 
-    return imposable_model, model
+    return pilotable_model, model
 end
 
 # Objective
 ##################
 
-function add_imposable_start_cost!(obj_component::AffExpr,
+function add_pilotable_start_cost!(obj_component::AffExpr,
                                 b_start::AbstractDict{T,V}, network, gratis_starts) where T <: Tuple where V <: VariableRef
     for ((gen_id,ts,_), b_start_var) in b_start
         if (gen_id,ts) in gratis_starts
@@ -433,7 +433,7 @@ function add_scenarios_linking_constraints!(model::AbstractModel,
                                                 gen_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
                                                 always_link::Bool
                                                 )
-    @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
+    @assert(Networks.get_type(generator) == Networks.PILOTABLE)
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
@@ -460,7 +460,7 @@ function add_power_level_sequencing_constraints!(model::AbstractModel,
                                                 generator_reference_schedule::GeneratorSchedule,
                                                 tso_actions::TSOActions=TSOActions()
                                                 )
-    @assert(Networks.get_type(generator) == Networks.IMPOSABLE)
+    @assert(Networks.get_type(generator) == Networks.PILOTABLE)
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
