@@ -20,14 +20,15 @@ function run(runnable::Union{EnergyMarket,BalanceMarket},
 
     problem_name_l = @sprintf("%s_%s", typeof(runnable), ech)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context),
-                                    keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
-                                    keep_impositions=runnable.configs.CONSIDER_TSOACTIONS_IMPOSITIONS,
-                                    keep_commitments=runnable.configs.CONSIDER_TSOACTIONS_COMMITMENTS)
     gratis_starts = Set{Tuple{String,Dates.DateTime}}()
     if runnable.configs.CONSIDER_GRATIS_STARTS
-        gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
+        gratis_starts = init_gratis_start(context, runnable.configs.REF_SCHEDULE_TYPE)
     end
+    @debug("gratis_starts : ", gratis_starts)
+
+    tso_actions = filter_tso_actions(get_tso_actions(context),
+                                    keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
+                                    keep_impositions=runnable.configs.CONSIDER_TSOACTIONS_IMPOSITIONS)
 
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
@@ -64,7 +65,9 @@ function update_market_schedule!(context::AbstractContext, ech,
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
             set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
+            @assert( ismissing(get_prod_value(market_schedule, gen_id, ts))
+                    || (value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts)) )
+            set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         end
     end
 

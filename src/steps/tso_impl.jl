@@ -205,7 +205,6 @@ function add_imposable!(imposable_model::TSOImposableModel, model::Model,
                                             target_timepoints, scenarios,
                                             commitment_firmness,
                                             reference_subschedule
-                                            #no commitment actions
                                             )
     end
 

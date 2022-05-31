@@ -39,8 +39,12 @@ function run(runnable::EnergyMarketAtFO,
 
     problem_name_l = @sprintf("energy_market_at_FO_%s", ech)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
-    gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
+    tso_actions = filter_tso_actions(get_tso_actions(context))
+
+    gratis_starts = Set{Tuple{String,Dates.DateTime}}()
+    if runnable.configs.CONSIDER_GRATIS_STARTS
+        gratis_starts = init_gratis_start(context, runnable.configs.REF_SCHEDULE_TYPE)
+    end
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 
@@ -80,7 +84,9 @@ function update_market_schedule!(context::AbstractContext, ech,
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         if get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
+            @assert( ismissing(get_prod_value(market_schedule, gen_id, ts))
+                    || value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
+            set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         end
     end
 
