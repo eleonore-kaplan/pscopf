@@ -95,7 +95,7 @@ using DataStructures
                                         generators_init_state,
                                         uncertainties, nothing)
 
-        context.market_schedule = initial_schedule
+        context.tso_schedule = initial_schedule
 
         market = PSCOPF.EnergyMarket()
 
