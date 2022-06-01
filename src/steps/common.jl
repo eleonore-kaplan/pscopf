@@ -114,13 +114,17 @@ function solve!(model::AbstractModel,
         log_file_l = devnull
     end
 
-    redirect_to_file(log_file_l) do
-        set_time_limit_sec(model, PSCOPF_TIME_LIMIT_IN_SECONDS)
+    set_time_limit_sec(model, PSCOPF_TIME_LIMIT_IN_SECONDS)
+    if PSCOPF_REDIRECT_LOG
+        redirect_to_file(log_file_l) do
+            optimize!(model)
+        end
+    else
         optimize!(model)
-        println("rgap: ", relative_gap(model))
-        println("solvetime: ", solve_time(model))
-        println("status: ", termination_status(model))
     end
+    println("rgap: ", relative_gap(model))
+    println("solvetime: ", solve_time(model))
+    println("status: ", termination_status(model))
 
     return model
 end
