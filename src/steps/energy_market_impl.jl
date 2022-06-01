@@ -23,7 +23,7 @@ end
 
 @with_kw struct EnergyMarketLimitableModel <: AbstractLimitableModel
     #ts,s
-    p_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
     #firmness_constraints
 end
 
@@ -40,7 +40,7 @@ end
 
 @with_kw struct EnergyMarketLoLModel <: AbstractLoLModel
     #ts,s
-    p_loss_of_load = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_loss_of_load = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct EnergyMarketObjectiveModel <: AbstractObjectiveModel
@@ -73,8 +73,47 @@ function aggregate_scenario_name(context::AbstractContext, ech::Dates.DateTime)
 end
 
 function has_positive_slack(model_container::EnergyMarketModel)::Bool
-    return has_positive_value(model_container.lol_model.p_loss_of_load)
+    return has_positive_value(model_container.lol_model.p_global_loss_of_load)
 end
+
+
+function add_injection_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+    for gen in pilotables_list
+        gen_id = Networks.get_id(gen)
+        for ts in target_timepoints
+            for s in scenarios
+                add_p_injected!(model_container.pilotable_model, model_container.model,
+                                gen_id, ts, s)
+            end
+        end
+    end
+end
+function add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+    for gen in pilotables_list
+        if Networks.needs_commitment(gen)
+            gen_id = Networks.get_id(gen)
+            for ts in target_timepoints
+                for s in scenarios
+                    add_b_on_start!(model_container.pilotable_model, model_container.model,
+                                    gen_id, ts, s)
+                end
+            end
+        end
+    end
+end
+function add_pilotables_vars!(model_container::EnergyMarketModel, pilotables_list, target_timepoints, scenarios)
+    add_injection_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+    add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+end
+
+function add_limitables_vars!(model_container::EnergyMarketModel, target_timepoints, scenarios)
+    add_global_capping_vars!(model_container.limitable_model, model_container.model, target_timepoints, scenarios)
+end
+
+function add_lol_vars!(model_container::EnergyMarketModel, target_timepoints, scenarios)
+    add_global_lol_vars!(model_container.lol_model, model_container.model, target_timepoints, scenarios)
+end
+
 
 """
     energy_market
@@ -119,15 +158,6 @@ function energy_market(network::Networks.Network,
     @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen)
                 for gen in Networks.get_generators(network))
 
-    model_container_l = EnergyMarketModel()
-
-    add_limitables!(model_container_l,
-                    network, target_timepoints,
-                    scenarios,
-                    uncertainties_at_ech,
-                    tso_actions
-                    )
-
     if is_market(configs.REF_SCHEDULE_TYPE)
         reference_schedule = preceding_market_schedule
     elseif is_tso(configs.REF_SCHEDULE_TYPE)
@@ -135,20 +165,52 @@ function energy_market(network::Networks.Network,
     else
         throw( error("Invalid REF_SCHEDULE_TYPE config.") )
     end
-    add_pilotables!(model_container_l,
-                    network, target_timepoints, scenarios,
-                    generators_initial_state,
-                    firmness, reference_schedule, tso_actions)
 
-    add_slacks!(model_container_l,
-                network, target_timepoints, scenarios,
-                uncertainties_at_ech)
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    buses_list = Networks.get_buses(network)
 
+    model_container_l = EnergyMarketModel()
 
-    add_eod_constraint!(model_container_l,
-                        network, target_timepoints, scenarios,
-                        uncertainties_at_ech
-                        )
+    #Variables
+    add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios)
+    add_limitables_vars!(model_container_l, target_timepoints, scenarios)
+    add_lol_vars!(model_container_l, target_timepoints, scenarios)
+
+    pilotable_power_constraints!(model_container_l.model,
+                                model_container_l.pilotable_model, pilotables_list_l, target_timepoints, scenarios,
+                                firmness, reference_schedule,
+                                always_link_scenarios=false)
+    unit_commitment_constraints!(model_container_l.model,
+                                model_container_l.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
+                                firmness, reference_schedule, generators_initial_state,
+                                always_link_scenarios=false)
+    if configs.CONSIDER_TSOACTIONS_IMPOSITIONS
+        respect_impositions_constraints!(model_container_l.model,
+                                        model_container_l.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
+                                        tso_actions)
+    end
+
+    if configs.CONSIDER_TSOACTIONS_LIMITATIONS
+        global_capping_constraints!(model_container_l.model,
+                                    model_container_l.limitable_model,limitables_list_l, target_timepoints, scenarios,
+                                    uncertainties_at_ech, tso_actions=tso_actions)
+    else
+        global_capping_constraints!(model_container_l.model,
+                                    model_container_l.limitable_model, limitables_list_l, target_timepoints, scenarios,
+                                    uncertainties_at_ech)
+    end
+
+    global_lol_constraints!(model_container_l.model,
+                            model_container_l.lol_model, buses_list, target_timepoints, scenarios,
+                            uncertainties_at_ech)
+
+    eod_constraints!(model_container_l.model, model_container_l.eod_constraint,
+                        model_container_l.pilotable_model,
+                        model_container_l.limitable_model,
+                        model_container_l.lol_model,
+                        target_timepoints, scenarios,
+                        uncertainties_at_ech, network)
 
     add_objective!(model_container_l, network, gratis_starts, configs.loss_of_load_penalty)
 
@@ -170,7 +232,7 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
 
     # cost for cutting load/consumption
     add_coeffxsum_cost!(model_container.objective_model.penalty,
-                        model_container.lol_model.p_loss_of_load, loss_of_load_cost)
+                        model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
 
     model_container.objective_model.full_obj = ( model_container.objective_model.start_cost +
                                                 model_container.objective_model.prop_cost +
@@ -179,153 +241,6 @@ function add_objective!(model_container::EnergyMarketModel, network, gratis_star
     return model_container
 end
 
-function add_pilotable!(pilotable_model::EnergyMarketPilotableModel, model::Model,
-                        generator::Networks.Generator,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        generator_initial_state::GeneratorState,
-                        commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
-                        power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        generator_reference_schedule::GeneratorSchedule,
-                        tso_actions::TSOActions
-                        )
-    gen_id = Networks.get_id(generator)
-    p_min = Networks.get_p_min(generator)
-    p_max = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            add_p_injected!(pilotable_model, model, gen_id, ts, s, p_max, false)
-        end
-    end
-
-    add_scenarios_linking_constraints!(model, generator,
-                                        pilotable_model.p_injected,
-                                        target_timepoints, scenarios,
-                                        power_level_firmness,
-                                        false
-                                        )
-
-    add_power_level_sequencing_constraints!(model, generator,
-                                        pilotable_model.p_injected,
-                                        target_timepoints, scenarios,
-                                        power_level_firmness,
-                                        generator_reference_schedule,
-                                        tso_actions
-                                        )
-
-    if p_min > 0
-        add_commitment!(pilotable_model, model, generator,
-                        target_timepoints, scenarios, generator_initial_state
-                        )
-        add_scenarios_linking_constraints!(model,
-                        generator, pilotable_model.b_on,
-                        target_timepoints, scenarios,
-                        commitment_firmness, false
-                        )
-        #linking b_on => linking b_start
-        add_commitment_sequencing_constraints!(model, generator,
-                                            pilotable_model.b_on,
-                                            pilotable_model.b_start,
-                                            target_timepoints, scenarios,
-                                            commitment_firmness,
-                                            generator_reference_schedule,
-                                            )
-    end
-
-    return pilotable_model, model
-end
-
-function add_pilotables!(model_container::EnergyMarketModel, network::Networks.Network,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        generators_initial_state::SortedDict{String,GeneratorState},
-                        firmness::Firmness,
-                        reference_schedule::Schedule,
-                        tso_actions::TSOActions
-                        )
-    pilotable_generators = Networks.get_generators_of_type(network, Networks.PILOTABLE)
-    for pilotable_gen in pilotable_generators
-        gen_id = Networks.get_id(pilotable_gen)
-        # gen_commitment = get_commitment_firmness(firmness, gen_id)
-        gen_initial_state = get_initial_state(generators_initial_state, pilotable_gen)
-        add_pilotable!(model_container.pilotable_model, model_container.model,
-                        pilotable_gen,
-                        target_timepoints,
-                        scenarios,
-                        gen_initial_state,
-                        get_commitment_firmness(firmness, gen_id),
-                        get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(reference_schedule, gen_id),
-                        tso_actions
-                        )
-    end
-    return model_container.pilotable_model
-end
-
-function add_limitables!(model_container::EnergyMarketModel, network::Networks.Network,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        uncertainties_at_ech::UncertaintiesAtEch,
-                        tso_actions::TSOActions
-                        )
-    limitable_model = model_container.limitable_model
-    model = model_container.model
-
-    for ts in target_timepoints
-        for s in scenarios
-            uncertain_power = compute_prod(uncertainties_at_ech, network, ts, s)
-            capped_by_limitation = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), network, ts, s)
-            @debug(@sprintf("capped by limitations : %f", capped_by_limitation))
-            @debug(@sprintf("uncertain_power : %f", uncertain_power))
-
-            name =  @sprintf("P_capping[%s,%s]", ts, s)
-            limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0.)
-            @constraint(model, limitable_model.p_capping[ts, s] <= uncertain_power)
-            @constraint(model, capped_by_limitation <= limitable_model.p_capping[ts, s])
-        end
-    end
-
-    return model_container.limitable_model
-end
-
-function add_slacks!(model_container::EnergyMarketModel,
-                    network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch)
-    model = model_container.model
-    lol_model = model_container.lol_model
-    for ts in target_timepoints
-        for s in scenarios
-            name =  @sprintf("P_loss_of_load[%s,%s]", ts, s)
-            load = compute_load(uncertainties_at_ech, network, ts, s)
-            lol_model.p_loss_of_load[ts, s] = @variable(model, base_name=name,
-                                                        lower_bound=0., upper_bound=load)
-        end
-    end
-    return model_container.lol_model
-end
-
-function add_eod_constraint!(model_container::EnergyMarketModel,
-                            network::Networks.Network,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch)
-    for ts in target_timepoints
-        for s in scenarios
-            load = compute_load(uncertainties_at_ech, network, ts, s)
-            loss_of_load = model_container.lol_model.p_loss_of_load[ts,s]
-
-            supply_l = AffExpr(0.)
-            supply_l += sum_injections(model_container.pilotable_model, ts, s)
-            supply_l += compute_prod(uncertainties_at_ech, network, ts, s)
-            supply_l -= model_container.limitable_model.p_capping[ts,s]
-
-            model_container.eod_constraint[ts,s] = @constraint(model_container.model,
-                                                            supply_l == load - loss_of_load )
-        end
-    end
-end
 
 ###########################
 # Context-update
@@ -335,7 +250,7 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
     reset_capping!(market_schedule)
     uncertainties = get_uncertainties(context, ech)
 
-    for ((ts, scenario), p_capping_var) in limitable_model.p_capping
+    for ((ts, scenario), p_capping_var) in limitable_model.p_global_capping
         capped_power = value(p_capping_var)
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
@@ -376,7 +291,7 @@ function update_schedule_loss_of_load!(market_schedule, context, ech, lol_model:
     reset_loss_of_load_by_bus!(market_schedule)
     uncertainties = get_uncertainties(context, ech)
 
-    for ((ts, scenario), p_loss_of_load_var) in lol_model.p_loss_of_load
+    for ((ts, scenario), p_loss_of_load_var) in lol_model.p_global_loss_of_load
         total_loss_of_load = value(p_loss_of_load_var)
         for s in split_str(scenario, SCENARIOS_DELIMITER, keepempty=false)
         #for EnergyMarket, s==scenario
@@ -426,17 +341,24 @@ function get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties_at_
     return gen_capped
 end
 
+
 function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
                         limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64},
-                        network, ts, s)
+                        limitable_generators, ts, s)
     if isempty(limitations)
         return 0.
     end
 
     capped = 0.
-    for limitable_gen in Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    for limitable_gen in limitable_generators
         gen_id = Networks.get_id(limitable_gen)
         capped += get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties_at_ech)
     end
     return capped
+end
+function compute_capped(uncertainties_at_ech::UncertaintiesAtEch,
+                        limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64},
+                        network::Networks.Network, ts, s)
+    limitable_generators = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    return compute_capped(uncertainties_at_ech, limitations, limitable_generators, ts, s)
 end

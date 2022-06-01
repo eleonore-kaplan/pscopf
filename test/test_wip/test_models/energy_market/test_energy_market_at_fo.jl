@@ -173,15 +173,15 @@ using DataStructures
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 17.5 ≈ value(result.pilotable_model.p_injected["prod_1_1", TS[1], s_agg])
         @test 10. ≈ value(result.pilotable_model.p_injected["prod_2_1", TS[1], s_agg])
-        @test value(result.limitable_model.p_capping[TS[1], s_agg]) < 1e-09
-        @test value(result.lol_model.p_loss_of_load[TS[1], s_agg]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], s_agg]) < 1e-09
+        @test value(result.lol_model.p_global_loss_of_load[TS[1], s_agg]) < 1e-09
 
         @test 22.5 ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[2], "S1")
         @test 22.5 ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[2], "S2")
         @test 27.5 ≈ value(result.pilotable_model.p_injected["prod_1_1", TS[2], s_agg])
         @test 15. ≈ value(result.pilotable_model.p_injected["prod_2_1", TS[2], s_agg])
-        @test value(result.limitable_model.p_capping[TS[2], s_agg]) < 1e-09
-        @test value(result.lol_model.p_loss_of_load[TS[2], s_agg]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[2], s_agg]) < 1e-09
+        @test value(result.lol_model.p_global_loss_of_load[TS[2], s_agg]) < 1e-09
 
         @testset "energy_market_at_fo_respect_preceding_decisions" begin
             #prod_2_1 was already set to 10 for TS1
@@ -222,10 +222,10 @@ using DataStructures
                                 ech, TS[2], "S2") < 1e-09
 
         # capping and LoL are defined for the aggregated scenario
-        @test value( result.lol_model.p_loss_of_load[TS[1], s_agg] ) < 1e-09
-        @test value( result.limitable_model.p_capping[TS[1], s_agg] ) < 1e-09
-        @test value( result.lol_model.p_loss_of_load[TS[2], s_agg] ) < 1e-09
-        @test value( result.limitable_model.p_capping[TS[2], s_agg] ) < 1e-09
+        @test value( result.lol_model.p_global_loss_of_load[TS[1], s_agg] ) < 1e-09
+        @test value( result.limitable_model.p_global_capping[TS[1], s_agg] ) < 1e-09
+        @test value( result.lol_model.p_global_loss_of_load[TS[2], s_agg] ) < 1e-09
+        @test value( result.limitable_model.p_global_capping[TS[2], s_agg] ) < 1e-09
     end
 
     #=
@@ -240,8 +240,8 @@ using DataStructures
                                                 PSCOPF.get_market_schedule(context),
                                                 PSCOPF.get_network(context),
                                                 ech, ts, s_agg) )
-            @test value( result.lol_model.p_loss_of_load[ts, s_agg] ) < 1e-09
-            @test value( result.limitable_model.p_capping[ts, s_agg] ) < 1e-09
+            @test value( result.lol_model.p_global_loss_of_load[ts, s_agg] ) < 1e-09
+            @test value( result.limitable_model.p_global_capping[ts, s_agg] ) < 1e-09
         end
     end
 

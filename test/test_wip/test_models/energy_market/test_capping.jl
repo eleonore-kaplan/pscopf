@@ -96,7 +96,7 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+        @test 20. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
@@ -162,9 +162,9 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #15 due to limitation, 5 due to EOD
+        @test 20. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #15 due to limitation, 5 due to EOD
 
-        @test value(result.lol_model.p_loss_of_load[TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_global_loss_of_load[TS[1], "S1"]) < 1e-09
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
@@ -230,9 +230,9 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 30. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #due to limitation
+        @test 30. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #due to limitation
 
-        @test 10. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
+        @test 10. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
