@@ -89,8 +89,6 @@ function update_market_schedule!(context::AbstractContext, ech,
             for s in get_scenarios(context)
                 capped_l = safeget_capping(market_schedule, gen_id, ts, s)
                 injected_l = get_uncertainties(uncertainties_l,gen_id,ts,s) - capped_l
-                @printf("%s,%s,%s : capped %f\n", gen_id, ts, s, capped_l)
-                @printf("%s,%s,%s : injected %f\n", gen_id, ts, s, injected_l)
                 set_prod_value!(market_schedule, gen_id, ts, s, injected_l)
             end
         end
