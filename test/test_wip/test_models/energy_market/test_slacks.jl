@@ -66,9 +66,9 @@ using DataStructures
 
         # Capping is not localised in market model
         # Limitable was capped when prod > load (ie. S1):
-        @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+        @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
         # Limitable was not capped when prod <= load (ie. S2):
-        @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
 
         # Capping is localised in the market schedule
         @test 5. ≈ PSCOPF.get_capping(context.market_schedule, "wind_1_1", TS[1], "S1")
@@ -122,7 +122,7 @@ using DataStructures
 
         context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
                                         generators_init_state,
-                                        uncertainties, nothing)
+                                        uncertainties, nothing, "DBGUG")
         market = PSCOPF.EnergyMarket()
         result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
@@ -133,13 +133,14 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1")
-        @test 50. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
+        @test 50. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
         # S2 : load < pmin => cannot start the unit for such load
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2") < 1e-09
-        @test 15. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S2"])
+        @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
+        @test 15. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S2"])
         # S3 : works fine
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S3")
-        @test value(result.lol_model.p_loss_of_load[TS[1], "S3"]) < 1e-09
+        @test value(result.lol_model.p_global_loss_of_load[TS[1], "S3"]) < 1e-09
         # penalize cutting consumption
         @test 1e7 ≈ market.configs.loss_of_load_penalty
         @test (50. * 1e7 + 15. * 1e7 + 0. ) ≈ value(result.objective_model.penalty)
@@ -207,13 +208,13 @@ using DataStructures
         # Desired Solution
         @test !( PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL )
         @test !( 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") )
-        @test !( value(result.lol_model.p_loss_of_load[TS[1], "S1"]) < 1e-09 )
+        @test !( value(result.lol_model.p_global_loss_of_load[TS[1], "S1"]) < 1e-09 )
         @test !( value(result.objective_model.penalty) < 1e-09 )
 
         # retrieved solution
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 25. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
+        @test 25. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
         @test (25. * 1e3) ≈ value(result.objective_model.penalty)
 
     end
@@ -289,15 +290,15 @@ using DataStructures
         # => reduce consumption by 5
         @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-        @test 5. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
+        @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+        @test 5. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
 
         # In S2 : Load=25, wind provides 10 => still missing 15 but pmin=20
         # pilotable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
         @test 5. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
-        @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])
-        @test value(result.lol_model.p_loss_of_load[TS[1], "S2"]) < 1e-09
+        @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S2"])
+        @test value(result.lol_model.p_global_loss_of_load[TS[1], "S2"]) < 1e-09
     end
 
     #=
@@ -376,7 +377,7 @@ using DataStructures
         @test PSCOPF.get_prod_value(context.market_schedule, "wind_1_3", TS[1], "S1") <= 1e-09
 
         # Total capped power
-        @test 45. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+        @test 45. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
 
         # Capping distributed
         @test 0.75 ≈ 45 / 60 #75% of limitable power will be capped
@@ -451,7 +452,7 @@ using DataStructures
         @test 160. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
 
         # Total cut conso
-        @test 40. ≈ value(result.lol_model.p_loss_of_load[TS[1], "S1"])
+        @test 40. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
 
         # cut conso distributed on buses
         @test 0.2 ≈ 40 / 200 # 40:loss_of_load, 200:total load

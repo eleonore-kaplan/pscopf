@@ -205,7 +205,7 @@ using DataStructures
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09 #cheapest but pmin=20
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S1")
         @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S1")
-        @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
 
         #S2
         @test 40. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
@@ -213,7 +213,7 @@ using DataStructures
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.market_schedule, "prod_1_2", TS[1], "S2")
         @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_2", TS[1], "S2") < 1e-09
-        @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])
+        @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S2"])
 
         @test value(result.objective_model.start_cost) < 1e-09
         @test value(result.objective_model.prop_cost) ≈ (

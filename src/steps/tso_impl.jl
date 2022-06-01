@@ -82,6 +82,22 @@ function has_positive_slack(model_container::TSOModel)::Bool
     return has_positive_value(model_container.lol_model.p_loss_of_load)
 end
 
+
+function sum_capping(limitable_model::TSOLimitableModel, ts,s, network::Networks.Network)
+    error("TODO")
+end
+
+#TODO define a struct LocalisedLolModel to use it for TSOLoLModel and TSOBilevelTSOLoLModel
+function sum_lol(lol_model::TSOLoLModel, ts, s, network::Networks.Network)
+    sum_l = 0.
+    for bus in Networks.get_buses(network)
+        bus_id = Networks.get_id(bus)
+        sum_l += lol_model.p_loss_of_load[bus_id,ts,s]
+    end
+    return sum_l
+end
+
+
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
                         gen_id::String, ts::DateTime, s::String,
                         p_reference::Float64

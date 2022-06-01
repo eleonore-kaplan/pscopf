@@ -159,6 +159,23 @@ function BilevelModelContainer{TSOBilevelTSOModelContainer,TSOBilevelMarketModel
     return BilevelModelContainer(bilevel_model, upper, lower, kkt_model)
 end
 
+function sum_capping(limitable_model::TSOBilevelTSOLimitableModel, ts,s, network::Networks.Network)
+    sum_l = 0.
+    for gen in Networks.get_generators_of_type(network, Networks.LIMITABLE)
+        gen_id = Networks.get_id(gen)
+        sum_l += limitable_model.p_capping[gen_id,ts,s]
+    end
+    return sum_l
+end
+
+function sum_lol(lol_model::TSOBilevelTSOLoLModel, ts, s, network::Networks.Network)
+    sum_l = 0.
+    for bus in Networks.get_buses(network)
+        bus_id = Networks.get_id(bus)
+        sum_l += lol_model.p_loss_of_load[bus_id,ts,s]
+    end
+    return sum_l
+end
 
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
     return has_positive_value(model_container.lower.lol_model.p_loss_of_load) #If TSO cut => market did too

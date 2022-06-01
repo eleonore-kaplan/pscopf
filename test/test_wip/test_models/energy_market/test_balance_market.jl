@@ -140,8 +140,8 @@ using DataStructures
         # Limitable respects limitations
         @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
         @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-        @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-        @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
 
         @test 90. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
         @test 100. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -191,8 +191,8 @@ using DataStructures
             # Limitable respects limitations
             @test 45. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
 
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test 100. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -241,8 +241,8 @@ using DataStructures
             # Limitable respects limitations
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test 15. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #35MW /50
-            @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"]) #35MW /40
+            @test 15. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #35MW /50
+            @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S2"]) #35MW /40
 
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -316,8 +316,8 @@ using DataStructures
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
         #=
@@ -383,8 +383,8 @@ using DataStructures
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
         #=
@@ -450,8 +450,8 @@ using DataStructures
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
     end

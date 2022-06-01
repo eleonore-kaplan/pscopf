@@ -26,10 +26,6 @@ function run(runnable::Union{EnergyMarket,BalanceMarket},
     end
     @debug("gratis_starts : ", gratis_starts)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context),
-                                    keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
-                                    keep_impositions=runnable.configs.CONSIDER_TSOACTIONS_IMPOSITIONS)
-
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
 
@@ -41,7 +37,7 @@ function run(runnable::Union{EnergyMarket,BalanceMarket},
                         firmness,
                         get_market_schedule(context),
                         get_tso_schedule(context),
-                        tso_actions,
+                        get_tso_actions(context),
                         gratis_starts,
                         runnable.configs
                         )
