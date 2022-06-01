@@ -361,7 +361,6 @@ function update_schedule_capping!(market_schedule, context, ech, limitable_model
                     capped_value = ( get_capped_by_limitations(gen_id, ts, s, limitations, uncertainties)
                                     + coeff * capped_by_eod )
                     market_schedule.capping[gen_id, ts, s] = capped_value
-                    @printf("%s,%s,%s : capped %f\n", gen_id, ts, s, capped_value)
                 end
             else
                 for gen_id in limitables_ids
