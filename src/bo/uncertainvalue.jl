@@ -29,14 +29,15 @@ function is_missing_values(uncertain_value::UncertainValue{T})::Bool where T
     return false
 end
 
+function make_non_definitive(uncertain_value::UncertainValue{T}) where T
+    uncertain_value.definitive_value = missing
+end
+
 function set_value!(uncertain_value::UncertainValue{T}, scenario::String, value::T)::Union{T, Missing} where T
     if is_definitive(uncertain_value)
-        #this avoids adding a new scenario with a new value after setting a definitive value for the existing scenarios
-        existing_value = get_value(uncertain_value)
-        throw( error("A definitive value was already set to the UncertainValue : ", existing_value) )
-    else
-        uncertain_value.anticipated_value[scenario] = value
+        make_non_definitive(uncertain_value)
     end
+    uncertain_value.anticipated_value[scenario] = value
 end
 
 function is_definitive(uncertain_value::UncertainValue{T})::Bool where T
