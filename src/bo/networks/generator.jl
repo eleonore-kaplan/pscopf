@@ -92,7 +92,7 @@ function is_pilotable(generator::Generator)::Bool
 end
 
 function needs_commitment(generator::Generator)::Bool
-    return get_p_min(generator) > 0
+    return (get_type(generator) == PILOTABLE) && (get_p_min(generator) > 0)
 end
 
 ################

@@ -77,17 +77,6 @@ function has_positive_slack(model_container::EnergyMarketModel)::Bool
 end
 
 
-function add_injection_vars!(model_container, pilotables_list, target_timepoints, scenarios)
-    for gen in pilotables_list
-        gen_id = Networks.get_id(gen)
-        for ts in target_timepoints
-            for s in scenarios
-                add_p_injected!(model_container.pilotable_model, model_container.model,
-                                gen_id, ts, s)
-            end
-        end
-    end
-end
 function add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
     for gen in pilotables_list
         if Networks.needs_commitment(gen)
@@ -102,7 +91,8 @@ function add_unit_commitment_vars!(model_container, pilotables_list, target_time
     end
 end
 function add_pilotables_vars!(model_container::EnergyMarketModel, pilotables_list, target_timepoints, scenarios)
-    add_injection_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+    add_injection_vars!(model_container.model, model_container.pilotable_model,
+                        pilotables_list, target_timepoints, scenarios)
     add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
 end
 
@@ -172,11 +162,14 @@ function energy_market(network::Networks.Network,
 
     model_container_l = EnergyMarketModel()
 
-    #Variables
+    # Variables
     add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios)
     add_limitables_vars!(model_container_l, target_timepoints, scenarios)
     add_lol_vars!(model_container_l, target_timepoints, scenarios)
 
+    # Constraints
+
+    # Pilotables
     pilotable_power_constraints!(model_container_l.model,
                                 model_container_l.pilotable_model, pilotables_list_l, target_timepoints, scenarios,
                                 firmness, reference_schedule,
@@ -191,6 +184,7 @@ function energy_market(network::Networks.Network,
                                         tso_actions)
     end
 
+    # Limitables
     if configs.CONSIDER_TSOACTIONS_LIMITATIONS
         global_capping_constraints!(model_container_l.model,
                                     model_container_l.limitable_model,limitables_list_l, target_timepoints, scenarios,
@@ -201,16 +195,19 @@ function energy_market(network::Networks.Network,
                                     uncertainties_at_ech)
     end
 
+    # LoL
     global_lol_constraints!(model_container_l.model,
                             model_container_l.lol_model, buses_list, target_timepoints, scenarios,
                             uncertainties_at_ech)
 
+    # EOD
     eod_constraints!(model_container_l.model, model_container_l.eod_constraint,
                         model_container_l.pilotable_model,
                         model_container_l.limitable_model,
                         model_container_l.lol_model,
                         target_timepoints, scenarios,
                         uncertainties_at_ech, network)
+
 
     add_objective!(model_container_l, network, gratis_starts, configs.loss_of_load_penalty)
 

@@ -42,8 +42,6 @@ end
     b_start = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     b_on = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #commitment_constraints = Dict{Tuple{String,DateTime,String},ConstraintRef}();
-    #firmness_constraints
 end
 
 @with_kw struct TSOLoLModel <: AbstractLoLModel
@@ -76,6 +74,8 @@ end
     #branch,ts,s
     flows::SortedDict{Tuple{String,DateTime,String},VariableRef} =
         SortedDict{Tuple{String,DateTime,String},VariableRef}()
+    rso_constraint::SortedDict{Tuple{String,DateTime,String},ConstraintRef} =
+        SortedDict{Tuple{String,DateTime,String},ConstraintRef}()
 end
 
 function has_positive_slack(model_container::TSOModel)::Bool
@@ -84,7 +84,7 @@ end
 
 
 function sum_capping(limitable_model::TSOLimitableModel, ts,s, network::Networks.Network)
-    error("TODO")
+    error("TODO : requires uncertainties cause capping=uncertainties-injection")
 end
 
 #TODO define a struct LocalisedLolModel to use it for TSOLoLModel and TSOBilevelTSOLoLModel
@@ -95,75 +95,6 @@ function sum_lol(lol_model::TSOLoLModel, ts, s, network::Networks.Network)
         sum_l += lol_model.p_loss_of_load[bus_id,ts,s]
     end
     return sum_l
-end
-
-
-function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
-                        gen_id::String, ts::DateTime, s::String,
-                        p_reference::Float64
-                        )::VariableRef
-    deltas = generator_model.delta_p
-    p_injected = generator_model.p_injected
-
-    name =  @sprintf("Delta_p[%s,%s,%s]", gen_id, ts, s)
-    deltas[gen_id, ts, s] = @variable(model, base_name=name)
-    @constraint(model, deltas[gen_id, ts, s] >= p_injected[gen_id, ts, s] - p_reference)
-    @constraint(model, deltas[gen_id, ts, s] >= p_reference - p_injected[gen_id, ts, s])
-
-    return generator_model.delta_p[gen_id, ts, s]
-end
-
-function add_limitable!(limitable_model::TSOLimitableModel, model::Model,
-                        generator::Networks.Generator,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        inject_uncertainties::InjectionUncertainties,
-                        power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        preceding_market_subschedule::GeneratorSchedule
-                        )
-    gen_id = Networks.get_id(generator)
-    gen_pmax = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            p_enr = min(gen_pmax, inject_uncertainties[ts][s])
-            add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
-            p_ref = get_prod_value(preceding_market_subschedule, ts, s)
-            p_ref = ismissing(p_ref) ? 0. : p_ref
-            add_p_delta!(limitable_model, model, gen_id, ts, s, p_ref)
-        end
-
-        add_p_limit!(limitable_model, model, gen_id, ts, scenarios, gen_pmax,
-                    inject_uncertainties,
-                    power_level_firmness[ts])
-    end
-
-    return limitable_model, model
-end
-
-function add_limitables!(model_container::TSOModel, network::Networks.Network,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        uncertainties_at_ech::UncertaintiesAtEch,
-                        firmness::Firmness,
-                        preceding_market_schedule::Schedule
-                        )
-    limitable_model = model_container.limitable_model
-    model = model_container.model
-
-    limitable_generators = Networks.get_generators_of_type(network, Networks.LIMITABLE)
-    for limitable_gen in limitable_generators
-        gen_id = Networks.get_id(limitable_gen)
-        add_limitable!(limitable_model, model,
-                        limitable_gen,
-                        target_timepoints,
-                        scenarios,
-                        get_uncertainties(uncertainties_at_ech, gen_id),
-                        get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(preceding_market_schedule, gen_id)
-                        )
-    end
-
-    return model_container.limitable_model
 end
 
 function add_pilotable!(pilotable_model::TSOPilotableModel, model::Model,
@@ -266,40 +197,6 @@ function add_slacks!(model_container::TSOModel,
                         buses, target_timepoints, scenarios, uncertainties_at_ech)
 
     return model_container.lol_model
-end
-
-function add_eod_constraint!(model_container::TSOModel,
-                            network::Networks.Network,
-                            ts::Dates.DateTime,
-                            scenario::String,
-                            load::Float64)
-    loss_of_load = AffExpr(0)
-    for bus in Networks.get_buses(network)
-        bus_id = Networks.get_id(bus)
-        loss_of_load += model_container.lol_model.p_loss_of_load[bus_id, ts, scenario]
-    end
-
-    prod = ( sum_injections(model_container.limitable_model, ts, scenario) +
-                sum_injections(model_container.pilotable_model, ts, scenario) )
-
-    model_container.eod_constraint[ts,scenario] = @constraint(model_container.model,
-                                                    prod == load - loss_of_load )
-
-    return model_container
-end
-
-function add_eod_constraints!(model_container::TSOModel,
-                            network::Networks.Network,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch)
-    for ts in target_timepoints
-        for s in scenarios
-            load = compute_load(uncertainties_at_ech, network, ts, s)
-            add_eod_constraint!(model_container, network, ts, s, load)
-        end
-    end
-    return model_container
 end
 
 function add_flows!(model_container::TSOModel,
@@ -416,6 +313,14 @@ function bound_sum_p_deltas(model_container::TSOModel)
     return model_container
 end
 
+function add_limitables_vars!(model_container::TSOModel, limitables_list, target_timepoints, scenarios, reference_market_schedule)
+    add_injection_vars!(model_container.model, model_container.limitable_model,
+                        limitables_list, target_timepoints, scenarios)
+    add_limitation_vars!(model_container.model, model_container.limitable_model, limitables_list, target_timepoints, scenarios)
+    add_delta_p_vars!(model_container.model, model_container.limitable_model,
+                    limitables_list, target_timepoints, scenarios, reference_market_schedule)
+end
+
 function tso_out_fo(network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
                     generators_initial_state::SortedDict{String,GeneratorState},
@@ -428,15 +333,23 @@ function tso_out_fo(network::Networks.Network,
                     configs::TSOConfigs
                     )
 
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    buses_list = Networks.get_buses(network)
+
     model_container_l = TSOModel()
 
-    add_limitables!(model_container_l,
-                    network, target_timepoints,
-                    scenarios,
-                    uncertainties_at_ech,
-                    firmness,
-                    preceding_market_schedule
-                    )
+    # Variables
+    # add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios)
+    add_limitables_vars!(model_container_l, limitables_list_l, target_timepoints, scenarios, preceding_market_schedule)
+    # add_lol_vars!(model_container_l, target_timepoints, scenarios)
+
+
+    # Constraints
+    limitable_power_constraints!(model_container_l.model,
+                                model_container_l.limitable_model, limitables_list_l, target_timepoints, scenarios,
+                                firmness, uncertainties_at_ech,
+                                always_link_scenarios=false)
 
     # TODO : check coherence between : preceding_reference_schedule and TSOActions.impositions cause we do not consider TSOActions
     if is_market(configs.REF_SCHEDULE_TYPE)
@@ -458,10 +371,13 @@ function tso_out_fo(network::Networks.Network,
                 network, target_timepoints, scenarios,
                 uncertainties_at_ech)
 
-    add_eod_constraints!(model_container_l,
-                        network, target_timepoints, scenarios,
-                        uncertainties_at_ech
-                        )
+    eod_constraints!(model_container_l.model, model_container_l.eod_constraint,
+                    model_container_l.pilotable_model,
+                    model_container_l.limitable_model,
+                    model_container_l.lol_model,
+                    target_timepoints, scenarios,
+                    uncertainties_at_ech, network
+                    )
 
     add_flows!(model_container_l,
                         network, target_timepoints, scenarios,
