@@ -14,15 +14,11 @@ using DataStructures
     # Imposed P bounds of an imposable for a given ts
     impositions::SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}} =
         SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}}()
-    # Imposed commitment of a generator (with Pmin>0) for a given ts
-    commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState} =
-        SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 end
 
 function reset_tso_actions!(tso_actions::TSOActions)
     empty!(tso_actions.limitations)
     empty!(tso_actions.impositions)
-    empty!(tso_actions.commitments)
 
     return tso_actions
 end
@@ -72,8 +68,8 @@ function get_imposition_uncertain_value(tso_actions::TSOActions, gen_id::String,
     if haskey(impositions, (gen_id, ts))
         return impositions[gen_id, ts]
     else
-        msg = @sprintf("impositions is not defined for (%s,%s)", gen_id, ts)
-        @warn msg
+        # msg = @sprintf("impositions is not defined for (%s,%s)", gen_id, ts)
+        # @warn msg
         return missing
     end
 end
@@ -161,51 +157,6 @@ function set_imposition_value!(tso_actions::TSOActions, gen_id::String, ts::Date
     set_value!(uncertain_value, scenario, (value_min, value_max))
 end
 
-## Commitment
-#--------------
-
-function get_commitments(tso_actions)
-    return tso_actions.commitments
-end
-
-function get_commitments(commitments_dict::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState})
-    return commitments_dict
-end
-
-function get_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::Union{GeneratorState, Missing}
-    commitment = get_commitments(tso_actions)
-    if !haskey(commitment, (gen_id, ts))
-        return missing
-    else
-        return commitment[gen_id, ts]
-    end
-end
-
-function safeget_commitment(tso_actions, gen_id::String, ts::Dates.DateTime)::GeneratorState
-    commitment = get_commitment(tso_actions, gen_id, ts)
-    if ismissing(commitment)
-        msg = @sprintf("No commitment entry in TSOActions for (gen_id=%s,ts=%s).", gen_id, ts)
-        throw(error(msg))
-    else
-        return commitment
-    end
-end
-
-function set_commitment_value!(tso_actions, gen_id::String, ts::Dates.DateTime, value::GeneratorState)
-    commitment = get_commitments(tso_actions)
-    commitment[gen_id, ts] = value
-end
-
-function get_commitments(tso_actions, gen_id::String)
-    gen_commitments = SortedDict{Dates.DateTime, GeneratorState}()
-    for ((gen_id_l,ts),commitment_val) in get_commitments(tso_actions)
-        if gen_id_l == gen_id
-            gen_commitments[ts] = commitment_val
-        end
-    end
-    return gen_commitments
-end
-
 #######################
 # Helpers
 ########################
@@ -216,34 +167,9 @@ Modifying the returned tso_actions' kept attributes will modify the original one
 """
 function filter_tso_actions(tso_actions::TSOActions;
                         keep_limitations::Bool=false,
-                        keep_impositions::Bool=false,
-                        keep_commitments::Bool=false)::TSOActions
+                        keep_impositions::Bool=false)::TSOActions
     limitations_l = keep_limitations ? tso_actions.limitations : SortedDict{Tuple{String, Dates.DateTime}, Float64}()
     impositions_l = keep_impositions ? tso_actions.impositions : SortedDict{Tuple{String, Dates.DateTime}, Tuple{Float64,Float64}}()
-    commitments_l = keep_commitments ? tso_actions.commitments : SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
 
-    return TSOActions(limitations_l, impositions_l, commitments_l)
-end
-
-function get_starts(tso_acions::TSOActions, initial_state::SortedDict{String, GeneratorState})
-    return get_starts(get_commitments(tso_acions), initial_state)
-end
-function get_starts(commitments::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}, initial_state::SortedDict{String, GeneratorState})
-    result = Set{Tuple{String,Dates.DateTime}}()
-
-    preceding_id, preceding_state = nothing, nothing
-    for ((gen_id,ts), gen_state) in commitments
-        if ( isnothing(preceding_id) || gen_id!=preceding_id )
-            preceding_state = initial_state[gen_id]
-        end
-
-        if get_start_value(preceding_state, gen_state) > 1e-09
-            push!(result, (gen_id,ts) )
-        end
-
-        preceding_id = gen_id
-        preceding_state = gen_state
-    end
-
-    return result
+    return TSOActions(limitations_l, impositions_l)
 end

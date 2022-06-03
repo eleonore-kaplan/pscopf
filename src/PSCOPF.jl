@@ -1,4 +1,5 @@
 module PSCOPF
+    include("configs.jl")
     include("utils.jl")
     include("abstracts.jl")
 
@@ -6,6 +7,7 @@ module PSCOPF
     include("bo/modes.jl")
     include("bo/target_ts.jl")
     include("bo/uncertainties.jl")
+    include("bo/uncertainvalue.jl")
     include("bo/schedule.jl")
     include("bo/tso_actions.jl")
 
@@ -22,6 +24,7 @@ module PSCOPF
 
     include("steps/common.jl")
     include("steps/defs.jl")
+    include("steps/helpers.jl")
     include("steps/energy_market_impl.jl")
     include("steps/balance_market.jl")
     include("steps/energy_market.jl")

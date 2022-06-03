@@ -146,25 +146,6 @@ function get_initial_state(initial_states::SortedDict{String,GeneratorState}, ge
     end
 end
 
-function get_starts(schedule::Schedule, initial_state::SortedDict{String, GeneratorState})
-    commitments = SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
-
-    for (gen_id, gen_schedule) in schedule.generator_schedules
-        if isempty(gen_schedule.commitment)
-            continue
-        end
-        for (ts, current_state) in gen_schedule.commitment
-            if !is_definitive(current_state)
-                break #if current state is not definitive the following starts cannot be definitive
-            else
-                commitments[gen_id, ts] = get_value(current_state)
-            end
-        end
-    end
-
-    return get_starts(commitments, initial_state)
-end
-
 function update_market_flows!(context::PSCOPFContext)
     flows = compute_flows(context, get_market_schedule(context))
     context.market_flows = flows

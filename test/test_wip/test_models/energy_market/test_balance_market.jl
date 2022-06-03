@@ -138,9 +138,7 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         # Limitable respects limitations
-        @test 50. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
         @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-        @test 40. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
         @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
         @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
         @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
@@ -191,9 +189,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             # Limitable respects limitations
-            @test 45. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
             @test 45. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-            @test 40. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
             @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
             @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
@@ -243,9 +239,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             # Limitable respects limitations
-            @test 35. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-            @test 35. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
             @test 15. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #35MW /50
             @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"]) #35MW /40
@@ -320,9 +314,7 @@ using DataStructures
             @test 10. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")
 
             # Limitable is used at maximum allowed
-            @test 50. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-            @test 40. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
             @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
             @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
@@ -389,9 +381,7 @@ using DataStructures
             @test 20. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")
 
             # Limitable is used at maximum allowed
-            @test 50. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-            @test 40. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
             @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
             @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
@@ -458,9 +448,7 @@ using DataStructures
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2"), impos_2_s2_l[1], impos_2_s2_l[2])
 
             # Limitable is used at maximum allowed
-            @test 50. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S1"])
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
-            @test 40. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
             @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
             @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09

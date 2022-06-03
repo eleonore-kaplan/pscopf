@@ -42,9 +42,6 @@ using Printf
                                     SortedDict{String,PSCOPF.GeneratorState}(), #gen_initial_state
                                     uncertainties, assessment_uncertainties, logs)
 
-        PSCOPF.set_commitment_value!(PSCOPF.get_tso_actions(context), "prod_1_1", TS[1], PSCOPF.OFF)
-        PSCOPF.set_commitment_value!(PSCOPF.get_tso_actions(context), "prod_2_1", TS[1], PSCOPF.ON)
-
         PSCOPF.set_imposition_definitive_value!(PSCOPF.get_tso_actions(context), "prod_1_1", TS[1], impositions_1[1], impositions_1[2])
         PSCOPF.set_imposition_definitive_value!(PSCOPF.get_tso_actions(context), "prod_2_1", TS[1], impositions_2[1], impositions_2[2])
         PSCOPF.set_limitation_value!(PSCOPF.get_tso_actions(context), "wind_1_1", TS[1], limit_1)

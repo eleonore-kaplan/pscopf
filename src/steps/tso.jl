@@ -49,7 +49,10 @@ function update_tso_schedule!(context::AbstractContext, ech, result, firmness,
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
             set_prod_definitive_value!(tso_schedule, gen_id, ts, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) ≈ get_prod_value(tso_schedule, gen_id, ts) )
+            # NOTE : decided reference may not be the TSO schedule
+            @assert( ismissing(get_prod_value(tso_schedule, gen_id, ts))
+                    || value(p_injected_var) ≈ get_prod_value(tso_schedule, gen_id, ts) )
+            set_prod_definitive_value!(tso_schedule, gen_id, ts, value(p_injected_var))
         end
     end
 
@@ -110,16 +113,6 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios
             set_imposition_value!(tso_actions, gen_id, ts, s, value(p_injected_var), value(p_injected_var))
-        end
-    end
-
-    # Commitments
-    commitments = SortedDict{Tuple{String,DateTime}, GeneratorState}() #TODELETE
-    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
-        if get_commitment_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
-            gen_state_value = parse(GeneratorState, value(b_on_var))
-            @assert( gen_state_value == get!(commitments, (gen_id, ts), gen_state_value) ) #TODELETE : checks that all values are the same across scenarios
-            set_commitment_value!(tso_actions, gen_id, ts, gen_state_value)
         end
     end
 

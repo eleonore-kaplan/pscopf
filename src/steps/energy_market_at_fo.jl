@@ -39,8 +39,12 @@ function run(runnable::EnergyMarketAtFO,
 
     problem_name_l = @sprintf("energy_market_at_FO_%s", ech)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context), keep_commitments=true)
-    gratis_starts = get_starts(tso_actions, get_generators_initial_state(context))
+    tso_actions = filter_tso_actions(get_tso_actions(context))
+
+    gratis_starts = Set{Tuple{String,Dates.DateTime}}()
+    if runnable.configs.CONSIDER_GRATIS_STARTS
+        gratis_starts = init_gratis_start(context, runnable.configs.REF_SCHEDULE_TYPE)
+    end
 
     agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
 
@@ -74,13 +78,12 @@ function update_market_schedule!(context::AbstractContext, ech,
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-    for ((gen_id, ts, _), p_injected_var) in result.limitable_model.p_injected
-        set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
-    end
     for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
         set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         if get_power_level_firmness(firmness, gen_id, ts) == DECIDED
-            @assert( value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
+            @assert( ismissing(get_prod_value(market_schedule, gen_id, ts))
+                    || value(p_injected_var) ≈ get_prod_value(market_schedule, gen_id, ts) )
+            set_prod_definitive_value!(market_schedule, gen_id, ts, value(p_injected_var))
         end
     end
 
@@ -91,8 +94,21 @@ function update_market_schedule!(context::AbstractContext, ech,
 
     # TODO : may need to adapt cause result handles only one scenario
     # Capping
-    distribute_capping_by_uncertainties = runnable.configs.force_limitables
-    update_schedule_capping!(market_schedule, context, ech, result.limitable_model, distribute_capping_by_uncertainties)
+    update_schedule_capping!(market_schedule, context, ech, result.limitable_model, runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS)
+
+    # Limitables levels : needs to be after capping update
+    #FIXME : avoid re-aggregating scenarios
+    agg_scenario_name, agg_uncertainties = aggregate_scenarios(context, ech)
+    for gen in Networks.get_generators_of_type(get_network(context), Networks.LIMITABLE)
+        gen_id = Networks.get_id(gen)
+        for ts in get_target_timepoints(context)
+            for s in get_scenarios(context)
+                capped_l = safeget_capping(market_schedule, gen_id, ts, s)
+                injected_l = get_uncertainties(agg_uncertainties,gen_id,ts,agg_scenario_name) - capped_l
+                set_prod_value!(market_schedule, gen_id, ts, s, injected_l)
+            end
+        end
+    end
 
     # cut_conso (load-shedding)
     update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
