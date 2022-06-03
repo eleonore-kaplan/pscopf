@@ -42,13 +42,6 @@ using DataStructures
             @test result == expected
         end
 
-        @testset "test_starts_from_tso_actions" begin
-            tso_actions = PSCOPF.TSOActions(commitments=commitments)
-
-            result = PSCOPF.get_starts(tso_actions, initial_state)
-            @test result == expected
-        end
-
         @testset "test_starts_from_schedule" begin
             schedule = PSCOPF.Schedule(PSCOPF.Utilitary(), DateTime("2015-01-01T06:00:00"), SortedDict(
                     "gen1" => PSCOPF.GeneratorSchedule("gen1",

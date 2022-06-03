@@ -9,11 +9,10 @@ using DataStructures
 
     #=
     If available power for a limitable exceeds consumption,
-      the limitable says it produces the available power level
-      but a variable indicates that we needed to cap some of the
-      available power.
+      excess power is capped.
     The capping variable is global (delocalised in space but has
       a per timestep and per scenario value)
+    The power capped is distributed in the schedule (not visible here cause only one limitable unit).
 
     TS: [11h]
     S: [S1]
@@ -62,7 +61,7 @@ using DataStructures
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         # Limitable produces to the available level
-        @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
+        @test 15. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
 
         # Capping is not localised in market model
@@ -79,73 +78,9 @@ using DataStructures
         #(otherwise we need a per unit variable for capping to localise and reduce the unpaid costs)
         @test value(result.objective_model.penalty) < 1e-09
         @test value(result.objective_model.start_cost) < 1e-09
-        @test (20. + 25. ) ≈ value(result.objective_model.prop_cost)
+        @test value(result.objective_model.prop_cost) < 1e-09 # no cost for limitables
     end
 
-    #=
-    A paramter allows not obliging limitables to produce at their available capacities.
-    In this case, cheapest limitable will be used, and extra available power will automatically
-      get capped simply by setting the injection level of each unit freely.
-    So, the capping variable should have no effect in this case.
-
-    TS: [11h]
-    S: [S1]
-                      bus 1
-                        |
-    (limitable) wind_1_1|
-    Pmin=0, Pmax=100    |
-    Csta=0, Cprop=1     |     load_1
-      S1: 20            | S1: 15       => need to cap 5MW
-      S2: 25            | S2: 25       => no capping
-                        |
-    =#
-    @testset "energy_market_reports_needed_capping_if_not_forced_limitables" begin
-        TS = [DateTime("2015-01-01T11:00:00")]
-        ech = DateTime("2015-01-01T07:00:00")
-        network = PSCOPF.Networks.Network()
-        PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Limitables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
-                                                0., 100.,
-                                                0., 1.,
-                                                Dates.Second(0), Dates.Second(0))
-        # Uncertainties
-        uncertainties = PSCOPF.Uncertainties()
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S1", 20.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "wind_1_1", DateTime("2015-01-01T11:00:00"), "S2", 25.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S1", 15.)
-        PSCOPF.add_uncertainty!(uncertainties, ech, "bus_1", DateTime("2015-01-01T11:00:00"), "S2", 25.)
-        # firmness
-        firmness = PSCOPF.Firmness(
-                    SortedDict{String, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness} }(),
-                    SortedDict("wind_1_1" => SortedDict(Dates.DateTime("2015-01-01T11:00:00") => PSCOPF.FREE))
-                    )
-        # initial generators state : No need because all pmin=0 => ON by default
-        generators_init_state = SortedDict{String, PSCOPF.GeneratorState}()
-
-        context = PSCOPF.PSCOPFContext(network, TS, PSCOPF.PSCOPF_MODE_1,
-                                        generators_init_state,
-                                        uncertainties, nothing)
-        market = PSCOPF.EnergyMarket()
-        market.configs.force_limitables = false
-        result = PSCOPF.run(market, ech, firmness,
-                    PSCOPF.get_target_timepoints(context),
-                    context)
-        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
-
-        # Solution is optimal
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
-        # Limitable can produce less than the available level
-        @test 15. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1") < 20.
-        @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
-        # Limitable didn't need capping
-        @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
-        @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
-        # No penalty and we only pay for what we used
-        @test value(result.objective_model.penalty) < 1e-09
-        @test value(result.objective_model.start_cost) < 1e-09
-        @test (15. + 25. ) ≈ value(result.objective_model.prop_cost) < (20. + 25.)
-    end
 
     #=
     It is possible to cut consumption.
@@ -285,6 +220,15 @@ using DataStructures
 
 
     #=
+    In S1,
+    demand = 15, wind_1_1 provides 10 => residual demand of 5MW but pmin(prod_1_1)=20
+    => start prod_1_1 at 20MW exceeds the demand
+    => use the 10MW from wind_1_1 and cut the remaining 5MW (ie LoL)
+    In S2,
+    demand = 25, wind_1_1 provides 10 => residual demand of 15MW but pmin(prod_1_1)=20
+    => start prod_1_1 at 20MW
+    => use 5MW from wind_1_1 and cap 5MW
+
     TS: [11h]
     S: [S1]
                         bus 1
@@ -350,7 +294,7 @@ using DataStructures
 
         # In S2 : Load=25, wind provides 10 => still missing 15 but pmin=20
         # imposable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
-        @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
+        @test 5. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S2")
         @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"])
         @test value(result.slack_model.p_cut_conso[TS[1], "S2"]) < 1e-09
@@ -427,15 +371,15 @@ using DataStructures
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
         # Limitable produces to the available level
-        @test 50. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
-        @test 10. ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
+        @test (0.25 * 50.) ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_1", TS[1], "S1")
+        @test (0.25 * 10.) ≈ PSCOPF.get_prod_value(context.market_schedule, "wind_1_2", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.market_schedule, "wind_1_3", TS[1], "S1") <= 1e-09
 
         # Total capped power
         @test 45. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
 
         # Capping distributed
-        @test 0.75 ≈ 45 / 60
+        @test 0.75 ≈ 45 / 60 #75% of limitable power will be capped
         @test (0.75 * 50)  ≈ context.market_schedule.capping["wind_1_1", TS[1], "S1"]
         @test (0.75 * 10.) ≈ context.market_schedule.capping["wind_1_2", TS[1], "S1"]
         @test (0.75 * 0.)  ≈ context.market_schedule.capping["wind_1_3", TS[1], "S1"]

@@ -199,9 +199,6 @@ using Printf
                 @test isempty(PSCOPF.get_impositions(context.tso_actions))
                 @test ismissing(PSCOPF.get_imposition(context.tso_actions, "prod_1_1", TS[1], "S1"))
                 @test ismissing(PSCOPF.get_imposition(context.tso_actions, "prod_2_1", TS[1], "S1"))
-                #commitments only appear at DMO
-                @test PSCOPF.OFF == PSCOPF.get_commitment(context.tso_actions, "prod_1_1", TS[1])
-                @test ismissing(PSCOPF.get_commitment(context.tso_actions, "prod_2_1", TS[1]))
 
             end
 
@@ -296,9 +293,6 @@ using Printf
                 @test 200. ≈ PSCOPF.get_imposition(context.tso_actions, "prod_1_1", TS[1], "S1")[2]
                 @test 35. ≈ PSCOPF.get_imposition(context.tso_actions, "prod_2_1", TS[1], "S1")[1]
                 @test 200. ≈ PSCOPF.get_imposition(context.tso_actions, "prod_2_1", TS[1], "S1")[2]
-                #commitments only appear at DMO
-                @test PSCOPF.ON == PSCOPF.get_commitment(context.tso_actions, "prod_1_1", TS[1])
-                @test  ismissing(PSCOPF.get_commitment(context.tso_actions, "prod_2_1", TS[1])) #PSCOPF.ON but DMO not reached
 
                 @test 20. ≈ PSCOPF.get_capping(context.tso_schedule, "wind_1_1", TS[1], "S1")
                 @test PSCOPF.get_cut_conso(context.tso_schedule, "bus_1", TS[1], "S1") < 1e-09

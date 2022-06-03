@@ -23,6 +23,7 @@ catch e_xpress
         throw(e_xpress)
     end
 end
+println("used optimizer: ", OPTIMIZER)
 
 """
 Possible status values for a pscopf model container
@@ -113,9 +114,17 @@ function solve!(model::AbstractModel,
         log_file_l = devnull
     end
 
-    redirect_to_file(log_file_l) do
+    set_time_limit_sec(model, PSCOPF_TIME_LIMIT_IN_SECONDS)
+    if PSCOPF_REDIRECT_LOG
+        redirect_to_file(log_file_l) do
+            optimize!(model)
+        end
+    else
         optimize!(model)
     end
+    println("rgap: ", relative_gap(model))
+    println("solvetime: ", solve_time(model))
+    println("status: ", termination_status(model))
 
     return model
 end
@@ -144,6 +153,11 @@ end
 function has_positive_slack(model_container)::Bool
     error("unimplemented")
 end
+
+function requires_linking(firmness::DecisionFirmness, do_link::Bool=false)::Bool
+    return do_link || (firmness in [DECIDED, TO_DECIDE])
+end
+
 
 # AbstractGeneratorModel
 ############################
@@ -228,7 +242,7 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
     # NOTE : DECIDED here does not hold its meaning. FIRM is more expressive.
     #       p_limit can always be changed in the future horizons (it is not really decided)
     #DECIDED indicates that we are past the limitable's DP => need a common decision for all scenarios
-    if always_link_scenarios || (decision_firmness in [DECIDED, TO_DECIDE])
+    if requires_linking(decision_firmness, always_link_scenarios)
         link_scenarios!(model, p_limit, gen_id, ts, scenarios)
     end
 
@@ -391,19 +405,11 @@ function add_commitment_sequencing_constraints!(model::AbstractModel,
                                             target_timepoints::Vector{Dates.DateTime},
                                             scenarios::Vector{String},
                                             commitment_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                            generator_reference_schedule::GeneratorSchedule,
-                                            commitment_actions::SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}=SortedDict{Tuple{String, Dates.DateTime}, GeneratorState}()
+                                            generator_reference_schedule::GeneratorSchedule
                                             )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-
-        tso_action_commitment = get_commitment(commitment_actions, gen_id, ts)
-        if !ismissing(tso_action_commitment)
-            #TSO Actions OFF will be applied even if firmness is FREE
-            if tso_action_commitment == OFF
-                add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
-            end
-        elseif commitment_firmness[ts] == DECIDED
+        if commitment_firmness[ts] == DECIDED
             reference_on_val = safeget_commitment_value(generator_reference_schedule, ts)
             if reference_on_val == OFF
                 add_keep_off_constraint!(model, b_on_vars, b_start_vars, gen_id, ts, scenarios)
@@ -440,7 +446,7 @@ function add_scenarios_linking_constraints!(model::AbstractModel,
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        if always_link || (gen_firmness[ts] in [DECIDED, TO_DECIDE])
+        if requires_linking(gen_firmness[ts], always_link)
             link_scenarios!(model, vars, gen_id, ts, scenarios)
         end
     end
@@ -467,13 +473,20 @@ function add_power_level_sequencing_constraints!(model::AbstractModel,
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        tso_action_commitment = get_commitment(tso_actions, gen_id, ts)
+        ref_commitment = get_commitment_value(generator_reference_schedule, ts)
 
         for s in scenarios
             imposition_bounds = missing
 
             tso_action_impositions = get_imposition(tso_actions, gen_id, ts, s)
-            if ( !ismissing(tso_action_commitment) && tso_action_commitment==OFF )
+            @assert(ismissing(tso_action_impositions)
+                    || (tso_action_impositions[1] <= tso_action_impositions[2]))
+            if !ismissing(ref_commitment) && (ref_commitment == OFF)
+                if !ismissing(tso_action_impositions) && (tso_action_impositions[1] > 1e-09)
+                    msg = @sprintf("(%s,%s) : minimum imposition %f and reference unit commitment %s are incompatible!",
+                                    gen_id,ts,tso_action_impositions[2],ref_commitment)
+                    throw(error(msg))
+                end
                 imposition_bounds = (0., 0.)
             elseif !ismissing(tso_action_impositions)
                 imposition_bounds = (tso_action_impositions[1], tso_action_impositions[2])
