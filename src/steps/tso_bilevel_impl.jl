@@ -811,7 +811,7 @@ function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
         gen_id = Networks.get_id(gen_imposable)
         for ts in target_timepoints
             decision_firmness_l = get_power_level_firmness(firmness, gen_id, ts)
-            for s in scenarios
+            for s in scenarios[2:end] #no need for duals for the reference scenario
                 name = @sprintf("c_firmness[%s,%s,%s]",gen_id,ts,s)
 
                 if requires_linking(decision_firmness_l, link_scenarios_imposable_level_market)
