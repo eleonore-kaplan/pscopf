@@ -472,8 +472,10 @@ function add_rso_constraints!(model_container::TSOBilevelModel,
                     flow_l += ptdf * tso_model_container.slack_model.p_cut_conso[bus_id, ts, s]
                 end
 
-                name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
-                @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
+                name = @sprintf("c_RSO_left[%s,%s,%s]",branch_id,ts,s)
+                @constraint(tso_model, -flow_limit_l <= flow_l, base_name=name)
+                name = @sprintf("c_RSO_right[%s,%s,%s]",branch_id,ts,s)
+                @constraint(tso_model, flow_l <= flow_limit_l, base_name=name)
 
             end
         end
