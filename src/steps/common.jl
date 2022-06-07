@@ -718,6 +718,38 @@ function global_lol_constraints!(model::AbstractModel,
     end
 end
 
+function get_local_lol(lol_model::AbstractLoLModel)
+    return lol_model.p_loss_of_load
+end
+
+function add_local_lol_vars!(lol_model::AbstractLoLModel, model::AbstractModel,
+                            buses_list, target_timepoints, scenarios)
+    for bus in buses_list
+        bus_id = Networks.get_id(bus)
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("P_local_lol[%s,%s,%s]", bus_id, ts, s)
+                get_local_lol(lol_model)[bus_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
+            end
+        end
+    end
+end
+
+function local_lol_constraints!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            buses_list, target_timepoints, scenarios, uncertainties_at_ech)
+    local_lol_vars = get_local_lol(lol_model)
+    for bus in buses_list
+        bus_id = Networks.get_id(bus)
+        for ts in target_timepoints
+            for s in scenarios
+                bus_load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
+                c_name = @sprintf("c_ub_local_lol[%s,%s,%s]",bus_id,ts,s)
+                @constraint(model, local_lol_vars[bus_id, ts, s] <= bus_load , base_name = c_name)
+            end
+        end
+    end
+end
+
 function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: AbstractVariableRef
     return any(e -> value(e[2]) > 1e-09, dict_vars)
     #e.g. 1e-15 is supposed to be 0.

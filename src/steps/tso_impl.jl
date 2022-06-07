@@ -97,22 +97,6 @@ function sum_lol(lol_model::TSOLoLModel, ts, s, network::Networks.Network)
     return sum_l
 end
 
-
-function add_slacks!(model_container::TSOModel,
-                    network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch)
-    model = model_container.model
-    p_loss_of_load = model_container.lol_model.p_loss_of_load
-    buses = Networks.get_buses(network)
-
-    add_loss_of_load_by_bus!(model, p_loss_of_load,
-                        buses, target_timepoints, scenarios, uncertainties_at_ech)
-
-    return model_container.lol_model
-end
-
 function add_flows!(model_container::TSOModel,
                     network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
@@ -257,6 +241,10 @@ function add_pilotables_vars!(model_container::TSOModel, pilotables_list, target
                     pilotables_list, target_timepoints, scenarios, reference_market_schedule)
 end
 
+function add_lol_vars!(model_container::TSOModel, buses_list, target_timepoints, scenarios)
+    add_local_lol_vars!(model_container.lol_model, model_container.model, buses_list, target_timepoints, scenarios)
+end
+
 function tso_out_fo(network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
                     generators_initial_state::SortedDict{String,GeneratorState},
@@ -287,7 +275,7 @@ function tso_out_fo(network::Networks.Network,
     # Variables
     add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios, preceding_market_schedule)
     add_limitables_vars!(model_container_l, limitables_list_l, target_timepoints, scenarios, preceding_market_schedule)
-    # add_lol_vars!(model_container_l, target_timepoints, scenarios)
+    add_lol_vars!(model_container_l, buses_list, target_timepoints, scenarios)
 
 
     # Constraints
@@ -308,10 +296,10 @@ function tso_out_fo(network::Networks.Network,
                                 firmness, uncertainties_at_ech,
                                 always_link_scenarios=false)
 
-
-    add_slacks!(model_container_l,
-                network, target_timepoints, scenarios,
-                uncertainties_at_ech)
+    # LoL
+    local_lol_constraints!(model_container_l.model,
+                            model_container_l.lol_model, buses_list, target_timepoints, scenarios,
+                            uncertainties_at_ech)
 
     eod_constraints!(model_container_l.model, model_container_l.eod_constraint,
                     model_container_l.pilotable_model,
