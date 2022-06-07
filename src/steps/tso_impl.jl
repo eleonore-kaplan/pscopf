@@ -97,46 +97,6 @@ function sum_lol(lol_model::TSOLoLModel, ts, s, network::Networks.Network)
     return sum_l
 end
 
-function add_flows!(model_container::TSOModel,
-                    network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch)
-    for branch in Networks.get_branches(network)
-        branch_id = Networks.get_id(branch)
-        flow_limit_l = Networks.get_limit(branch)
-        for ts in target_timepoints
-            for s in scenarios
-                name =  @sprintf("Flow[%s,%s,%s]", branch_id, ts, s)
-                model_container.flows[branch_id, ts, s] =
-                    @variable(model_container.model, base_name=name, lower_bound=-flow_limit_l, upper_bound=flow_limit_l)
-
-                flow_l = AffExpr(0)
-                for bus in Networks.get_buses(network)
-                    bus_id = Networks.get_id(bus)
-                    ptdf = Networks.safeget_ptdf(network, branch_id, bus_id)
-
-                    # + injections
-                    for gen in Networks.get_generators(bus)
-                        gen_id = Networks.get_id(gen)
-                        gen_type = Networks.get_type(gen)
-                        var_p_injected = get_p_injected(model_container, gen_type)[gen_id, ts, s]
-                        flow_l += ptdf * var_p_injected
-                    end
-
-                    # - loads
-                    flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-
-                    # + cutting loads ~ injections
-                    flow_l += ptdf * model_container.lol_model.p_loss_of_load[bus_id, ts, s]
-                end
-                @constraint(model_container.model, model_container.flows[branch_id, ts, s] == flow_l )
-            end
-        end
-    end
-    return model_container
-end
-
 
 function add_tso_limitable_prop_cost!(obj_component::AffExpr,
                                 uncertainties_at_ech::UncertaintiesAtEch,
@@ -301,6 +261,7 @@ function tso_out_fo(network::Networks.Network,
                             model_container_l.lol_model, buses_list, target_timepoints, scenarios,
                             uncertainties_at_ech)
 
+    # EOD
     eod_constraints!(model_container_l.model, model_container_l.eod_constraint,
                     model_container_l.pilotable_model,
                     model_container_l.limitable_model,
@@ -309,10 +270,13 @@ function tso_out_fo(network::Networks.Network,
                     uncertainties_at_ech, network
                     )
 
-    add_flows!(model_container_l,
-                        network, target_timepoints, scenarios,
-                        uncertainties_at_ech
-                        )
+    # RSO
+    rso_constraints!(model_container_l.model, model_container_l.flows, model_container_l.rso_constraint,
+                    model_container_l.pilotable_model,
+                    model_container_l.limitable_model,
+                    model_container_l.lol_model,
+                    target_timepoints, scenarios,
+                    uncertainties_at_ech, network)
 
     create_objectives!(model_container_l,
                         network, uncertainties_at_ech,
