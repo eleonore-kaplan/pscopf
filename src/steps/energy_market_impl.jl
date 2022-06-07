@@ -77,7 +77,7 @@ function has_positive_slack(model_container::EnergyMarketModel)::Bool
 end
 
 
-function add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+function add_unit_commitment_vars!(model_container::EnergyMarketModel, pilotables_list, target_timepoints, scenarios)
     for gen in pilotables_list
         if Networks.needs_commitment(gen)
             gen_id = Networks.get_id(gen)
