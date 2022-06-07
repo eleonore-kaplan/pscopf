@@ -23,6 +23,7 @@ catch e_xpress
         throw(e_xpress)
     end
 end
+println("USED OPTIMIZER: ", OPTIMIZER)
 
 """
 Possible status values for a pscopf model container
@@ -161,8 +162,23 @@ function has_injections(generator_model::AbstractGeneratorModel)
     return hasproperty(generator_model, :p_injected)
 end
 
+function add_unit_commitment_vars!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
+                                    pilotables_list, target_timepoints, scenarios)
+    for gen in pilotables_list
+        if Networks.needs_commitment(gen)
+            gen_id = Networks.get_id(gen)
+            for ts in target_timepoints
+                for s in scenarios
+                    add_b_on_start!(pilotable_model, model,
+                                    gen_id, ts, s)
+                end
+            end
+        end
+    end
+end
+
 function add_injection_vars!(model::AbstractModel, generator_model::AbstractGeneratorModel,
-                            generators_list, target_timepoints, scenarios)
+                            generators_list::Vector{Networks.Generator}, target_timepoints, scenarios)
     for gen in generators_list
         gen_id = Networks.get_id(gen)
         for ts in target_timepoints
@@ -222,8 +238,9 @@ function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
                         gen_id::String, ts::DateTime, s::String,
                         p_reference::Float64
                         )::VariableRef
+    @assert(has_injections(generator_model))
+    p_injected = get_p_injected(generator_model)
     deltas = generator_model.delta_p
-    p_injected = generator_model.p_injected
 
     name =  @sprintf("Delta_p[%s,%s,%s]", gen_id, ts, s)
     deltas[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
@@ -234,8 +251,8 @@ function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
 end
 
 function add_delta_p_vars!(model::AbstractModel, generator_model::AbstractGeneratorModel,
-                        generators_list, target_timepoints, scenarios,
-                        reference_market_schedule)
+                        generators_list::Vector{Networks.Generator}, target_timepoints, scenarios,
+                        reference_market_schedule::Schedule)
     for gen in generators_list
         gen_id = Networks.get_id(gen)
         for ts in target_timepoints
@@ -248,13 +265,46 @@ function add_delta_p_vars!(model::AbstractModel, generator_model::AbstractGenera
     end
 end
 
+
 # AbstractLimitableModel
 ############################
+
+function add_limitables_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
+                            limitables_list::Union{Missing,Vector{Networks.Generator}}=missing,
+                            reference_market_schedule::Union{Missing,Schedule}=missing;
+                            global_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false, delta_vars::Bool=false
+                            )
+    model = get_model(model_container)
+    limitable_model = model_container.limitable_model
+
+    if injection_vars
+        add_injection_vars!(model, limitable_model,
+                          limitables_list, target_timepoints, scenarios)
+
+        if delta_vars
+            if ismissing(reference_market_schedule)
+                error("reference_market_schedule argument is mandatory to define delta variables!")
+            end
+            add_delta_p_vars!(model, limitable_model,
+                            limitables_list, target_timepoints, scenarios, reference_market_schedule)
+        end
+    end
+
+    if limit_vars
+        add_limitation_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios)
+    end
+
+    if global_capping_vars
+        add_global_capping_vars!(model, limitable_model, target_timepoints, scenarios)
+    end
+
+end
+
 function get_global_capping(limitable_model::AbstractLimitableModel)
     return limitable_model.p_global_capping
 end
 
-function add_global_capping_vars!(limitable_model::AbstractLimitableModel, model, target_timepoints, scenarios)
+function add_global_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
             name =  @sprintf("P_global_capping[%s,%s]", ts, s)
@@ -266,7 +316,7 @@ end
 function sum_capping(limitable_model::AbstractLimitableModel, ts,s)
     return get_global_capping(limitable_model)[ts,s]
 end
-function sum_capping(limitable_model::AbstractLimitableModel, ts,s, network::Networks.Network)
+function sum_capping(limitable_model::AbstractLimitableModel, ts, s, ::Networks.Network)
     return get_global_capping(limitable_model)[ts,s]
 end
 
@@ -297,7 +347,7 @@ end
 
 function add_limitation_vars!(model::AbstractModel,
                             limitable_model::AbstractLimitableModel,
-                            limitables_list, target_timepoints, scenarios)
+                            limitables_list::Vector{Networks.Generator}, target_timepoints, scenarios)
     p_limit = limitable_model.p_limit
     b_is_limited = limitable_model.b_is_limited
     p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
@@ -438,6 +488,32 @@ end
 
 # AbstractPilotableModel
 ############################
+
+function add_pilotables_vars!(model_container::AbstractModelContainer,
+                            pilotables_list, target_timepoints, scenarios,
+                            reference_market_schedule::Union{Schedule,Missing}=missing;
+                            injection_vars::Bool=false, commitment_vars::Bool=false, delta_vars::Bool=false)
+    model = get_model(model_container)
+    if injection_vars
+        add_injection_vars!(model, model_container.pilotable_model,
+                            pilotables_list, target_timepoints, scenarios)
+
+        if delta_vars
+            if ismissing(reference_market_schedule)
+                error("reference_market_schedule argument is mandatory to define delta variables!")
+            end
+            add_delta_p_vars!(model, model_container.pilotable_model,
+                                pilotables_list, target_timepoints, scenarios, reference_market_schedule)
+        end
+    end
+
+    if commitment_vars
+            add_unit_commitment_vars!(model, model_container.pilotable_model,
+                                    pilotables_list, target_timepoints, scenarios)
+    end
+end
+
+
 function get_b_on(pilotable_model::AbstractPilotableModel)
     return pilotable_model.b_on
 end
@@ -681,11 +757,26 @@ end
 
 # AbstractLoLModel
 ############################
+function add_lol_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
+                    buses_list::Union{Missing,Vector{Networks.Bus}}=missing;
+                    global_lol_vars::Bool=false, local_lol_vars::Bool=false)
+    model = get_model(model_container)
+    lol_model = model_container.lol_model
+
+    if global_lol_vars
+        add_global_lol_vars!(model, lol_model, target_timepoints, scenarios)
+    end
+
+    if local_lol_vars
+        add_local_lol_vars!(model, lol_model, buses_list, target_timepoints, scenarios)
+    end
+end
+
 function get_global_lol(lol_model::AbstractLoLModel)
     return lol_model.p_global_loss_of_load
 end
 
-function add_global_lol_vars!(lol_model::AbstractLoLModel, model, target_timepoints, scenarios)
+function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel, target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
             name =  @sprintf("P_global_lol[%s,%s]", ts, s)
@@ -722,8 +813,8 @@ function get_local_lol(lol_model::AbstractLoLModel)
     return lol_model.p_loss_of_load
 end
 
-function add_local_lol_vars!(lol_model::AbstractLoLModel, model::AbstractModel,
-                            buses_list, target_timepoints, scenarios)
+function add_local_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            buses_list::Vector{Networks.Bus}, target_timepoints, scenarios)
     for bus in buses_list
         bus_id = Networks.get_id(bus)
         for ts in target_timepoints

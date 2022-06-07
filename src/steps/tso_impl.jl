@@ -171,39 +171,6 @@ function bound_sum_p_deltas(model_container::TSOModel)
     return model_container
 end
 
-function add_limitables_vars!(model_container::TSOModel, limitables_list, target_timepoints, scenarios, reference_market_schedule)
-    add_injection_vars!(model_container.model, model_container.limitable_model,
-                        limitables_list, target_timepoints, scenarios)
-    add_limitation_vars!(model_container.model, model_container.limitable_model, limitables_list, target_timepoints, scenarios)
-    add_delta_p_vars!(model_container.model, model_container.limitable_model,
-                    limitables_list, target_timepoints, scenarios, reference_market_schedule)
-end
-
-function add_unit_commitment_vars!(model_container::TSOModel,
-                                    pilotables_list, target_timepoints, scenarios)
-    for gen in pilotables_list
-        if Networks.needs_commitment(gen)
-            gen_id = Networks.get_id(gen)
-            for ts in target_timepoints
-                for s in scenarios
-                    add_b_on_start!(model_container.pilotable_model, model_container.model,
-                                    gen_id, ts, s)
-                end
-            end
-        end
-    end
-end
-function add_pilotables_vars!(model_container::TSOModel, pilotables_list, target_timepoints, scenarios, reference_market_schedule)
-    add_injection_vars!(model_container.model, model_container.pilotable_model,
-                        pilotables_list, target_timepoints, scenarios)
-    add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
-    add_delta_p_vars!(model_container.model, model_container.pilotable_model,
-                    pilotables_list, target_timepoints, scenarios, reference_market_schedule)
-end
-
-function add_lol_vars!(model_container::TSOModel, buses_list, target_timepoints, scenarios)
-    add_local_lol_vars!(model_container.lol_model, model_container.model, buses_list, target_timepoints, scenarios)
-end
 
 function tso_out_fo(network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
@@ -228,14 +195,22 @@ function tso_out_fo(network::Networks.Network,
 
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
     limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
-    buses_list = Networks.get_buses(network)
+    buses_list_l = Networks.get_buses(network)
 
     model_container_l = TSOModel()
 
     # Variables
-    add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios, preceding_market_schedule)
-    add_limitables_vars!(model_container_l, limitables_list_l, target_timepoints, scenarios, preceding_market_schedule)
-    add_lol_vars!(model_container_l, buses_list, target_timepoints, scenarios)
+    add_pilotables_vars!(model_container_l,
+                            pilotables_list_l, target_timepoints, scenarios,
+                            preceding_market_schedule,
+                            injection_vars=true, commitment_vars=true, delta_vars=true)
+    add_limitables_vars!(model_container_l, target_timepoints, scenarios,
+                            limitables_list_l, preceding_market_schedule,
+                            injection_vars=true, limit_vars=true, delta_vars=true
+                            )
+    add_lol_vars!(model_container_l, target_timepoints, scenarios,
+                    buses_list_l,
+                    local_lol_vars=true)
 
 
     # Constraints
@@ -258,7 +233,7 @@ function tso_out_fo(network::Networks.Network,
 
     # LoL
     local_lol_constraints!(model_container_l.model,
-                            model_container_l.lol_model, buses_list, target_timepoints, scenarios,
+                            model_container_l.lol_model, buses_list_l, target_timepoints, scenarios,
                             uncertainties_at_ech)
 
     # EOD

@@ -76,35 +76,6 @@ function has_positive_slack(model_container::EnergyMarketModel)::Bool
     return has_positive_value(model_container.lol_model.p_global_loss_of_load)
 end
 
-
-function add_unit_commitment_vars!(model_container::EnergyMarketModel, pilotables_list, target_timepoints, scenarios)
-    for gen in pilotables_list
-        if Networks.needs_commitment(gen)
-            gen_id = Networks.get_id(gen)
-            for ts in target_timepoints
-                for s in scenarios
-                    add_b_on_start!(model_container.pilotable_model, model_container.model,
-                                    gen_id, ts, s)
-                end
-            end
-        end
-    end
-end
-function add_pilotables_vars!(model_container::EnergyMarketModel, pilotables_list, target_timepoints, scenarios)
-    add_injection_vars!(model_container.model, model_container.pilotable_model,
-                        pilotables_list, target_timepoints, scenarios)
-    add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
-end
-
-function add_limitables_vars!(model_container::EnergyMarketModel, target_timepoints, scenarios)
-    add_global_capping_vars!(model_container.limitable_model, model_container.model, target_timepoints, scenarios)
-end
-
-function add_lol_vars!(model_container::EnergyMarketModel, target_timepoints, scenarios)
-    add_global_lol_vars!(model_container.lol_model, model_container.model, target_timepoints, scenarios)
-end
-
-
 """
     energy_market
 # Arguments
@@ -163,9 +134,14 @@ function energy_market(network::Networks.Network,
     model_container_l = EnergyMarketModel()
 
     # Variables
-    add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios)
-    add_limitables_vars!(model_container_l, target_timepoints, scenarios)
-    add_lol_vars!(model_container_l, target_timepoints, scenarios)
+    add_pilotables_vars!(model_container_l,
+                        pilotables_list_l, target_timepoints, scenarios,
+                        injection_vars=true, commitment_vars=true)
+    add_limitables_vars!(model_container_l, target_timepoints, scenarios,
+                        global_capping_vars=true
+                        )
+    add_lol_vars!(model_container_l, target_timepoints, scenarios,
+                global_lol_vars=true)
 
     # Constraints
 
