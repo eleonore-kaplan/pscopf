@@ -5,7 +5,7 @@ using Parameters
 using Printf
 using SparseArrays, LinearAlgebra
 
-import Cbc
+import Xpress
 
 include("../src/PTDF.jl")
 
@@ -68,7 +68,7 @@ end;
 ## programme d'optimisation pour calculer theta
 function compute_theta(B,P)
     nb_buses = length(P);
-    model = Model(Cbc.Optimizer);
+    model = Model(Xpress.Optimizer);
 
     @variable(model, theta[1:nb_buses]);
     @objective(model,Min,0);
