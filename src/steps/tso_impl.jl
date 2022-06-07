@@ -97,92 +97,6 @@ function sum_lol(lol_model::TSOLoLModel, ts, s, network::Networks.Network)
     return sum_l
 end
 
-function add_pilotable!(pilotable_model::TSOPilotableModel, model::Model,
-                        generator::Networks.Generator,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        generator_initial_state::GeneratorState,
-                        commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
-                        power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                        reference_subschedule::GeneratorSchedule,
-                        preceding_market_subschedule::GeneratorSchedule
-                        )
-    #FIXME take into account the preceding TSOActions ? or not (cause they are already included in the tso_schedule)
-    gen_id = Networks.get_id(generator)
-    p_min = Networks.get_p_min(generator)
-    p_max = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            add_p_injected!(pilotable_model, model, gen_id, ts, s, p_max, false)
-            p_ref = get_prod_value(preceding_market_subschedule, ts, s)
-            p_ref = ismissing(p_ref) ? 0. : p_ref
-            add_p_delta!(pilotable_model, model, gen_id, ts, s, p_ref)
-        end
-    end
-
-    add_scenarios_linking_constraints!(model, generator,
-                                        pilotable_model.p_injected,
-                                        target_timepoints, scenarios,
-                                        power_level_firmness,
-                                        false
-                                        )
-
-    add_power_level_sequencing_constraints!(model, generator,
-                                        pilotable_model.p_injected,
-                                        target_timepoints, scenarios,
-                                        power_level_firmness,
-                                        reference_subschedule
-                                        #does not consider TSOActions
-                                        )
-
-    if p_min > 0
-        add_commitment!(pilotable_model, model, generator,
-                        target_timepoints, scenarios, generator_initial_state
-                        )
-        #linking b_on scenarios => linking b_start
-        add_scenarios_linking_constraints!(model,
-                                        generator, pilotable_model.b_on,
-                                        target_timepoints, scenarios,
-                                        commitment_firmness, false
-                                        )
-
-        add_commitment_sequencing_constraints!(model, generator,
-                                            pilotable_model.b_on,
-                                            pilotable_model.b_start,
-                                            target_timepoints, scenarios,
-                                            commitment_firmness,
-                                            reference_subschedule
-                                            )
-    end
-
-    return pilotable_model, model
-end
-
-function add_pilotables!(model_container::TSOModel, network::Networks.Network,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        generators_initial_state::SortedDict{String,GeneratorState},
-                        firmness::Firmness,
-                        reference_schedule::Schedule,
-                        preceding_market_schedule::Schedule
-                        )
-    pilotable_generators = Networks.get_generators_of_type(network, Networks.PILOTABLE)
-    for pilotable_gen in pilotable_generators
-        gen_id = Networks.get_id(pilotable_gen)
-        gen_initial_state = get_initial_state(generators_initial_state, pilotable_gen)
-        add_pilotable!(model_container.pilotable_model, model_container.model,
-                        pilotable_gen,
-                        target_timepoints,
-                        scenarios,
-                        gen_initial_state,
-                        get_commitment_firmness(firmness, gen_id),
-                        get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(reference_schedule, gen_id),
-                        get_sub_schedule(preceding_market_schedule, gen_id)
-                        )
-    end
-    return model_container.pilotable_model
-end
 
 function add_slacks!(model_container::TSOModel,
                     network::Networks.Network,
@@ -321,6 +235,28 @@ function add_limitables_vars!(model_container::TSOModel, limitables_list, target
                     limitables_list, target_timepoints, scenarios, reference_market_schedule)
 end
 
+function add_unit_commitment_vars!(model_container::TSOModel,
+                                    pilotables_list, target_timepoints, scenarios)
+    for gen in pilotables_list
+        if Networks.needs_commitment(gen)
+            gen_id = Networks.get_id(gen)
+            for ts in target_timepoints
+                for s in scenarios
+                    add_b_on_start!(model_container.pilotable_model, model_container.model,
+                                    gen_id, ts, s)
+                end
+            end
+        end
+    end
+end
+function add_pilotables_vars!(model_container::TSOModel, pilotables_list, target_timepoints, scenarios, reference_market_schedule)
+    add_injection_vars!(model_container.model, model_container.pilotable_model,
+                        pilotables_list, target_timepoints, scenarios)
+    add_unit_commitment_vars!(model_container, pilotables_list, target_timepoints, scenarios)
+    add_delta_p_vars!(model_container.model, model_container.pilotable_model,
+                    pilotables_list, target_timepoints, scenarios, reference_market_schedule)
+end
+
 function tso_out_fo(network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
                     generators_initial_state::SortedDict{String,GeneratorState},
@@ -333,24 +269,6 @@ function tso_out_fo(network::Networks.Network,
                     configs::TSOConfigs
                     )
 
-    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
-    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
-    buses_list = Networks.get_buses(network)
-
-    model_container_l = TSOModel()
-
-    # Variables
-    # add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios)
-    add_limitables_vars!(model_container_l, limitables_list_l, target_timepoints, scenarios, preceding_market_schedule)
-    # add_lol_vars!(model_container_l, target_timepoints, scenarios)
-
-
-    # Constraints
-    limitable_power_constraints!(model_container_l.model,
-                                model_container_l.limitable_model, limitables_list_l, target_timepoints, scenarios,
-                                firmness, uncertainties_at_ech,
-                                always_link_scenarios=false)
-
     # TODO : check coherence between : preceding_reference_schedule and TSOActions.impositions cause we do not consider TSOActions
     if is_market(configs.REF_SCHEDULE_TYPE)
         reference_schedule = preceding_market_schedule
@@ -359,13 +277,37 @@ function tso_out_fo(network::Networks.Network,
     else
         throw( error("Invalid REF_SCHEDULE_TYPE config.") )
     end
-    add_pilotables!(model_container_l,
-                    network, target_timepoints,
-                    scenarios,
-                    generators_initial_state,
-                    firmness,
-                    reference_schedule,
-                    preceding_market_schedule)
+
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    buses_list = Networks.get_buses(network)
+
+    model_container_l = TSOModel()
+
+    # Variables
+    add_pilotables_vars!(model_container_l, pilotables_list_l, target_timepoints, scenarios, preceding_market_schedule)
+    add_limitables_vars!(model_container_l, limitables_list_l, target_timepoints, scenarios, preceding_market_schedule)
+    # add_lol_vars!(model_container_l, target_timepoints, scenarios)
+
+
+    # Constraints
+
+    # Pilotables
+    pilotable_power_constraints!(model_container_l.model,
+                                model_container_l.pilotable_model, pilotables_list_l, target_timepoints, scenarios,
+                                firmness, reference_schedule,
+                                always_link_scenarios=false)
+    unit_commitment_constraints!(model_container_l.model,
+                                model_container_l.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
+                                firmness, reference_schedule, generators_initial_state,
+                                always_link_scenarios=false)
+
+    # Limitables
+    limitable_power_constraints!(model_container_l.model,
+                                model_container_l.limitable_model, limitables_list_l, target_timepoints, scenarios,
+                                firmness, uncertainties_at_ech,
+                                always_link_scenarios=false)
+
 
     add_slacks!(model_container_l,
                 network, target_timepoints, scenarios,
