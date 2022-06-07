@@ -86,7 +86,7 @@ end;
 
 
 
-function compute_ptdf_with_jump(network::PTDF.Network,ref_bus_num::Int)
+function compute_ptdf_by_optim(network::PTDF.Network,ref_bus_num::Int)
     nb_buses = length(network.buses);
     nb_branches = length(network.branches);
 
@@ -105,8 +105,6 @@ function compute_ptdf_with_jump(network::PTDF.Network,ref_bus_num::Int)
 
         #calcul de theta tel que B*theta = P
         theta = compute_theta(B,P);
-        println(theta)
-        println()
 
         #calcul de la PTDF
         for branch in collect(network.branches)
@@ -116,7 +114,7 @@ function compute_ptdf_with_jump(network::PTDF.Network,ref_bus_num::Int)
             ior = branch[2].from;
             iex = branch[2].to;
             
-            PTDF_matrix[branch_num,bus_num] += x_inv*(theta[ior]-theta[iex]);
+            PTDF_matrix[branch_num,bus_num] = x_inv*(theta[ior]-theta[iex]);
         end
 
         return PTDF_matrix
@@ -124,24 +122,20 @@ function compute_ptdf_with_jump(network::PTDF.Network,ref_bus_num::Int)
 end;
 
 function compare_ptdfs(network::PTDF.Network,ref_bus_num::Int=1)
-    ptdf_with_jump = compute_ptdf_with_jump(network,ref_bus_num)
+    ptdf_optim = compute_ptdf_by_optim(network,ref_bus_num)
     ptdf_with_inv = PTDF.compute_ptdf(network,ref_bus_num)
 
-    return maximum(ptdf_with_jump-ptdf_with_inv)
+    return maximum(ptdf_optim-ptdf_with_inv)
 end;
 
 
 ##### Example
 
-data_path_small = joinpath(@__DIR__, "ptdf_small")
-data_path_sparse = joinpath(@__DIR__, "ptdf_sparse")
+data_path_small = joinpath(@__DIR__, "ptdf_small");
+data_path_sparse = joinpath(@__DIR__, "ptdf_sparse");
 data_path = data_path_sparse;
 
 network = PTDF.read_network(data_path);
-collect(network.buses)[3]
 
-
-compare_ptdfs(network,1)
-
-compute_ptdf_with_jump(network,1)
 PTDF.compute_ptdf(network,1)
+compute_ptdf_by_optim(network,1)
