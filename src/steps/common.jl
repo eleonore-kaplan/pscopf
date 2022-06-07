@@ -807,6 +807,54 @@ function eod_constraints!(model::AbstractModel, eod_constraints::SortedDict{Tupl
     end
 end
 
+function rso_constraints!(model::AbstractModel,
+                          flows::SortedDict{Tuple{String,Dates.DateTime,String}, VariableRef},
+                          rso_constraints::SortedDict{Tuple{String,Dates.DateTime,String}, ConstraintRef},
+                        pilotable_model::AbstractPilotableModel,
+                        limitable_model::AbstractLimitableModel,
+                        lol_model::AbstractLoLModel,
+                        target_timepoints, scenarios,
+                        uncertainties_at_ech, network::Networks.Network)
+    for branch in Networks.get_branches(network)
+        branch_id = Networks.get_id(branch)
+        flow_limit_l = Networks.get_limit(branch)
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("Flow[%s,%s,%s]", branch_id, ts, s)
+                flows[branch_id, ts, s] =
+                    @variable(model, base_name=name, lower_bound=-flow_limit_l, upper_bound=flow_limit_l)
+
+                flow_l = AffExpr()
+                for bus in Networks.get_buses(network)
+                    bus_id = Networks.get_id(bus)
+                    ptdf = Networks.safeget_ptdf(network, branch_id, bus_id)
+
+                    # + injections limitables
+                    for gen in Networks.get_generators_of_type(bus, Networks.LIMITABLE)
+                        gen_id = Networks.get_id(gen)
+                        var_p_injected = get_p_injected(limitable_model)[gen_id, ts, s]
+                        flow_l += ptdf * var_p_injected
+                    end
+
+                    # + injections pilotables
+                    for gen in Networks.get_generators_of_type(bus, Networks.PILOTABLE)
+                        gen_id = Networks.get_id(gen)
+                        var_p_injected = get_p_injected(pilotable_model)[gen_id, ts, s]
+                        flow_l += ptdf * var_p_injected
+                    end
+
+                    # - loads
+                    flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
+
+                    # + cutting loads ~ injections
+                    flow_l += ptdf * get_local_lol(lol_model)[bus_id, ts, s]
+                end
+                rso_constraints[branch_id, ts, s] = @constraint(model, flows[branch_id, ts, s] == flow_l )
+            end
+        end
+    end
+end
+
 # Utils
 ##################
 
