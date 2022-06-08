@@ -119,6 +119,9 @@ end
     pilotable_model::TSOBilevelMarketPilotableModel = TSOBilevelMarketPilotableModel()
     lol_model::TSOBilevelMarketLoLModel = TSOBilevelMarketLoLModel()
     objective_model::TSOBilevelMarketObjectiveModel = TSOBilevelMarketObjectiveModel()
+    #ts,s
+    eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
+        SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
 end
 @with_kw struct TSOBilevelKKTModelContainer <: AbstractModelContainer
     #TODO create adequate struct to link each dual kkt variable, indicator variable, and constraint to each other
@@ -842,29 +845,15 @@ function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
     return kkt_model_container
 end
 
-function add_eod_constraints!(market_model_container::TSOBilevelMarketModelContainer,
-                            kkt_model_container::TSOBilevelKKTModelContainer,
-                            target_timepoints, scenarios,
-                            network, uncertainties_at_ech::UncertaintiesAtEch)
-    @assert(market_model_container.model === kkt_model_container.model)
-
+function add_eod_constraints_duals!(kkt_model_container::TSOBilevelKKTModelContainer,
+                            target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
-            prod = compute_prod(uncertainties_at_ech, network, ts, s)
-            prod -= market_model_container.limitable_model.p_capping[ts,s]
-            prod += sum_injections(market_model_container.pilotable_model, ts, s)
-
-            conso = compute_load(uncertainties_at_ech, network, ts, s)
-            conso -= market_model_container.lol_model.p_global_loss_of_load[ts,s]
-
-            name = @sprintf("c_EOD[%s,%s]",ts,s)
-            @constraint(market_model_container.model, prod == conso, base_name=name)
-
             #create duals relative to EOD constraint
+            name = @sprintf("c_eod[%s,%s]",ts,s)
             add_dual!(kkt_model_container.model, kkt_model_container.eod_duals, (ts,s), name, false)
         end
     end
-    return market_model_container
 end
 
 function add_link_capping_constraint!(market_model_container::TSOBilevelMarketModelContainer,
@@ -968,13 +957,15 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
     kkt_model_container::TSOBilevelKKTModelContainer = bimodel_container.kkt_model
 
-    # @constraint(market_model_container.model,
-    #             market_model_container.lol_model.p_global_loss_of_load[target_timepoints[1], scenarios[1]]==0.,
-    #             base_name = "DBG_temp_constraint")
+    eod_constraints!(market_model_container.model, market_model_container.eod_constraint,
+                    market_model_container.pilotable_model,
+                    tso_model_container.limitable_model,
+                    market_model_container.lol_model,
+                    target_timepoints, scenarios,
+                    uncertainties_at_ech, network
+                    )
+    add_eod_constraints_duals!(kkt_model_container, target_timepoints, scenarios)
 
-    add_eod_constraints!(market_model_container, kkt_model_container,
-                        target_timepoints, scenarios,
-                        network, uncertainties_at_ech)
     add_link_capping_constraint!(market_model_container, kkt_model_container,
                                 tso_model_container.limitable_model,
                                 target_timepoints, scenarios, network)
