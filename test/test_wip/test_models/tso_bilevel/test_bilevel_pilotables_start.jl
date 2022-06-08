@@ -119,7 +119,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
@@ -201,7 +201,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market
@@ -285,7 +285,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market
@@ -360,7 +360,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
@@ -426,7 +426,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
@@ -504,7 +504,7 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         #TSO RSO constraints are OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
@@ -577,7 +577,7 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
         #TSO RSO constraints are OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
@@ -641,7 +641,7 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
         #TSO RSO constraints can be respected without capping or losing load OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #Market needs to cut conso to assure EOD constraint
