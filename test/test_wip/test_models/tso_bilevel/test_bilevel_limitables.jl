@@ -68,7 +68,7 @@ using Printf
 
     The TSO does not need to take any actions :
         e_min = p_global_capping = 0.
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         no limitation
 
     TSO cost : 0
@@ -93,7 +93,7 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #no limitation
         @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]) > 40. - 1e-09
@@ -137,7 +137,7 @@ using Printf
 
     The TSO takes a limitation action:
       e_min = p_global_capping = 0.
-      lol_min = p_loss_of_load_min = 0.
+      lol_min = p_global_loss_of_load = 0.
       plim[wind1] = 40 (due to locating capping)
 
     TSO cost : 0.001 (one limitation)
@@ -168,7 +168,7 @@ using Printf
         #TSO :
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) <= 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) <= 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) <= 1e-09
 
         # TSO needs to limit because it is him who locates capping
         @test 40. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"])
@@ -215,7 +215,7 @@ using Printf
 
     The TSO takes no further actions
       e_min = p_global_capping = 0.
-      lol_min = p_loss_of_load_min = 0.
+      lol_min = p_global_loss_of_load = 0.
       no limitation
 
     TSO cost : 0
@@ -242,7 +242,7 @@ using Printf
         #TSO :
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) <= 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) <= 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) <= 1e-09
 
         #no limitation
         @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"]) > 40. - 1e-09
@@ -299,7 +299,7 @@ using Printf
 
     TSO adopts the cheaper option : option 1
         e_min = p_global_capping = 5.
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         plimit[wind_1_1] = 45
 
     Market
@@ -337,7 +337,7 @@ using Printf
         #TSO :
         #TSO imposes caping 5MW
         @test 5. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S1"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #limit wind_1_1
         @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"])
@@ -395,7 +395,7 @@ using Printf
         #TSO :
         #TSO imposes reducing the consumption
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test 5. ≈ value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"])
+        @test 5. ≈ value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #limit wind_1_1
         @test 45. ≈ value(result.upper.limitable_model.p_limit["wind_1_1",TS[1],"S1"])

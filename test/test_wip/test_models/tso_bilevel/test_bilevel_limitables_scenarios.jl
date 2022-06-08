@@ -69,7 +69,7 @@ using Printf
 
         The TSO does not need to take any actions :
             e_min = p_global_capping = 0.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             no limitation
 
         TSO cost : 0
@@ -87,7 +87,7 @@ using Printf
 
         The TSO does not need to take any actions :
             e_min = p_global_capping = 0.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             no limitation
 
         TSO cost : 0
@@ -116,10 +116,10 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S2"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -166,10 +166,10 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S2"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -221,7 +221,7 @@ using Printf
 
         The TSO does not need to take any actions :
             e_min = p_global_capping = 0.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             no limitation
 
         TSO cost : 0
@@ -240,7 +240,7 @@ using Printf
             option 2 : impose reducing the consumption of bus2 by 15MW, limit wind_1_1's production to 45MW
         He chooses the cheaper : option 1
             e_min = p_global_capping = 15.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             plimit[wind_1_1] = 45
 
         Market
@@ -284,10 +284,10 @@ using Printf
 
         #TSO RSO constraints are OK in S1, but not in S2
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test 15. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S2"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK, but there would be a disbalance in S2 due to RSO action
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -343,10 +343,10 @@ using Printf
 
         #TSO needs to cap prod at S2 due to RSO constraints
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test 15. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S2"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are disbalanced due to TSO limiting
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -404,7 +404,7 @@ using Printf
 
         The TSO does not need to take any actions :
             e_min = p_global_capping = 0.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             no limitation
 
         TSO cost : 0
@@ -424,7 +424,7 @@ using Printf
             option 2 : impose reducing the consumption of bus2 by 20MW, limit wind_1_1's production to 45MW
         He chooses the cheaper : option 1
             e_min = p_global_capping = 20.
-            lol_min = p_loss_of_load_min = 0.
+            lol_min = p_global_loss_of_load = 0.
             plimit[wind_1_1] = 45
 
         Market
@@ -464,10 +464,10 @@ using Printf
 
         #TSO RSO constraints are OK in S1, but not in S2
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test 20. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S2"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK, but there would be a disbalance in S2 due to RSO action
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -553,10 +553,10 @@ using Printf
         # TSO needs to cap prod at S2 due to RSO constraints,
         #but limiting is the same across scenarios => capping will be needed to solve S1's limiting as well
         @test 15. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S1"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         @test 20. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S2"])
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S2"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are disbalanced due to TSO limiting
         @test 15. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])

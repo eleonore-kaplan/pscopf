@@ -60,7 +60,7 @@ using Printf
         This causes no RSO constraints
 
     TSO : does not to take any action
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
         prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
 
@@ -83,7 +83,7 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -133,7 +133,7 @@ using Printf
 
     Only obliging one of the options + EOD constraint is enough.
     The cheaper option is chosen : option 2
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
         prod_2_1 : p_tso_min=65.  p_tso_max=200
 
@@ -160,7 +160,7 @@ using Printf
 
         #TSO RSO constraints are OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -205,7 +205,7 @@ using Printf
         This will not cause RSO constraints violation
 
     TSO does not need to intervene
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
         prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
 
@@ -236,7 +236,7 @@ using Printf
 
         #TSO RSO constraints can be respected without capping or losing load OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market needs to cut conso to assure EOD constraint
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
@@ -289,7 +289,7 @@ using Printf
 
     TSO needs to prevent this by locating the cut conso on bus 2
         option 1 : limit prod2 to 0-20
-        lol_min = p_loss_of_load_min = 0.
+        lol_min = p_global_loss_of_load = 0.
         prod_1_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
         prod_2_1 : p_tso_min=0.  p_tso_max=200 (unchanged bounds)
 
@@ -321,7 +321,7 @@ using Printf
 
         #TSO RSO constraints can be respected without capping or losing load OK
         @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market needs to cut conso to assure EOD constraint
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09

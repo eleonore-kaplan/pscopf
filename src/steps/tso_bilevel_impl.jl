@@ -61,7 +61,7 @@ end
     #bus,ts,s #Loss of Load
     p_loss_of_load = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #ts,s
-    p_loss_of_load_min = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_loss_of_load = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw mutable struct TSOBilevelTSOObjectiveModel <: AbstractObjectiveModel
@@ -428,13 +428,13 @@ function add_slacks!(model_container::TSOBilevelTSOModelContainer,
     model = model_container.model
     lol_model = model_container.lol_model
     p_loss_of_load = lol_model.p_loss_of_load
-    p_loss_of_load_min = lol_model.p_loss_of_load_min
+    p_global_loss_of_load = lol_model.p_global_loss_of_load
 
     for ts in target_timepoints
         for s in scenarios
             conso_max = compute_load(uncertainties_at_ech, network, ts, s)
             name =  @sprintf("P_loss_of_load_min[%s,%s]", ts, s)
-            p_loss_of_load_min[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=conso_max)
+            p_global_loss_of_load[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=conso_max)
         end
     end
 
@@ -625,7 +625,7 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
     objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_global_capping, capping_cost)
 
     # cost for cutting consumption (lol) and avoid limiting for no reason
-    objective_model.penalty += coeffxsum(model_container.lol_model.p_loss_of_load_min, loss_of_load_cost)
+    objective_model.penalty += coeffxsum(model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
     objective_model.penalty += coeffxsum(model_container.limitable_model.b_is_limited, limit_penalty)
 
     objective_model.full_obj = ( objective_model.pilotable_cost +
@@ -899,7 +899,7 @@ function add_link_loss_of_load_constraint!(market_model_container::TSOBilevelMar
         for s in scenarios
             name = @sprintf("c_min_lol[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_lol_model.p_loss_of_load_min[ts,s] <= market_lol_model.p_loss_of_load[ts,s],
+                        tso_lol_model.p_global_loss_of_load[ts,s] <= market_lol_model.p_loss_of_load[ts,s],
                         base_name=name)
 
             #create duals and indicators relative to RSO min LoL constraint
@@ -1149,7 +1149,7 @@ function add_lolmin_complementarity_constraints!(model_container::TSOBilevelMode
     for ts in target_timepoints
         for s in scenarios
             kkt_var = kkt_model.loss_of_load_duals[ts,s]
-            cstr_expr = market_lol_model.p_loss_of_load[ts,s] - tso_lol_model.p_loss_of_load_min[ts,s]
+            cstr_expr = market_lol_model.p_loss_of_load[ts,s] - tso_lol_model.p_global_loss_of_load[ts,s]
             b_indicator = kkt_model.loss_of_load_indicators[ts,s]
             ub_cstr = compute_ub(cstr_expr, big_m)
             formulate_complementarity_constraints!(kkt_model.model, kkt_var, cstr_expr, b_indicator, big_m, ub_cstr)
