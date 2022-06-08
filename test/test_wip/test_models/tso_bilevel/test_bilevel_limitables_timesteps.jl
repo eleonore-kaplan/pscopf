@@ -90,7 +90,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         end
 
@@ -118,7 +118,7 @@ using Printf
             Market : use wind_1_1 at 60.
             This satisfies the EOD constraint
                 e = p_capping = 0.
-                lol = p_loss_of_load = 0.
+                lol = p_global_loss_of_load = 0.
             This does not induce any RSO constraint violation
 
             The TSO does not need to take any actions :
@@ -156,7 +156,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
-            @test value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"]) < 1e-09
 
             # no limitation
             @test value(result.upper.limitable_model.p_limit["wind_1_1",TS[2],"S1"]) > 60. - 1e-09
@@ -191,7 +191,7 @@ using Printf
             Market :
                 The market needs to satisfy EOD constraint => only option is to cap 20MW of limitable production.
                     e = p_capping = 20.
-                    lol = p_loss_of_load = 0.
+                    lol = p_global_loss_of_load = 0.
 
             The TSO locates the capping to avoid RSO constraints (even if there is no risk of violating RSO here)
                 p_capping[wind_1_1]=20, plim[wind1]=40, p_injected[wind_1_1]=40
@@ -248,7 +248,7 @@ using Printf
 
             # EOD problem in TS2 : lots of prod
             @test 20. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-            @test value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"]) < 1e-09
 
             #costs
             @test (1*tso.configs.TSO_LIMIT_PENALTY) ≈ value(PSCOPF.get_upper_obj_expr(result)) #one limitation
@@ -326,7 +326,7 @@ using Printf
 
             # EOD problem in TS2 : lot of conso
             @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
-            @test 20. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
+            @test 20. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
             @test 20. ≈ ( value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"])
@@ -421,7 +421,7 @@ using Printf
 
             # EOD problem in TS2 due to TSO action solved by cutting conso
             @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-            @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
+            @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
             @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"]) < 1e-09
@@ -527,7 +527,7 @@ using Printf
 
         # EOD problem in TS1 due to TSO action solved by cutting conso
         @test 10. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
-        @test 10. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 10. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO distributes the cut conso assuring RSO
         @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"]) < 1e-09
@@ -546,7 +546,7 @@ using Printf
 
         # EOD problem in TS2 due to TSO action solved by cutting conso
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
-        @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[2],"S1"])
+        @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
         #TSO distributes the cut conso assuring RSO
         @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[2],"S1"]) < 1e-09

@@ -124,7 +124,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO does not need to bound pilotables because there is no risk of breaking RSO constraints
             #prod_1_1 is not bound
@@ -206,8 +206,8 @@ using Printf
 
             #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test_broken value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
-            @test 60 ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+            @test_broken value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
             #TSO impositions
             #prod_1_1
@@ -290,8 +290,8 @@ using Printf
 
             #Market
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test_broken value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
-            @test 60 ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+            @test_broken value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test 60 ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
             #TSO impositions
             #prod_1_1
@@ -365,7 +365,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO impositions
             #prod_1_1
@@ -431,7 +431,7 @@ using Printf
 
             #Market EOD constraints are OK
             @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-            @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
             #TSO does not need to bound pilotables
             #prod_1_1 is not bound
@@ -509,7 +509,7 @@ using Printf
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
@@ -582,7 +582,7 @@ using Printf
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test 65. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 65. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         # RSO locates cut conso on bus 2 to assure flow limit
         @test value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"]) < 1e-09
@@ -646,7 +646,7 @@ using Printf
 
         #Market needs to cut conso to assure EOD constraint
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test 20. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 20. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         # RSO locates cut conso : here any combination will do
         @test 20. ≈ ( value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"])
