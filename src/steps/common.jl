@@ -535,7 +535,8 @@ function pilotable_power_constraints!(model::AbstractModel,
                                     pilotable_gen::Generator,
                                     target_timepoints,
                                     scenarios,
-                                    gen_power_level_firmness,
+                                    gen_commitment_firmness::Union{Missing, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness}},
+                                    gen_power_level_firmness::SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness},
                                     gen_schedule::GeneratorSchedule,
                                     always_link_scenarios::Bool
                                     )
@@ -562,6 +563,7 @@ function pilotable_power_constraints!(model::AbstractModel,
                                         get_p_injected(pilotable_model),
                                         target_timepoints,
                                         scenarios,
+                                        gen_commitment_firmness,
                                         gen_power_level_firmness,
                                         gen_schedule,
                                         )
@@ -579,6 +581,7 @@ function pilotable_power_constraints!(model::AbstractModel,
                         pilotable_gen,
                         target_timepoints,
                         scenarios,
+                        get_commitment_firmness(firmness, gen_id), #can be missing for pilotables with pmin=0
                         get_power_level_firmness(firmness, gen_id),
                         get_sub_schedule(reference_schedule, gen_id),
                         always_link_scenarios
@@ -1032,14 +1035,19 @@ function add_power_level_decided_constraints!(model::AbstractModel,
                                                 p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
                                                 target_timepoints::Vector{Dates.DateTime},
                                                 scenarios::Vector{String},
+                                                commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts
                                                 power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                generator_reference_schedule::GeneratorSchedule,
+                                                generator_reference_schedule::GeneratorSchedule;
+                                                cstr_prefix_name::String="decide_level"
                                                 )
     @assert(Networks.get_type(generator) == Networks.PILOTABLE)
 
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
-        ref_commitment = get_commitment_value(generator_reference_schedule, ts)
+        ref_commitment = missing
+        if (!ismissing(commitment_firmness) && (commitment_firmness[ts] == DECIDED))
+            ref_commitment = get_commitment_value(generator_reference_schedule, ts)
+        end
 
         for s in scenarios
             if !ismissing(ref_commitment) && (ref_commitment == OFF)
@@ -1048,7 +1056,7 @@ function add_power_level_decided_constraints!(model::AbstractModel,
             elseif power_level_firmness[ts]==DECIDED
                 scheduled_prod = safeget_prod_value(generator_reference_schedule,ts)
                 @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
-                c_name = @sprintf("c_decided_level[%s,%s,%s]",gen_id,ts,s)
+                c_name = @sprintf("c_%s[%s,%s,%s]",cstr_prefix_name,gen_id,ts,s)
                 @constraint(model, p_injected_vars[gen_id,ts,s] == scheduled_prod, base_name=c_name)
             end
         end
