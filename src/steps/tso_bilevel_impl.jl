@@ -112,6 +112,11 @@ end
     pilotable_model::TSOBilevelTSOPilotableModel = TSOBilevelTSOPilotableModel()
     lol_model::TSOBilevelTSOLoLModel = TSOBilevelTSOLoLModel()
     objective_model::TSOBilevelTSOObjectiveModel = TSOBilevelTSOObjectiveModel()
+    #branch,ts,s
+    flows::SortedDict{Tuple{String,DateTime,String},VariableRef} =
+        SortedDict{Tuple{String,DateTime,String},VariableRef}()
+    rso_constraint::SortedDict{Tuple{String,DateTime,String},ConstraintRef} =
+        SortedDict{Tuple{String,DateTime,String},ConstraintRef}()
 end
 @with_kw struct TSOBilevelMarketModelContainer <: AbstractModelContainer
     model::Model
@@ -448,57 +453,6 @@ function add_slacks!(model_container::TSOBilevelTSOModelContainer,
     return lol_model
 end
 
-function add_rso_constraints!(model_container::TSOBilevelModel,
-                            network::Networks.Network,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch)
-    tso_model = model_container.model
-    tso_model_container = model_container.upper
-    market_model_container = model_container.lower
-
-    for branch in Networks.get_branches(network)
-        branch_id = Networks.get_id(branch)
-        flow_limit_l = Networks.get_limit(branch)
-
-        for ts in target_timepoints
-            for s in scenarios
-
-                flow_l = 0.
-                for bus in Networks.get_buses(network)
-                    bus_id = Networks.get_id(bus)
-                    ptdf = Networks.safeget_ptdf(network, branch_id, bus_id)
-
-                    # + limitables injections
-                    for gen in Networks.get_generators_of_type(bus, Networks.LIMITABLE)
-                        gen_id = Networks.get_id(gen)
-                        gen_type = Networks.get_type(gen)
-                        var_p_injected = get_p_injected(tso_model_container, gen_type)[gen_id, ts, s]
-                        flow_l += ptdf * var_p_injected
-                    end
-
-                    # + pilotables injections : Note: decided by market model
-                    for gen in Networks.get_generators_of_type(bus, Networks.PILOTABLE)
-                        gen_id = Networks.get_id(gen)
-                        gen_type = Networks.get_type(gen)
-                        var_p_injected = get_p_injected(market_model_container, gen_type)[gen_id, ts, s]
-                        flow_l += ptdf * var_p_injected
-                    end
-
-                    # - loads
-                    flow_l -= ptdf * get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-
-                    # + cutting loads (i.e. LoL) ~ injections
-                    flow_l += ptdf * tso_model_container.lol_model.p_loss_of_load[bus_id, ts, s]
-                end
-
-                name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
-                @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
-
-            end
-        end
-    end
-end
 
 function add_loss_of_load_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
                                             market_lol_model::TSOBilevelMarketLoLModel,
@@ -588,10 +542,14 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
 
-    #add_operational_constraints!() #done in variables declaration
-    add_rso_constraints!(bimodel_container,
-                        network, target_timepoints, scenarios,
-                        uncertainties_at_ech)
+    rso_constraints!(bimodel_container.model,
+                    tso_model_container.flows,
+                    tso_model_container.rso_constraint,
+                    market_model_container.pilotable_model, #pilotable injections are decided by Market
+                    tso_model_container.limitable_model, #limitable injections are decided by TSO
+                    tso_model_container.lol_model,
+                    target_timepoints, scenarios,
+                    uncertainties_at_ech, network)
     add_loss_of_load_distribution_constraint!(tso_model_container,
                                         market_model_container.lol_model,
                                         target_timepoints, scenarios, network)
@@ -869,7 +827,7 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
                         tso_limitable_model.p_global_capping[ts,s] <= market_limitable_model.p_capping[ts,s],
                         base_name=name)
 
-            #create duals and indicators relative to RSO min capping constraint
+            #create duals and indicators relative to TSO min capping constraint
             add_dual_and_indicator!(kkt_model_container.model,
                                     kkt_model_container.capping_duals, kkt_model_container.capping_indicators, (ts,s),
                                     name, true)
@@ -891,7 +849,7 @@ function add_link_loss_of_load_constraint!(market_model_container::TSOBilevelMar
                         tso_lol_model.p_global_loss_of_load[ts,s] <= market_lol_model.p_global_loss_of_load[ts,s],
                         base_name=name)
 
-            #create duals and indicators relative to RSO min LoL constraint
+            #create duals and indicators relative to TSO min LoL constraint
             add_dual_and_indicator!(kkt_model_container.model,
                                     kkt_model_container.loss_of_load_duals, kkt_model_container.loss_of_load_indicators, (ts,s),
                                     name, true)
