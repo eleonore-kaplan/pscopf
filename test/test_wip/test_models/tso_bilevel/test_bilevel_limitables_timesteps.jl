@@ -69,7 +69,7 @@ using Printf
             This does not induce any RSO constraint violation
 
             The TSO does not need to take any actions :
-                e_min = p_capping_min = 0.
+                e_min = p_global_capping = 0.
                 lol_min = p_loss_of_load_min = 0.
                 no limitation
 
@@ -81,7 +81,7 @@ using Printf
         =#
         function  test_ts1_values(result, TS)
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
             #no limitation
@@ -122,7 +122,7 @@ using Printf
             This does not induce any RSO constraint violation
 
             The TSO does not need to take any actions :
-                e_min = p_capping_min = 0.
+                e_min = p_global_capping = 0.
                 lol_min = p_loss_of_load_min = 0.
                 no limitation
 
@@ -151,7 +151,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[2],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
@@ -197,7 +197,7 @@ using Printf
                 p_capping[wind_1_1]=20, plim[wind1]=40, p_injected[wind_1_1]=40
 
             The TSO takes a limitation action:
-            e_min = p_capping_min = 0.
+            e_min = p_global_capping = 0.
             lol_min = p_loss_of_load_min = 0.
             plim[wind1] = 40 (due to locating capping)
 
@@ -238,7 +238,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             #TSO RSO constraints are OK => no minimum capping or cut conso
-            @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[2],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             # TSO needs to limit because it is him who locates capping
@@ -287,7 +287,7 @@ using Printf
                     p_loss_of_load[bus_1]+p_loss_of_load[bus_2] = 20
 
             The TSO takes no further actions
-            e_min = p_capping_min = 0.
+            e_min = p_global_capping = 0.
             lol_min = p_loss_of_load_min = 0.
             no limitation
 
@@ -316,7 +316,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are OK
-            @test value(result.upper.limitable_model.p_capping_min[TS[2],"S1"]) < 1e-09
+            @test value(result.upper.limitable_model.p_global_capping[TS[2],"S1"]) < 1e-09
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #no limitation
@@ -373,7 +373,7 @@ using Printf
                 => cost : 5e05 + 0.001
 
             TSO adopts the cheaper option : option 1
-                e_min = p_capping_min = 5.
+                e_min = p_global_capping = 5.
                 lol_min = p_loss_of_load_min = 0.
                 plimit[wind_1_1] = 45
 
@@ -411,7 +411,7 @@ using Printf
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
 
             #TSO RSO constraints are violated in TS2 => need to limit flow to 35
-            @test 5. ≈ value(result.upper.limitable_model.p_capping_min[TS[2],"S1"])
+            @test 5. ≈ value(result.upper.limitable_model.p_global_capping[TS[2],"S1"])
             @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
             #limit wind_1_1 at TS2
@@ -469,7 +469,7 @@ using Printf
             => cost : 10e05 + 0.001
 
         TSO adopts the cheaper option : option 1
-            e_min = p_capping_min = 10.
+            e_min = p_global_capping = 10.
             lol_min = p_loss_of_load_min = 0.
             plimit[wind_1_1] = 50
 
@@ -517,7 +517,7 @@ using Printf
         #TS1
 
         #TSO RSO constraints are violated in TS1 => need to limit flow to 35
-        @test 10. ≈ value(result.upper.limitable_model.p_capping_min[TS[1],"S1"])
+        @test 10. ≈ value(result.upper.limitable_model.p_global_capping[TS[1],"S1"])
         @test value(result.upper.lol_model.p_loss_of_load_min[TS[1],"S1"]) < 1e-09
 
         #limit wind_1_1 at TS1
@@ -536,7 +536,7 @@ using Printf
         #TS2
 
         #TSO RSO constraints are violated in TS2 => need to limit flow to 35
-        @test 5. ≈ value(result.upper.limitable_model.p_capping_min[TS[2],"S1"])
+        @test 5. ≈ value(result.upper.limitable_model.p_global_capping[TS[2],"S1"])
         @test value(result.upper.lol_model.p_loss_of_load_min[TS[2],"S1"]) < 1e-09
 
         #limit wind_1_1 at TS2

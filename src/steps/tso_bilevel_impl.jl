@@ -43,7 +43,7 @@ end
     #gen,ts,s
     p_capping = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #ts,s
-    p_capping_min = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw struct TSOBilevelTSOPilotableModel <: AbstractPilotableModel
@@ -264,7 +264,7 @@ function add_limitables!(model_container::TSOBilevelTSOModelContainer,
         for s in scenarios
             enr_max = compute_prod(uncertainties_at_ech, network, ts, s)
             name =  @sprintf("P_capping_min[%s,%s]", ts, s)
-            limitable_model.p_capping_min[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
+            limitable_model.p_global_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
         end
     end
 
@@ -622,7 +622,7 @@ function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
                                     use_prop_cost_for_bounding)
 
     # limitable_cost : capping (fr. ecretement)
-    objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping_min, capping_cost)
+    objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_global_capping, capping_cost)
 
     # cost for cutting consumption (lol) and avoid limiting for no reason
     objective_model.penalty += coeffxsum(model_container.lol_model.p_loss_of_load_min, loss_of_load_cost)
@@ -877,7 +877,7 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
         for s in scenarios
             name = @sprintf("c_min_e[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_limitable_model.p_capping_min[ts,s] <= market_limitable_model.p_capping[ts,s],
+                        tso_limitable_model.p_global_capping[ts,s] <= market_limitable_model.p_capping[ts,s],
                         base_name=name)
 
             #create duals and indicators relative to RSO min capping constraint
@@ -1131,7 +1131,7 @@ function add_emin_complementarity_constraints!(model_container::TSOBilevelModel,
     for ts in target_timepoints
         for s in scenarios
             kkt_var = kkt_model.capping_duals[ts,s]
-            cstr_expr = market_limitable_model.p_capping[ts,s] - tso_limitable_model.p_capping_min[ts,s]
+            cstr_expr = market_limitable_model.p_capping[ts,s] - tso_limitable_model.p_global_capping[ts,s]
             b_indicator = kkt_model.capping_indicators[ts,s]
             ub_cstr = compute_ub(cstr_expr, big_m)
             formulate_complementarity_constraints!(kkt_model.model, kkt_var, cstr_expr, b_indicator, big_m, ub_cstr)
