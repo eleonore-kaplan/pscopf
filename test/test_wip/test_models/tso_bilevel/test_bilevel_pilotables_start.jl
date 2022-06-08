@@ -128,11 +128,11 @@ using Printf
 
             #TSO does not need to bound pilotables because there is no risk of breaking RSO constraints
             #prod_1_1 is not bound
-            @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-            @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+            @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
             #prod_2_1 is not bound
-            @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-            @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+            @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
             #Market chooses the levels respecting the bounds for pilotable production
             @test 40. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -211,13 +211,13 @@ using Printf
 
             #TSO impositions
             #prod_1_1
-            @test_broken 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-            @test_broken 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-            @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test_broken 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+            @test_broken 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]) < 1e-09
             #prod_2_1
-            @test value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
             #Market chooses the levels respecting the bounds for pilotable production
             @test_broken 60. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -295,13 +295,13 @@ using Printf
 
             #TSO impositions
             #prod_1_1
-            @test_broken 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-            @test_broken 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-            @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test_broken 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+            @test_broken 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]) < 1e-09
             #prod_2_1
-            @test value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
             #Market chooses the levels respecting the bounds for pilotable production
             @test_broken 60. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -369,11 +369,11 @@ using Printf
 
             #TSO impositions
             #prod_1_1
-            @test 20. ≈value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-            @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+            @test 20. ≈value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
             #prod_2_1
-            @test value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"]) < 1e-09
 
             #Market chooses the levels respecting the bounds for pilotable production
             @test 60. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -435,11 +435,11 @@ using Printf
 
             #TSO does not need to bound pilotables
             #prod_1_1 is not bound
-            @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-            @test value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+            @test value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]) < 1e-09
             #prod_2_1 is not bound
-            @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-            @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+            @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+            @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
             #Market chooses the levels respecting the bounds for pilotable production
             @test value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"]) < 1e-09
@@ -513,11 +513,11 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
-        @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
         #prod_2_1 bounding + EOD, guarantees RSO constraints
-        @test 65. ≈ value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+        @test 65. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
         #Market chooses the levels sets the bounds for pilotable production
         @test 45. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -590,11 +590,11 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
-        @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-        @test 45. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+        @test 45. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
         #prod_2_1 bounding + EOD, guarantees RSO constraints
-        @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+        @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
         #Market chooses the levels sets the bounds for pilotable production
         @test 45. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
@@ -654,11 +654,11 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
-        @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
         #prod_2_1 bounding + EOD, guarantees RSO constraints
-        @test 20. ≈ value(result.upper.pilotable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+        @test 20. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
         #Market chooses the levels sets the bounds for pilotable production
         @test 200. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])

@@ -109,8 +109,8 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
     # Impositions
     impositions = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
     for ((gen_id, ts, s), p_injected_var) in result.lower.pilotable_model.p_injected
-        p_min_var = result.upper.pilotable_model.p_tso_min[gen_id, ts, s]
-        p_max_var = result.upper.pilotable_model.p_tso_max[gen_id, ts, s]
+        p_min_var = result.upper.pilotable_model.p_imposition_min[gen_id, ts, s]
+        p_max_var = result.upper.pilotable_model.p_imposition_max[gen_id, ts, s]
 
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios

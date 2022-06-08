@@ -103,11 +103,11 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test 35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) < 1e-09
-        @test 200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) < 1e-09
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"])
 
         #wind_2_1
         @test value(result.upper.limitable_model.p_limit["wind_2_1",TS[1],"S1"]) > 30. - 1e-09
@@ -156,16 +156,16 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1
-        @test ( value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-                ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) )
-        @test ( value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-                ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"]) )
+        @test ( value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+                ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) )
+        @test ( value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
+                ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"]) )
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test 35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) < 1e-09
-        @test 35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) < 1e-09
+        @test 35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"])
 
         #wind_2_1
         @test value(result.upper.limitable_model.p_limit["wind_2_1",TS[1],"S1"]) > 30. - 1e-09
@@ -222,16 +222,16 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]) > 35. - 1e-09
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]) > 35. - 1e-09
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) < 1e-09
-        @test value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"]) > 35. - 1e-09
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) < 1e-09
+        @test value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"]) > 35. - 1e-09
 
-        @test ( (35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]))
-                || (35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"])) )
-        @test ( (200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"]))
-                || (200. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"])) )
+        @test ( (35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]))
+                || (35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"])) )
+        @test ( (200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"]))
+                || (200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"])) )
 
         #wind_2_1
         @test value(result.upper.limitable_model.p_limit["wind_2_1",TS[1],"S1"]) > 30. - 1e-09
@@ -282,16 +282,16 @@ using Printf
 
         #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1
-        @test ( value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"])
-                ≈ value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) )
-        @test ( value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
-                ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"]) )
+        @test ( value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"])
+                ≈ value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) )
+        @test ( value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
+                ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"]) )
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test 35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
 
-        @test value(result.upper.pilotable_model.p_tso_min["prod_1_1",TS[1],"S2"]) < 1e-09
-        @test 35. ≈ value(result.upper.pilotable_model.p_tso_max["prod_1_1",TS[1],"S2"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S2"]) < 1e-09
+        @test 35. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S2"])
 
         #wind_2_1
         @test value(result.upper.limitable_model.p_limit["wind_2_1",TS[1],"S1"]) > 30. - 1e-09
