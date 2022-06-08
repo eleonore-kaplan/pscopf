@@ -101,7 +101,7 @@ using Printf
 
         #Market EOD constraints are OK
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #costs
         @test value(PSCOPF.get_upper_obj_expr(result)) < 1e-09
@@ -178,7 +178,7 @@ using Printf
         #Market :
         #Market caps ENR for EOD reasons
         @test 60. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
-        @test value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"]) <= 1e-09
+        @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) <= 1e-09
 
         #costs
         @test 0.001 == (1*tso.configs.TSO_LIMIT_PENALTY) ≈ value(PSCOPF.get_upper_obj_expr(result)) #one limitation
@@ -252,7 +252,7 @@ using Printf
         #Market :
         #Market cuts conso for EOD reasons
         @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test 90. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 90. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO distributes the cut conso (arbitrarily) while assuring RSO constraint
         @test 90. ≈ ( value(result.upper.lol_model.p_loss_of_load["bus_1", TS[1],"S1"])
@@ -347,7 +347,7 @@ using Printf
         #Market :
         #Market only cuts as required since EOD is OK
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
-        @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO decides the distribution :
         @test 5. ≈ ( value(result.upper.limitable_model.p_capping["wind_1_1",TS[1],"S1"]))
@@ -405,7 +405,7 @@ using Printf
         #Market :
         #Market only cuts as required since EOD is OK
         @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
-        @test 5. ≈ value(result.lower.lol_model.p_loss_of_load[TS[1],"S1"])
+        @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO decides the distribution :
         @test 5. ≈ ( value(result.upper.limitable_model.p_capping["wind_1_1",TS[1],"S1"]))
