@@ -625,9 +625,10 @@ function pilotable_power_constraints!(model::AbstractModel,
                                     scenarios,
                                     gen_commitment_firmness::Union{Missing, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness}},
                                     gen_power_level_firmness::SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness},
-                                    gen_schedule::GeneratorSchedule,
-                                    always_link_scenarios::Bool;
-                                    prefix::String=""
+                                    gen_schedule::Union{Missing, GeneratorSchedule},
+                                    ignore_sequencing_cstrs::Bool,
+                                    always_link_scenarios::Bool,
+                                    prefix::String
                                     )
     @assert(Networks.get_type(pilotable_gen) == Networks.PILOTABLE)
 
@@ -648,23 +649,32 @@ function pilotable_power_constraints!(model::AbstractModel,
                                         prefix="pilotable_power_c_linking"*prefix
                                         )
 
-    add_power_level_decided_constraints!(model,
-                                        pilotable_gen,
-                                        get_p_injected(pilotable_model),
-                                        target_timepoints,
-                                        scenarios,
-                                        gen_commitment_firmness,
-                                        gen_power_level_firmness,
-                                        gen_schedule,
-                                        )
+    if !ignore_sequencing_cstrs
+        if ismissing(gen_schedule)
+            error("reference schedule is required for sequencing constraints when ignore_sequencing_cstrs=false.")
+        end
+        add_power_level_decided_constraints!(model,
+                                            pilotable_gen,
+                                            get_p_injected(pilotable_model),
+                                            target_timepoints,
+                                            scenarios,
+                                            gen_commitment_firmness,
+                                            gen_power_level_firmness,
+                                            gen_schedule,
+                                            )
+    end
 end
 function pilotable_power_constraints!(model::AbstractModel,
                                     pilotable_model::AbstractPilotableModel,
                                     pilotables_list_l, target_timepoints, scenarios,
                                     firmness::Firmness,
-                                    reference_schedule::Schedule;
+                                    reference_schedule::Union{Missing,Schedule};
+                                    ignore_sequencing_cstrs::Bool=false,
                                     always_link_scenarios::Bool=false,
                                     prefix::String="")
+    if ismissing(reference_schedule) && !ignore_sequencing_cstrs
+        error("reference schedule is required when ignore_sequencing_cstrs=false.")
+    end
     for pilotable_gen in pilotables_list_l
         gen_id = Networks.get_id(pilotable_gen)
         pilotable_power_constraints!(model,
@@ -674,8 +684,10 @@ function pilotable_power_constraints!(model::AbstractModel,
                         scenarios,
                         get_commitment_firmness(firmness, gen_id), #can be missing for pilotables with pmin=0
                         get_power_level_firmness(firmness, gen_id),
-                        get_sub_schedule(reference_schedule, gen_id),
-                        always_link_scenarios
+                        ismissing(reference_schedule) ? missing : get_sub_schedule(reference_schedule, gen_id),
+                        ignore_sequencing_cstrs,
+                        always_link_scenarios,
+                        prefix
                         )
     end
 end
@@ -756,8 +768,26 @@ end
 
 
 function respect_impositions_constraints!(model::AbstractModel,
+                                        injections_pilotable_model::AbstractPilotableModel,
+                                        impositions_pilotable_model::AbstractPilotableModel,
+                                        pilotables_list_l,  target_timepoints, scenarios;
+                                        prefix::String="")
+    p_injected_vars = get_p_injected(injections_pilotable_model)
+    p_imposition_min = get_p_imposition_min(impositions_pilotable_model)
+    p_imposition_max = get_p_imposition_max(impositions_pilotable_model)
+    for pilotable_gen in pilotables_list_l
+        gen_id = Networks.get_id(pilotable_gen)
+        for ts in target_timepoints
+            for s in scenarios
+                imposition_bounds = (p_imposition_min[gen_id,ts,s], p_imposition_max[gen_id,ts,s])
+                respect_impositions_constraints!(model, p_injected_vars, imposition_bounds, gen_id, ts, s, prefix)
+            end
+        end
+    end
+end
+function respect_impositions_constraints!(model::AbstractModel,
                                         pilotable_model::AbstractPilotableModel, pilotables_list_l,  target_timepoints, scenarios,
-                                        tso_actions::TSOActions,
+                                        tso_actions::TSOActions;
                                         prefix::String="")
     p_injected_vars = get_p_injected(pilotable_model)
     for pilotable_gen in pilotables_list_l
@@ -766,16 +796,19 @@ function respect_impositions_constraints!(model::AbstractModel,
             for s in scenarios
                 imposition_bounds = get_imposition(tso_actions, gen_id, ts, s)
                 if !ismissing(imposition_bounds)
-                    c_name = @sprintf("c_min_imposition[%s,%s,%s]",gen_id,ts,s)
-                    @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
-                    c_name = @sprintf("c_max_imposition[%s,%s,%s]",gen_id,ts,s)
-                    @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
-                    @debug @sprintf("impositions constraints [%s,%s,%s] : [%s,%s]",
-                                    gen_id, ts, s, imposition_bounds[1], imposition_bounds[2])
+                    respect_impositions_constraints!(model, p_injected_vars, imposition_bounds, gen_id, ts, s, prefix*"tsoactions")
                 end
             end
         end
     end
+end
+function respect_impositions_constraints!(model, p_injected_vars, imposition_bounds, gen_id, ts, s, prefix)
+    c_name = @sprintf("%sc_min_imposition[%s,%s,%s]",prefix,gen_id,ts,s)
+    @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
+    c_name = @sprintf("%sc_max_imposition[%s,%s,%s]",prefix,gen_id,ts,s)
+    @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
+    @debug @sprintf("%simpositions constraints [%s,%s,%s] : [%s,%s]",
+                    prefix,gen_id, ts, s, imposition_bounds[1], imposition_bounds[2])
 end
 
 function power_imposition_constraints!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
