@@ -414,18 +414,19 @@ end
 function create_market_vars!(model_container::TSOBilevelMarketModelContainer,
                             network::Networks.Network,
                             target_timepoints::Vector{Dates.DateTime},
-                            # generators_initial_state::SortedDict{String,GeneratorState},
                             scenarios::Vector{String},
                             uncertainties_at_ech::UncertaintiesAtEch,
-                            firmness::Firmness,
-                            # preceding_tso_schedule::Schedule,
-                            # preceding_tso_actions::TSOActions,
-                            configs::TSOBilevelConfigs
                             )
+
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    add_pilotables_vars!(model_container,
+                        pilotables_list_l, target_timepoints, scenarios,
+                        injection_vars=true,
+                        prefix="market_"
+                        )
+
     add_limitables!(model_container,
                     network, target_timepoints, scenarios, uncertainties_at_ech)
-    add_pilotables!(model_container,
-                    network, target_timepoints, scenarios, firmness, configs.LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET)
     add_lol_vars!(model_container,
                     target_timepoints, scenarios,
                     global_lol_vars=true)
@@ -451,55 +452,6 @@ function add_limitables!(model_container::TSOBilevelMarketModelContainer,
         end
     end
     return model_container
-end
-
-function add_pilotables!(model_container::TSOBilevelMarketModelContainer,
-                        network::Networks.Network,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        #generators_initial_state::SortedDict{String,GeneratorState},
-                        firmness::Firmness,
-                        #reference_schedule::Schedule,
-                        #tso_actions::TSOActions,
-                        always_link_levels::Bool
-                        )
-    pilotable_generators = Networks.get_generators_of_type(network, Networks.PILOTABLE)
-    for pilotable_gen in pilotable_generators
-        gen_id = Networks.get_id(pilotable_gen)
-        add_pilotable!(model_container.pilotable_model, model_container.model,
-                        pilotable_gen,
-                        target_timepoints,
-                        scenarios,
-                        get_power_level_firmness(firmness, gen_id),
-                        #no TSO actions, the upper problem considers them
-                        always_link_levels
-                        )
-    end
-    return model_container.pilotable_model
-end
-function add_pilotable!(pilotable_model::TSOBilevelMarketPilotableModel, model::Model,
-                        generator::Networks.Generator,
-                        target_timepoints,
-                        scenarios,
-                        power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness},
-                        always_link_levels::Bool
-                        )
-    gen_id = Networks.get_id(generator)
-    p_max = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            add_p_injected!(pilotable_model, model, gen_id, ts, s, p_max, false)
-        end
-    end
-
-    add_scenarios_linking_constraints!(model, generator,
-                                        pilotable_model.p_injected,
-                                        target_timepoints, scenarios,
-                                        power_level_firmness,
-                                        always_link_levels
-                                        )
-
-    return pilotable_model, model
 end
 
 
@@ -573,50 +525,36 @@ function add_min_global_lol_duals!(market_model_container::TSOBilevelMarketModel
     end
     return market_model_container
 end
-function add_pilotables_constraints!(market_model_container::TSOBilevelMarketModelContainer,
-                                    kkt_model_container::TSOBilevelKKTModelContainer,
-                                tso_pilotable_model::TSOBilevelTSOPilotableModel,
-                                target_timepoints, scenarios, network)
+function add_pilotables_duals!(kkt_model_container::TSOBilevelKKTModelContainer,
+                            pilotables_list, target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
-            for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE)
+            for gen in pilotables_list
                 gen_id = Networks.get_id(gen)
-                add_pilotable_pmin_constraints!(market_model_container, kkt_model_container,
-                                            tso_pilotable_model, gen_id, ts, s)
-                add_pilotable_pmax_constraints!(market_model_container, kkt_model_container,
-                                            tso_pilotable_model, gen_id, ts, s)
+                add_pilotable_pmin_duals!(kkt_model_container,
+                                        gen_id, ts, s)
+                add_pilotable_pmax_duals!(kkt_model_container,
+                                        gen_id, ts, s)
             end
         end
     end
 
-    return market_model_container, kkt_model_container
+    return kkt_model_container
 end
-function add_pilotable_pmin_constraints!(market_model_container::TSOBilevelMarketModelContainer,
-                                        kkt_model_container::TSOBilevelKKTModelContainer,
-                                        tso_pilotable_model::TSOBilevelTSOPilotableModel,
-                                        gen_id, ts, s)
-    injection_var = market_model_container.pilotable_model.p_injected[gen_id,ts,s]
-    name = @sprintf("c_tso_pmin[%s,%s,%s]",gen_id,ts,s)
-    @constraint(market_model_container.model,
-                tso_pilotable_model.p_imposition_min[gen_id,ts,s] <= injection_var,
-                base_name=name)
+function add_pilotable_pmin_duals!(kkt_model_container::TSOBilevelKKTModelContainer,
+                                gen_id, ts, s)
     #create duals and indicators relative to tso pmin constraint
+    name = @sprintf("c_tso_pmin[%s,%s,%s]",gen_id,ts,s)
     add_dual_and_indicator!(kkt_model_container.model,
                             kkt_model_container.pmin_duals, kkt_model_container.pmin_indicators, (gen_id,ts,s),
                             name, true)
 
     return kkt_model_container
 end
-function add_pilotable_pmax_constraints!(market_model_container::TSOBilevelMarketModelContainer,
-                                        kkt_model_container::TSOBilevelKKTModelContainer,
-                                        tso_pilotable_model::TSOBilevelTSOPilotableModel,
-                                        gen_id, ts, s)
-    injection_var = market_model_container.pilotable_model.p_injected[gen_id,ts,s]
-    name = @sprintf("c_tso_pmax[%s,%s,%s]",gen_id,ts,s)
-    @constraint(market_model_container.model,
-                injection_var <= tso_pilotable_model.p_imposition_max[gen_id,ts,s],
-                base_name=name)
+function add_pilotable_pmax_duals!(kkt_model_container::TSOBilevelKKTModelContainer,
+                                gen_id, ts, s)
     #create duals and indicators relative to tso pmax constraint
+    name = @sprintf("c_tso_pmax[%s,%s,%s]",gen_id,ts,s)
     add_dual_and_indicator!(kkt_model_container.model,
                             kkt_model_container.pmax_duals, kkt_model_container.pmax_indicators, (gen_id,ts,s),
                             name, true)
@@ -626,11 +564,30 @@ end
 
 function add_market_constraints!(bimodel_container::TSOBilevelModel,
                             target_timepoints, scenarios, network,
-                            uncertainties_at_ech::UncertaintiesAtEch)
+                            firmness, #reference_schedule, generators_initial_state,
+                            uncertainties_at_ech::UncertaintiesAtEch,
+                            configs::TSOBilevelConfigs)
     model = bimodel_container.model
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
     kkt_model_container::TSOBilevelKKTModelContainer = bimodel_container.kkt_model
+
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    pilotable_power_constraints!(model,
+                                market_model_container.pilotable_model,
+                                pilotables_list_l, target_timepoints, scenarios,
+                                firmness,
+                                missing,
+                                ignore_sequencing_cstrs=true, #Sequencing constraints are imposed in TSO upper problem
+                                always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET,
+                                prefix="market_")
+    respect_impositions_constraints!(model,
+                                market_model_container.pilotable_model, #Injections are in the lower problem
+                                tso_model_container.pilotable_model, #Impositions are in the upper problem
+                                pilotables_list_l,  target_timepoints, scenarios,
+                                prefix="market_")
+    add_pilotables_duals!(kkt_model_container,
+                        pilotables_list_l, target_timepoints, scenarios)
 
     buses_list_l = Networks.get_buses(network)
     lol_model = market_model_container.lol_model
@@ -654,9 +611,6 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
     add_link_capping_constraint!(market_model_container, kkt_model_container,
                                 tso_model_container.limitable_model,
                                 target_timepoints, scenarios, network)
-    add_pilotables_constraints!(market_model_container, kkt_model_container,
-                            tso_model_container.pilotable_model,
-                            target_timepoints, scenarios, network)
 
     return bimodel_container
 end
@@ -919,7 +873,7 @@ function tso_bilevel(network::Networks.Network,
     create_tso_vars!(bimodel_container_l.upper,
                     network, target_timepoints, scenarios)
     create_market_vars!(bimodel_container_l.lower,
-                        network, target_timepoints, scenarios, uncertainties_at_ech, firmness, configs)
+                        network, target_timepoints, scenarios, uncertainties_at_ech)
 
     #this is the expression no objective is added to the jump model
     create_market_objectives!(bimodel_container_l.lower, network,
@@ -933,7 +887,7 @@ function tso_bilevel(network::Networks.Network,
     add_firmness_duals(bimodel_container_l.kkt_model,
                         target_timepoints, scenarios, network, firmness,
                         configs.LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET)
-    add_market_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
+    add_market_constraints!(bimodel_container_l, target_timepoints, scenarios, network, firmness, uncertainties_at_ech, configs)
     #kkt stationarity
     add_kkt_stationarity_constraints!(bimodel_container_l.kkt_model,
                                     target_timepoints, scenarios, network,
