@@ -272,7 +272,7 @@ end
 function add_limitables_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
                             limitables_list::Union{Missing,Vector{Networks.Generator}}=missing,
                             reference_market_schedule::Union{Missing,Schedule}=missing;
-                            global_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false, delta_vars::Bool=false
+                            global_capping_vars::Bool=false, local_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false, delta_vars::Bool=false
                             )
     model = get_model(model_container)
     limitable_model = model_container.limitable_model
@@ -298,10 +298,17 @@ function add_limitables_vars!(model_container::AbstractModelContainer, target_ti
         add_global_capping_vars!(model, limitable_model, target_timepoints, scenarios)
     end
 
+    if local_capping_vars
+        add_local_capping_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios)
+    end
+
 end
 
 function get_global_capping(limitable_model::AbstractLimitableModel)
     return limitable_model.p_global_capping
+end
+function get_local_capping(limitable_model::AbstractLimitableModel)
+    return limitable_model.p_capping
 end
 
 function add_global_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios)
@@ -309,6 +316,18 @@ function add_global_capping_vars!(model::AbstractModel, limitable_model::Abstrac
         for s in scenarios
             name =  @sprintf("P_global_capping[%s,%s]", ts, s)
             get_global_capping(limitable_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
+        end
+    end
+end
+
+function add_local_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, limitables_list, target_timepoints, scenarios)
+    for gen in limitables_list
+        gen_id = Networks.get_id(gen)
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("P_capping[%s,%s,%s]", gen_id, ts, s)
+                get_local_capping(limitable_model)[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
+            end
         end
     end
 end
@@ -484,6 +503,27 @@ function add_p_limit!(limitable_model::AbstractLimitableModel, model::AbstractMo
     end
 
     return limitable_model, model
+end
+
+function local_capping_constraints!(model::AbstractModel,
+                            limitable_model::AbstractLimitableModel,
+                            limitables_list, target_timepoints, scenarios,
+                            uncertainties_at_ech)
+    p_capping = get_local_capping(limitable_model)
+    p_injected = get_p_injected(limitable_model)
+
+    for gen in limitables_list
+        gen_id = Networks.get_id(gen)
+        for ts in target_timepoints
+            for s in scenarios
+                p_uncert = get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
+                c_name =  @sprintf("c_ub_p_capping[%s,%s,%s]", gen_id, ts, s)
+                @constraint(model, p_capping[gen_id, ts, s] <= p_uncert, base_name=c_name)
+                c_name =  @sprintf("c_link_injection_to_capping[%s,%s,%s]", gen_id, ts, s)
+                @constraint(model, p_capping[gen_id, ts, s] == p_uncert - p_injected[gen_id,ts,s], base_name=c_name)
+            end
+        end
+    end
 end
 
 # AbstractPilotableModel
@@ -748,6 +788,84 @@ function respect_impositions_constraints!(model::AbstractModel,
         end
     end
 end
+
+function power_imposition_constraints!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
+                                        pilotables_list, target_timepoints, scenarios,
+                                        firmness::Firmness,
+                                        reference_schedule::Schedule;
+                                        always_link_scenarios::Bool=false)
+    b_on_vars = get_b_on(pilotable_model)
+    p_imposition_min = get_p_imposition_min(pilotable_model)
+    p_imposition_max = get_p_imposition_max(pilotable_model)
+
+    for generator in pilotables_list
+
+        gen_id = Networks.get_id(generator)
+        p_max = Networks.get_p_max(generator)
+        p_min = Networks.get_p_min(generator)
+        gen_power_firmness = get_power_level_firmness(firmness, gen_id)
+        gen_commitment_firmness = get_commitment_firmness(firmness, gen_id)
+        gen_schedule = get_sub_schedule(reference_schedule, gen_id)
+
+        # Bounds
+        for s in scenarios
+            for ts in target_timepoints
+                c_name = @sprintf("c_ub_p_imposition_min[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_max, base_name=c_name);
+                c_name = @sprintf("c_ub_p_imposition_max[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max, base_name=c_name);
+                c_name = @sprintf("c_imposition_min_less_max[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_imposition_max[gen_id, ts, s], base_name=c_name);
+            end
+        end
+
+        # Firmness
+        add_scenarios_linking_constraints!(model, generator,
+                                    p_imposition_min,
+                                    target_timepoints, scenarios,
+                                    gen_power_firmness,
+                                    always_link_scenarios
+                                    )
+        add_scenarios_linking_constraints!(model, generator,
+                                    p_imposition_max,
+                                    target_timepoints, scenarios,
+                                    gen_power_firmness,
+                                    always_link_scenarios
+                                    )
+
+        # Sequencing
+        add_power_level_decided_constraints!(model,
+                                    generator,
+                                    p_imposition_min,
+                                    target_timepoints, scenarios,
+                                    gen_commitment_firmness, gen_power_firmness,
+                                    gen_schedule,
+                                    cstr_prefix_name="decided_p_min"
+                                    )
+        add_power_level_decided_constraints!(model,
+                                    generator,
+                                    p_imposition_max,
+                                    target_timepoints, scenarios,
+                                    gen_commitment_firmness, gen_power_firmness,
+                                    gen_schedule,
+                                    cstr_prefix_name="decided_p_max"
+                                    )
+
+        # commitment-imposition linking
+        if Networks.needs_commitment(generator)
+            for s in scenarios
+                for ts in target_timepoints
+                    # pmin B_on < P_tso_min < P_tso_max < pmax B_on
+                    c_name = @sprintf("c_p_imposition_min_commitment[%s,%s,%s]",gen_id,ts,s)
+                    @constraint(model, p_min * b_on_vars[gen_id, ts, s] <= p_imposition_min[gen_id, ts, s], base_name=c_name);
+                    c_name = @sprintf("c_p_imposition_max_commitment[%s,%s,%s]",gen_id,ts,s)
+                    @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s], base_name=c_name)
+                end
+            end
+        end
+    end
+end
+
 
 # Objective
 ##################
