@@ -181,7 +181,8 @@ using Printf
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) <= 1e-09
 
         #costs
-        @test 0.001 == (1*tso.configs.TSO_LIMIT_PENALTY) ≈ value(PSCOPF.get_upper_obj_expr(result)) #one limitation
+        @test 0.001 == (1*tso.configs.TSO_LIMIT_PENALTY) #one limitation
+        @test ≈(0.001, value(PSCOPF.get_upper_obj_expr(result)), atol=1e-04) #due to the 1e5 objective coeff on global LoL
         @test (60. *tso.configs.MARKET_CAPPING_COST) ≈ value(PSCOPF.get_lower_obj_expr(result))
 
     end
