@@ -492,27 +492,59 @@ end
 function add_pilotables_vars!(model_container::AbstractModelContainer,
                             pilotables_list, target_timepoints, scenarios,
                             reference_market_schedule::Union{Schedule,Missing}=missing;
-                            injection_vars::Bool=false, commitment_vars::Bool=false, delta_vars::Bool=false)
+                            injection_vars::Bool=false, commitment_vars::Bool=false,
+                            delta_vars::Bool=false,
+                            imposition_vars::Bool=false)
     model = get_model(model_container)
+    pilotable_model = model_container.pilotable_model
+
     if injection_vars
-        add_injection_vars!(model, model_container.pilotable_model,
+        add_injection_vars!(model, pilotable_model,
                             pilotables_list, target_timepoints, scenarios)
 
         if delta_vars
             if ismissing(reference_market_schedule)
                 error("reference_market_schedule argument is mandatory to define delta variables!")
             end
-            add_delta_p_vars!(model, model_container.pilotable_model,
+            add_delta_p_vars!(model, pilotable_model,
                                 pilotables_list, target_timepoints, scenarios, reference_market_schedule)
         end
     end
 
     if commitment_vars
-            add_unit_commitment_vars!(model, model_container.pilotable_model,
-                                    pilotables_list, target_timepoints, scenarios)
+        add_unit_commitment_vars!(model, pilotable_model,
+                                pilotables_list, target_timepoints, scenarios)
+    end
+
+    if imposition_vars
+        add_imposition_vars(model, pilotable_model, pilotables_list, target_timepoints, scenarios)
     end
 end
 
+function get_p_imposition_min(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.p_imposition_min
+end
+function get_p_imposition_max(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.p_imposition_max
+end
+
+function add_imposition_vars(model::AbstractModel, pilotable_model::AbstractPilotableModel,
+                            pilotables_list::Vector{Generator}, target_timepoints, scenarios)
+    for generator in pilotables_list
+        gen_id = Networks.get_id(generator)
+        p_max = Networks.get_p_max(generator)
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("P_imposition_min[%s,%s,%s]", gen_id, ts, s)
+                get_p_imposition_min(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name,
+                                                                    lower_bound=0., upper_bound=p_max)
+                name =  @sprintf("P_imposition_max[%s,%s,%s]", gen_id, ts, s)
+                get_p_imposition_max(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name,
+                                                                    lower_bound=0., upper_bound=p_max)
+            end
+        end
+    end
+end
 
 function get_b_on(pilotable_model::AbstractPilotableModel)
     return pilotable_model.b_on
