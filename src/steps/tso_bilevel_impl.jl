@@ -209,6 +209,7 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             configs::TSOBilevelConfigs)
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
     limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    buses_list_l = Networks.get_buses(network)
     add_pilotables_vars!(model_container,
                         pilotables_list_l, target_timepoints, scenarios,
                         imposition_vars=true, commitment_vars=true)
@@ -217,109 +218,9 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                         limitables_list_l,
                         injection_vars=true, limit_vars=true, local_capping_vars=true, global_capping_vars=true,
                         )
-    #distribute market capping and injections done in constraints section
-
-    add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
-end
-
-
-function add_slacks!(model_container::TSOBilevelTSOModelContainer,
-                            network::Networks.Network,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch)
-    #TODO: for now same as add_slacks!(::TSOModel,...)
-    model = model_container.model
-    lol_model = model_container.lol_model
-    p_loss_of_load = lol_model.p_loss_of_load
-    p_global_loss_of_load = lol_model.p_global_loss_of_load
-
-    for ts in target_timepoints
-        for s in scenarios
-            conso_max = compute_load(uncertainties_at_ech, network, ts, s)
-            name =  @sprintf("P_loss_of_load_min[%s,%s]", ts, s)
-            p_global_loss_of_load[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=conso_max)
-        end
-    end
-
-    buses = Networks.get_buses(network)
-    add_loss_of_load_by_bus!(model, p_loss_of_load,
-                        buses, target_timepoints, scenarios, uncertainties_at_ech)
-
-    return lol_model
-end
-
-
-function add_loss_of_load_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
-                                            market_lol_model::TSOBilevelMarketLoLModel,
-                                            target_timepoints, scenarios, network)
-    tso_model = tso_model_container.model
-    tso_lol_model = tso_model_container.lol_model
-    buses_ids = Networks.get_id.(Networks.get_buses(network))
-    for ts in target_timepoints
-        for s in scenarios
-            name = @sprintf("c_dist_LOL[%s,%s]",ts,s)
-            vars_sum = sum(tso_lol_model.p_loss_of_load[bus_id, ts, s]
-                            for bus_id in buses_ids)
-            @constraint(tso_model, market_lol_model.p_global_loss_of_load[ts, s] == vars_sum, base_name=name)
-        end
-    end
-    return tso_model_container
-end
-
-function distribution_constraint!(model::AbstractModel,
-                                global_vars::SortedDict{Tuple{DateTime,String},VariableRef},
-                                local_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                local_ids::Vector{String}, target_timepoints, scenarios;
-                                cstr_prefix_name::String="distribute")
-    if !isempty(local_ids)
-        for ts in target_timepoints
-            for s in scenarios
-                vars_sum = sum(local_vars[id_l, ts, s]
-                                for id_l in local_ids)
-                c_name = @sprintf("c_%s[%s,%s]",cstr_prefix_name,ts,s)
-                @constraint(model, global_vars[ts, s] == vars_sum, base_name=c_name)
-            end
-        end
-    end
-end
-
-function add_enr_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
-                                        market_limitable_model::TSOBilevelMarketLimitableModel,
-                                        target_timepoints, scenarios, network)
-    tso_model = tso_model_container.model
-    limitable_model = tso_model_container.limitable_model
-    limitables_ids = Networks.get_id.(Networks.get_generators_of_type(network, Networks.LIMITABLE))
-    if !isempty(limitables_ids)
-        for ts in target_timepoints
-            for s in scenarios
-                name = @sprintf("c_dist_penr[%s,%s]",ts,s)
-                vars_sum = sum(limitable_model.p_injected[gen_id, ts, s]
-                                for gen_id in limitables_ids)
-                @constraint(tso_model, market_limitable_model.p_injected[ts, s] == vars_sum, base_name=name)
-            end
-        end
-    end
-    return tso_model_container
-end
-
-function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
-                                            market_limitable_model::TSOBilevelMarketLimitableModel,
-                                            target_timepoints, scenarios, network)
-    tso_model = tso_model_container.model
-    tso_limitable_model = tso_model_container.limitable_model
-    limitables_ids = Networks.get_id.(Networks.get_generators_of_type(network, Networks.LIMITABLE))
-    if !isempty(limitables_ids)
-        for ts in target_timepoints
-            for s in scenarios
-                name = @sprintf("c_dist_e[%s,%s]",ts,s)
-                vars_sum = sum(tso_limitable_model.p_capping[gen_id, ts, s]
-                                for gen_id in limitables_ids)
-                @constraint(tso_model, market_limitable_model.p_global_capping[ts, s] == vars_sum, base_name=name)
-            end
-        end
-    end
-    return tso_model_container
+    add_lol_vars!(model_container,
+                target_timepoints, scenarios, buses_list_l,
+                global_lol_vars=true, local_lol_vars=true)
 end
 
 
@@ -367,6 +268,22 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             limitables_ids_l, target_timepoints, scenarios,
                             cstr_prefix_name="distribute_enr_injections")
 
+    buses_list_l = Networks.get_buses(network)
+    buses_ids_l = map(bus->Networks.get_id(bus), buses_list_l)
+    lol_model = tso_model_container.lol_model
+    local_lol_constraints!(model,
+                        lol_model,
+                        buses_list_l, target_timepoints, scenarios,
+                        uncertainties_at_ech)
+    global_lol_constraints!(model,
+                        lol_model, buses_list_l, target_timepoints, scenarios,
+                        uncertainties_at_ech)
+    distribution_constraint!(model,
+                            get_global_lol(market_model_container.lol_model),
+                            get_local_lol(tso_model_container.lol_model),
+                            buses_ids_l, target_timepoints, scenarios,
+                            cstr_prefix_name="distribute_lol")
+
     rso_constraints!(bimodel_container.model,
                     tso_model_container.flows,
                     tso_model_container.rso_constraint,
@@ -375,10 +292,6 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                     tso_model_container.lol_model,
                     target_timepoints, scenarios,
                     uncertainties_at_ech, network)
-
-    add_loss_of_load_distribution_constraint!(tso_model_container,
-                                        market_model_container.lol_model,
-                                        target_timepoints, scenarios, network)
 
     return bimodel_container
 end

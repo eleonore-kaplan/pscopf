@@ -1022,6 +1022,24 @@ end
 # Constraints
 ##################
 
+
+function distribution_constraint!(model::AbstractModel,
+                                global_vars::SortedDict{Tuple{DateTime,String},VariableRef},
+                                local_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                local_ids::Vector{String}, target_timepoints, scenarios;
+                                cstr_prefix_name::String="distribute")
+    if !isempty(local_ids)
+        for ts in target_timepoints
+            for s in scenarios
+                vars_sum = sum(local_vars[id_l, ts, s]
+                                for id_l in local_ids)
+                c_name = @sprintf("c_%s[%s,%s]",cstr_prefix_name,ts,s)
+                @constraint(model, global_vars[ts, s] == vars_sum, base_name=c_name)
+            end
+        end
+    end
+end
+
 function eod_constraints!(model::AbstractModel, eod_constraints::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef},
                         pilotable_model::AbstractPilotableModel,
                         limitable_model::AbstractLimitableModel,
