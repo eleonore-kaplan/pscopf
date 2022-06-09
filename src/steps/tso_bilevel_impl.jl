@@ -203,22 +203,18 @@ end
 function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             network::Networks.Network,
                             target_timepoints::Vector{Dates.DateTime},
-                            generators_initial_state::SortedDict{String,GeneratorState},
                             scenarios::Vector{String},
                             uncertainties_at_ech::UncertaintiesAtEch,
                             firmness::Firmness,
-                            reference_schedule::Schedule,
                             configs::TSOBilevelConfigs)
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    add_pilotables_vars!(model_container,
+                        pilotables_list_l, target_timepoints, scenarios,
+                        imposition_vars=true, commitment_vars=true)
     add_limitables!(model_container,
                             network, target_timepoints, scenarios,
                             uncertainties_at_ech, firmness,
                             configs.LINK_SCENARIOS_LIMIT)
-    add_pilotables!(model_container,
-                            network, target_timepoints, scenarios,
-                            generators_initial_state,
-                            firmness,
-                            reference_schedule,
-                            configs.LINK_SCENARIOS_PILOTABLE_ON, configs.LINK_SCENARIOS_PILOTABLE_LEVEL)
     add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
 end
 
@@ -279,153 +275,6 @@ function add_limitables!(model_container::TSOBilevelTSOModelContainer,
     return model_container
 end
 
-function add_injection_bounds_sequencing_constraints!(pilotable_model, model,
-                                                gen_id, target_timepoints, scenarios,
-                                                gen_power_firmness,
-                                                generator_reference_schedule::GeneratorSchedule,
-                                                )
-    # Sequencing constraints need to be applied on TSO to force them in impositions
-    #to assure they are transmitted to the next market step
-
-    for ts in target_timepoints
-        if gen_power_firmness[ts] in [TO_DECIDE, DECIDED]
-
-            if gen_power_firmness[ts] == DECIDED
-            # We're past DP => p_imposition_min(s) == p_imposition_max(s) == already_decided_level \forall s
-                imposed_value = safeget_prod_value(generator_reference_schedule, ts)
-                freeze_vars!(model, pilotable_model.p_imposition_min, gen_id, ts, scenarios, imposed_value,
-                            name="c_decided_level_p_tso_min")
-                freeze_vars!(model, pilotable_model.p_imposition_max, gen_id, ts, scenarios, imposed_value,
-                            name="c_decided_level_p_tso_max")
-                @debug @sprintf("imposed prod level [%s,%s] : %s", gen_id, ts, imposed_value)
-            end
-        end
-    end
-end
-function create_injection_bounds_vars!(pilotable_model, model,
-                                    generator, target_timepoints, scenarios,
-                                    gen_power_firmness::SortedDict{Dates.DateTime, DecisionFirmness},
-                                    generator_reference_schedule::GeneratorSchedule,
-                                    always_link_scenarios)
-    gen_id = Networks.get_id(generator)
-    p_max = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            name =  @sprintf("P_tso_min[%s,%s,%s]", gen_id, ts, s)
-            pilotable_model.p_imposition_min[gen_id, ts, s] = @variable(model, base_name=name,
-                                                                lower_bound=0., upper_bound=p_max)
-            name =  @sprintf("P_tso_max[%s,%s,%s]", gen_id, ts, s)
-            pilotable_model.p_imposition_max[gen_id, ts, s] = @variable(model, base_name=name,
-                                                                lower_bound=0., upper_bound=p_max)
-        end
-    end
-
-    add_scenarios_linking_constraints!(model, generator,
-                                        pilotable_model.p_imposition_min,
-                                        target_timepoints, scenarios,
-                                        gen_power_firmness,
-                                        always_link_scenarios
-                                        )
-    add_scenarios_linking_constraints!(model, generator,
-                                        pilotable_model.p_imposition_max,
-                                        target_timepoints, scenarios,
-                                        gen_power_firmness,
-                                        always_link_scenarios
-                                        )
-
-    add_injection_bounds_sequencing_constraints!(pilotable_model, model,
-                                                gen_id, target_timepoints, scenarios,
-                                                gen_power_firmness,
-                                                generator_reference_schedule
-                                                )
-
-end
-function create_commitment_vars!(pilotable_model::TSOBilevelTSOPilotableModel, model::Model,
-                                generator, target_timepoints, scenarios,
-                                generator_initial_state,
-                                gen_commitment_firmness,
-                                generator_reference_schedule,
-                                always_link_scenarios)
-    b_on_vars = pilotable_model.b_on
-    b_start_vars = pilotable_model.b_start
-
-    gen_id = Networks.get_id(generator)
-
-    for s in scenarios
-        for ts in target_timepoints
-            name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
-            b_on_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-            name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
-            b_start_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-        end
-    end
-
-    #link b_on and b_start
-    add_commitment_constraints!(model,
-                                b_on_vars, b_start_vars,
-                                gen_id, target_timepoints, scenarios, generator_initial_state)
-    #linking b_on scenarios => linking b_start
-    add_scenarios_linking_constraints!(model,
-                                generator, b_on_vars,
-                                target_timepoints, scenarios,
-                                gen_commitment_firmness, always_link_scenarios
-                                )
-    #DMO related constraints
-    add_commitment_sequencing_constraints!(model, generator,
-                                        b_on_vars, b_start_vars,
-                                        target_timepoints, scenarios,
-                                        gen_commitment_firmness,
-                                        generator_reference_schedule
-                                        )
-end
-function add_pilotable!(pilotable_model::TSOBilevelTSOPilotableModel, model::AbstractModel,
-                            generator::Networks.Generator,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            generator_initial_state::GeneratorState,
-                            commitment_firmness::Union{Missing,SortedDict{Dates.DateTime, DecisionFirmness}}, #by ts #or Missing
-                            power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                            generator_reference_schedule::GeneratorSchedule,
-                            always_link_commitment::Bool,
-                            always_link_levels::Bool)
-    create_injection_bounds_vars!(pilotable_model, model, generator, target_timepoints, scenarios,
-                                power_level_firmness,
-                                generator_reference_schedule,
-                                always_link_levels)
-    if Networks.needs_commitment(generator)
-        create_commitment_vars!(pilotable_model, model,
-                                generator, target_timepoints, scenarios,
-                                generator_initial_state,
-                                commitment_firmness,
-                                generator_reference_schedule,
-                                always_link_commitment)
-    end
-end
-function add_pilotables!(model_container::TSOBilevelTSOModelContainer,
-                                network::Networks.Network,
-                                target_timepoints::Vector{Dates.DateTime},
-                                scenarios::Vector{String},
-                                generators_initial_state::SortedDict{String,GeneratorState},
-                                firmness::Firmness,
-                                preceding_tso_schedule::Schedule,
-                                always_link_commitment::Bool=false,
-                                always_link_levels::Bool=false
-                                )
-    model = model_container.model
-    pilotable_model = model_container.pilotable_model
-    for pilotable_gen in Networks.get_generators_of_type(network, Networks.PILOTABLE)
-        gen_id = Networks.get_id(pilotable_gen)
-        gen_initial_state = get_initial_state(generators_initial_state, pilotable_gen)
-        commitment_firmness = get_commitment_firmness(firmness, gen_id)
-        power_level_firmness = get_power_level_firmness(firmness, gen_id)
-        generator_reference_schedule = get_sub_schedule(preceding_tso_schedule, gen_id)
-        add_pilotable!(pilotable_model, model,
-                        pilotable_gen, target_timepoints, scenarios,
-                        gen_initial_state, commitment_firmness, power_level_firmness,
-                        generator_reference_schedule,
-                        always_link_commitment, always_link_levels)
-    end
-end
 
 function add_slacks!(model_container::TSOBilevelTSOModelContainer,
                             network::Networks.Network,
@@ -508,28 +357,79 @@ function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSO
     end
     return tso_model_container
 end
-function add_injection_commitment_constraints!(tso_model_container::TSOBilevelTSOModelContainer,
-                                            market_pilotable_model::TSOBilevelMarketPilotableModel,
-                                            target_timepoints, scenarios, network)
-    tso_model = tso_model_container.model
-    b_on_vars = tso_model_container.pilotable_model.b_on
-    p_imposition_min = tso_model_container.pilotable_model.p_imposition_min
-    p_imposition_max = tso_model_container.pilotable_model.p_imposition_max
 
-    p_market_inj = market_pilotable_model.p_injected
 
-    for generator in Networks.get_generators_of_type(network, Networks.PILOTABLE)
+function power_imposition_constraints!(model::AbstractModel, pilotable_model::TSOBilevelTSOPilotableModel,
+                                        pilotables_list, target_timepoints, scenarios,
+                                        firmness::Firmness,
+                                        reference_schedule::Schedule;
+                                        always_link_scenarios::Bool=false)
+    b_on_vars = get_b_on(pilotable_model)
+    p_imposition_min = get_p_imposition_min(pilotable_model)
+    p_imposition_max = get_p_imposition_max(pilotable_model)
+
+    for generator in pilotables_list
+
+        gen_id = Networks.get_id(generator)
+        p_max = Networks.get_p_max(generator)
+        p_min = Networks.get_p_min(generator)
+        gen_power_firmness = get_power_level_firmness(firmness, gen_id)
+        gen_commitment_firmness = get_commitment_firmness(firmness, gen_id)
+        gen_schedule = get_sub_schedule(reference_schedule, gen_id)
+
+        # Bounds
+        for s in scenarios
+            for ts in target_timepoints
+                c_name = @sprintf("c_ub_p_imposition_min[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_max, base_name=c_name);
+                c_name = @sprintf("c_ub_p_imposition_max[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max, base_name=c_name);
+                c_name = @sprintf("c_imposition_min_less_max[%s,%s,%s]",gen_id,ts,s)
+                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_imposition_max[gen_id, ts, s], base_name=c_name);
+            end
+        end
+
+        # Firmness
+        add_scenarios_linking_constraints!(model, generator,
+                                    p_imposition_min,
+                                    target_timepoints, scenarios,
+                                    gen_power_firmness,
+                                    always_link_scenarios
+                                    )
+        add_scenarios_linking_constraints!(model, generator,
+                                    p_imposition_max,
+                                    target_timepoints, scenarios,
+                                    gen_power_firmness,
+                                    always_link_scenarios
+                                    )
+
+        # Sequencing
+        add_power_level_decided_constraints!(model,
+                                    generator,
+                                    p_imposition_min,
+                                    target_timepoints, scenarios,
+                                    gen_commitment_firmness, gen_power_firmness,
+                                    gen_schedule,
+                                    cstr_prefix_name="decided_p_min"
+                                    )
+        add_power_level_decided_constraints!(model,
+                                    generator,
+                                    p_imposition_max,
+                                    target_timepoints, scenarios,
+                                    gen_commitment_firmness, gen_power_firmness,
+                                    gen_schedule,
+                                    cstr_prefix_name="decided_p_max"
+                                    )
+
+        # commitment-imposition linking
         if Networks.needs_commitment(generator)
-            gen_id = Networks.get_id(generator)
-            p_max = Networks.get_p_max(generator)
-            p_min = Networks.get_p_min(generator)
-
             for s in scenarios
                 for ts in target_timepoints
                     # pmin B_on < P_tso_min < P_tso_max < pmax B_on
-                    @constraint(tso_model, p_min * b_on_vars[gen_id, ts, s] <= p_imposition_min[gen_id, ts, s]);
-                    @constraint(tso_model, p_imposition_min[gen_id, ts, s] <= p_imposition_max[gen_id, ts, s])
-                    @constraint(tso_model, p_imposition_max[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s])
+                    c_name = @sprintf("c_p_imposition_min_commitment[%s,%s,%s]",gen_id,ts,s)
+                    @constraint(model, p_min * b_on_vars[gen_id, ts, s] <= p_imposition_min[gen_id, ts, s], base_name=c_name);
+                    c_name = @sprintf("c_p_imposition_max_commitment[%s,%s,%s]",gen_id,ts,s)
+                    @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s], base_name=c_name)
                 end
             end
         end
@@ -538,9 +438,21 @@ end
 
 function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             target_timepoints, scenarios, network,
-                            uncertainties_at_ech::UncertaintiesAtEch)
+                            firmness, reference_schedule, generators_initial_state,
+                            uncertainties_at_ech::UncertaintiesAtEch,
+                            configs::TSOBilevelConfigs)
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
+
+    pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    unit_commitment_constraints!(bimodel_container.model,
+                    tso_model_container.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
+                    firmness, reference_schedule, generators_initial_state,
+                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_ON)
+    power_imposition_constraints!(tso_model_container.model, tso_model_container.pilotable_model,
+                    pilotables_list_l, target_timepoints, scenarios,
+                    firmness, reference_schedule;
+                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_LEVEL)
 
     rso_constraints!(bimodel_container.model,
                     tso_model_container.flows,
@@ -550,6 +462,7 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                     tso_model_container.lol_model,
                     target_timepoints, scenarios,
                     uncertainties_at_ech, network)
+
     add_loss_of_load_distribution_constraint!(tso_model_container,
                                         market_model_container.lol_model,
                                         target_timepoints, scenarios, network)
@@ -559,9 +472,7 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     add_capping_distribution_constraint!(tso_model_container,
                                     market_model_container.limitable_model,
                                     target_timepoints, scenarios, network)
-    add_injection_commitment_constraints!(tso_model_container,
-                                    market_model_container.pilotable_model,
-                                    target_timepoints, scenarios, network)
+    
 
     return bimodel_container
 end
@@ -1177,11 +1088,10 @@ function tso_bilevel(network::Networks.Network,
                     configs::TSOBilevelConfigs
                     )
 
-    bimodel_container_l = TSOBilevelModel()
     @assert(configs.big_m >= configs.MARKET_LOL_PENALTY)
     @assert(configs.big_m >= configs.MARKET_CAPPING_COST)
-    all( configs.big_m >= Networks.get_prop_cost(gen)
-        for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE) )
+    @assert(all( configs.big_m >= Networks.get_prop_cost(gen)
+                for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE) ))
 
     if is_market(configs.REF_SCHEDULE_TYPE_IN_TSO)
         reference_schedule = preceding_market_schedule
@@ -1190,9 +1100,12 @@ function tso_bilevel(network::Networks.Network,
     else
         throw( error("Invalid REF_SCHEDULE_TYPE_IN_TSO config.") )
     end
+
+    bimodel_container_l = TSOBilevelModel()
+
     create_tso_vars!(bimodel_container_l.upper,
-                    network, target_timepoints, generators_initial_state, scenarios,
-                    uncertainties_at_ech, firmness, reference_schedule,
+                    network, target_timepoints, scenarios,
+                    uncertainties_at_ech, firmness,
                     configs)
     create_market_vars!(bimodel_container_l.lower,
                         network, target_timepoints, scenarios, uncertainties_at_ech, firmness, configs)
@@ -1202,7 +1115,9 @@ function tso_bilevel(network::Networks.Network,
                             configs.MARKET_CAPPING_COST, configs.MARKET_LOL_PENALTY)
 
     #constraints may use upper and lower vars at the same time
-    add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network, uncertainties_at_ech)
+    add_tso_constraints!(bimodel_container_l, target_timepoints, scenarios, network,
+                        firmness, reference_schedule, generators_initial_state,
+                        uncertainties_at_ech, configs)
     #kkt primal feasibility + variables creation
     add_firmness_duals(bimodel_container_l.kkt_model,
                         target_timepoints, scenarios, network, firmness,
