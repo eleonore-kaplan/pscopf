@@ -203,24 +203,25 @@ end
 function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             network::Networks.Network,
                             target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch,
-                            firmness::Firmness,
-                            configs::TSOBilevelConfigs)
+                            scenarios::Vector{String}
+                            )
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
     limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
     buses_list_l = Networks.get_buses(network)
     add_pilotables_vars!(model_container,
                         pilotables_list_l, target_timepoints, scenarios,
-                        imposition_vars=true, commitment_vars=true)
+                        imposition_vars=true, commitment_vars=true,
+                        prefix="tso")
     add_limitables_vars!(model_container,
                         target_timepoints, scenarios,
                         limitables_list_l,
                         injection_vars=true, limit_vars=true, local_capping_vars=true, global_capping_vars=true,
+                        prefix="tso"
                         )
     add_lol_vars!(model_container,
                 target_timepoints, scenarios, buses_list_l,
-                global_lol_vars=true, local_lol_vars=true)
+                global_lol_vars=true, local_lol_vars=true,
+                prefix="tso")
 end
 
 
@@ -237,11 +238,13 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     unit_commitment_constraints!(model,
                     tso_model_container.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
                     firmness, reference_schedule, generators_initial_state,
-                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_ON)
+                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_ON,
+                    prefix="tso")
     power_imposition_constraints!(model, tso_model_container.pilotable_model,
                     pilotables_list_l, target_timepoints, scenarios,
                     firmness, reference_schedule;
-                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_LEVEL)
+                    always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_LEVEL,
+                    prefix="tso")
 
     limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
     limitables_ids_l = map(lim_gen->Networks.get_id(lim_gen), limitables_list_l)
@@ -249,24 +252,26 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     limitable_power_constraints!(model,
                         limitable_model, limitables_list_l, target_timepoints, scenarios,
                         firmness, uncertainties_at_ech,
-                        always_link_scenarios=configs.LINK_SCENARIOS_LIMIT)
+                        always_link_scenarios=configs.LINK_SCENARIOS_LIMIT,
+                        prefix="tso")
     local_capping_constraints!(model,
                             limitable_model, limitables_list_l, target_timepoints, scenarios,
-                            uncertainties_at_ech)
+                            uncertainties_at_ech, prefix="tso")
     global_capping_constraints!(model,
                             limitable_model, limitables_list_l,
                             target_timepoints, scenarios,
-                            uncertainties_at_ech)
+                            uncertainties_at_ech,
+                            prefix="tso")
     distribution_constraint!(model,
                             get_global_capping(market_model_container.limitable_model),
                             get_local_capping(tso_model_container.limitable_model),
                             limitables_ids_l, target_timepoints, scenarios,
-                            cstr_prefix_name="distribute_capping")
+                            cstr_prefix_name="tso_distribute_capping")
     distribution_constraint!(model,
                             market_model_container.limitable_model.p_injected, #TODO rename to avoid onfusion between localised injections and global ones
                             get_p_injected(tso_model_container.limitable_model),
                             limitables_ids_l, target_timepoints, scenarios,
-                            cstr_prefix_name="distribute_enr_injections")
+                            cstr_prefix_name="tso_distribute_enr_injections")
 
     buses_list_l = Networks.get_buses(network)
     buses_ids_l = map(bus->Networks.get_id(bus), buses_list_l)
@@ -274,15 +279,17 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     local_lol_constraints!(model,
                         lol_model,
                         buses_list_l, target_timepoints, scenarios,
-                        uncertainties_at_ech)
+                        uncertainties_at_ech,
+                        prefix="tso")
     global_lol_constraints!(model,
                         lol_model, buses_list_l, target_timepoints, scenarios,
-                        uncertainties_at_ech)
+                        uncertainties_at_ech,
+                        prefix="tso")
     distribution_constraint!(model,
                             get_global_lol(market_model_container.lol_model),
                             get_local_lol(tso_model_container.lol_model),
                             buses_ids_l, target_timepoints, scenarios,
-                            cstr_prefix_name="distribute_lol")
+                            cstr_prefix_name="tso_distribute_lol")
 
     rso_constraints!(bimodel_container.model,
                     tso_model_container.flows,
@@ -291,7 +298,8 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                     tso_model_container.limitable_model, #limitable injections are decided by TSO
                     tso_model_container.lol_model,
                     target_timepoints, scenarios,
-                    uncertainties_at_ech, network)
+                    uncertainties_at_ech, network,
+                    prefix="tso")
 
     return bimodel_container
 end
@@ -418,7 +426,9 @@ function create_market_vars!(model_container::TSOBilevelMarketModelContainer,
                     network, target_timepoints, scenarios, uncertainties_at_ech)
     add_pilotables!(model_container,
                     network, target_timepoints, scenarios, firmness, configs.LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET)
-    add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
+    add_lol_vars!(model_container,
+                    target_timepoints, scenarios,
+                    global_lol_vars=true)
 end
 
 function add_limitables!(model_container::TSOBilevelMarketModelContainer,
@@ -492,23 +502,6 @@ function add_pilotable!(pilotable_model::TSOBilevelMarketPilotableModel, model::
     return pilotable_model, model
 end
 
-function add_slacks!(model_container::TSOBilevelMarketModelContainer,
-                    network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch)
-    model = model_container.model
-    lol_model = model_container.lol_model
-    for ts in target_timepoints
-        for s in scenarios
-            conso_max = compute_load(uncertainties_at_ech, network, ts, s)
-            name =  @sprintf("P_loss_of_load[%s,%s]", ts, s)
-            lol_model.p_global_loss_of_load[ts, s] = @variable(model, base_name=name,
-                                                        lower_bound=0., upper_bound=conso_max)
-        end
-    end
-    return lol_model
-end
 
 function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
                             target_timepoints, scenarios,
@@ -566,20 +559,13 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
     return market_model_container
 end
 
-function add_link_loss_of_load_constraint!(market_model_container::TSOBilevelMarketModelContainer,
-                                        kkt_model_container::TSOBilevelKKTModelContainer,
-                                    tso_lol_model::TSOBilevelTSOLoLModel,
-                                    target_timepoints, scenarios, network)
-    market_model = market_model_container.model
-    market_lol_model = market_model_container.lol_model
+function add_min_global_lol_duals!(market_model_container::TSOBilevelMarketModelContainer,
+                                kkt_model_container::TSOBilevelKKTModelContainer,
+                                target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
-            name = @sprintf("c_min_lol[%s,%s]",ts,s)
-            @constraint(market_model,
-                        tso_lol_model.p_global_loss_of_load[ts,s] <= market_lol_model.p_global_loss_of_load[ts,s],
-                        base_name=name)
-
             #create duals and indicators relative to TSO min LoL constraint
+            name = @sprintf("c_min_lol[%s,%s]",ts,s)
             add_dual_and_indicator!(kkt_model_container.model,
                                     kkt_model_container.loss_of_load_duals, kkt_model_container.loss_of_load_indicators, (ts,s),
                                     name, true)
@@ -641,9 +627,20 @@ end
 function add_market_constraints!(bimodel_container::TSOBilevelModel,
                             target_timepoints, scenarios, network,
                             uncertainties_at_ech::UncertaintiesAtEch)
+    model = bimodel_container.model
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
     kkt_model_container::TSOBilevelKKTModelContainer = bimodel_container.kkt_model
+
+    buses_list_l = Networks.get_buses(network)
+    lol_model = market_model_container.lol_model
+    global_lol_constraints!(model,
+                        lol_model, buses_list_l, target_timepoints, scenarios,
+                        uncertainties_at_ech,
+                        min_lol=get_global_lol(tso_model_container.lol_model),
+                        prefix="market")
+    add_min_global_lol_duals!(market_model_container, kkt_model_container,
+                        target_timepoints, scenarios)
 
     eod_constraints!(market_model_container.model, market_model_container.eod_constraint,
                     market_model_container.pilotable_model,
@@ -656,9 +653,6 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
 
     add_link_capping_constraint!(market_model_container, kkt_model_container,
                                 tso_model_container.limitable_model,
-                                target_timepoints, scenarios, network)
-    add_link_loss_of_load_constraint!(market_model_container, kkt_model_container,
-                                tso_model_container.lol_model,
                                 target_timepoints, scenarios, network)
     add_pilotables_constraints!(market_model_container, kkt_model_container,
                             tso_model_container.pilotable_model,
@@ -923,9 +917,7 @@ function tso_bilevel(network::Networks.Network,
     bimodel_container_l = TSOBilevelModel()
 
     create_tso_vars!(bimodel_container_l.upper,
-                    network, target_timepoints, scenarios,
-                    uncertainties_at_ech, firmness,
-                    configs)
+                    network, target_timepoints, scenarios)
     create_market_vars!(bimodel_container_l.lower,
                         network, target_timepoints, scenarios, uncertainties_at_ech, firmness, configs)
 

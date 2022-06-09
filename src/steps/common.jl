@@ -163,14 +163,15 @@ function has_injections(generator_model::AbstractGeneratorModel)
 end
 
 function add_unit_commitment_vars!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
-                                    pilotables_list, target_timepoints, scenarios)
+                                    pilotables_list, target_timepoints, scenarios,
+                                    prefix::String)
     for gen in pilotables_list
         if Networks.needs_commitment(gen)
             gen_id = Networks.get_id(gen)
             for ts in target_timepoints
                 for s in scenarios
                     add_b_on_start!(pilotable_model, model,
-                                    gen_id, ts, s)
+                                    gen_id, ts, s, prefix)
                 end
             end
         end
@@ -178,13 +179,15 @@ function add_unit_commitment_vars!(model::AbstractModel, pilotable_model::Abstra
 end
 
 function add_injection_vars!(model::AbstractModel, generator_model::AbstractGeneratorModel,
-                            generators_list::Vector{Networks.Generator}, target_timepoints, scenarios)
+                            generators_list::Vector{Networks.Generator}, target_timepoints, scenarios,
+                            prefix::String)
     for gen in generators_list
         gen_id = Networks.get_id(gen)
         for ts in target_timepoints
             for s in scenarios
                 add_p_injected!(generator_model, model,
-                                gen_id, ts, s)
+                                gen_id, ts, s,
+                                prefix)
             end
         end
     end
@@ -192,8 +195,9 @@ end
 
 function add_p_injected!(generator_model::AbstractGeneratorModel, model::AbstractModel,
                         gen_id::String, ts::DateTime, s::String,
+                        prefix::String
                         )::AbstractVariableRef
-    name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
+    name =  @sprintf("%sP_injected[%s,%s,%s]", prefix, gen_id, ts, s)
     var_l = get_p_injected(generator_model)[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
     return var_l
 end
@@ -236,13 +240,13 @@ end
 
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
                         gen_id::String, ts::DateTime, s::String,
-                        p_reference::Float64
-                        )::VariableRef
+                        p_reference::Float64,
+                        prefix::String)::VariableRef
     @assert(has_injections(generator_model))
     p_injected = get_p_injected(generator_model)
     deltas = generator_model.delta_p
 
-    name =  @sprintf("Delta_p[%s,%s,%s]", gen_id, ts, s)
+    name =  @sprintf("%sDelta_p[%s,%s,%s]", gen_id, ts, s, prefix)
     deltas[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
     @constraint(model, deltas[gen_id, ts, s] >= p_injected[gen_id, ts, s] - p_reference)
     @constraint(model, deltas[gen_id, ts, s] >= p_reference - p_injected[gen_id, ts, s])
@@ -252,14 +256,15 @@ end
 
 function add_delta_p_vars!(model::AbstractModel, generator_model::AbstractGeneratorModel,
                         generators_list::Vector{Networks.Generator}, target_timepoints, scenarios,
-                        reference_market_schedule::Schedule)
+                        reference_market_schedule::Schedule,
+                        prefix::String)
     for gen in generators_list
         gen_id = Networks.get_id(gen)
         for ts in target_timepoints
             for s in scenarios
                 p_ref = get_prod_value(reference_market_schedule, gen_id, ts, s)
                 p_ref = ismissing(p_ref) ? 0. : p_ref
-                add_p_delta!(generator_model, model, gen_id, ts, s, p_ref)
+                add_p_delta!(generator_model, model, gen_id, ts, s, p_ref, prefix)
             end
         end
     end
@@ -272,34 +277,36 @@ end
 function add_limitables_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
                             limitables_list::Union{Missing,Vector{Networks.Generator}}=missing,
                             reference_market_schedule::Union{Missing,Schedule}=missing;
-                            global_capping_vars::Bool=false, local_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false, delta_vars::Bool=false
+                            global_capping_vars::Bool=false, local_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false,
+                            delta_vars::Bool=false,
+                            prefix::String=""
                             )
     model = get_model(model_container)
     limitable_model = model_container.limitable_model
 
     if injection_vars
         add_injection_vars!(model, limitable_model,
-                          limitables_list, target_timepoints, scenarios)
+                          limitables_list, target_timepoints, scenarios, prefix)
 
         if delta_vars
             if ismissing(reference_market_schedule)
                 error("reference_market_schedule argument is mandatory to define delta variables!")
             end
             add_delta_p_vars!(model, limitable_model,
-                            limitables_list, target_timepoints, scenarios, reference_market_schedule)
+                            limitables_list, target_timepoints, scenarios, reference_market_schedule, prefix)
         end
     end
 
     if limit_vars
-        add_limitation_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios)
+        add_limitation_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios, prefix)
     end
 
     if global_capping_vars
-        add_global_capping_vars!(model, limitable_model, target_timepoints, scenarios)
+        add_global_capping_vars!(model, limitable_model, target_timepoints, scenarios, prefix)
     end
 
     if local_capping_vars
-        add_local_capping_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios)
+        add_local_capping_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios, prefix)
     end
 
 end
@@ -311,21 +318,23 @@ function get_local_capping(limitable_model::AbstractLimitableModel)
     return limitable_model.p_capping
 end
 
-function add_global_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios)
+function add_global_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios,
+                                prefix::String)
     for ts in target_timepoints
         for s in scenarios
-            name =  @sprintf("P_global_capping[%s,%s]", ts, s)
+            name =  @sprintf("%sP_global_capping[%s,%s]", prefix, ts, s)
             get_global_capping(limitable_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
         end
     end
 end
 
-function add_local_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, limitables_list, target_timepoints, scenarios)
+function add_local_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, limitables_list, target_timepoints, scenarios,
+                                prefix::String)
     for gen in limitables_list
         gen_id = Networks.get_id(gen)
         for ts in target_timepoints
             for s in scenarios
-                name =  @sprintf("P_capping[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sP_capping[%s,%s,%s]", prefix, gen_id, ts, s)
                 get_local_capping(limitable_model)[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
             end
         end
@@ -344,20 +353,21 @@ function global_capping_constraints!(model::AbstractModel,
                                     target_timepoints, scenarios,
                                     uncertainties_at_ech::UncertaintiesAtEch;
                                     min_cap::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}(),
-                                    tso_actions::TSOActions=TSOActions()) where V <: Union{AbstractVariableRef,Float64}
+                                    tso_actions::TSOActions=TSOActions(),
+                                    prefix::String="") where V <: Union{AbstractVariableRef,Float64}
     global_capping_vars = get_global_capping(limitable_model)
     for ts in target_timepoints
         for s in scenarios
             prod_capacity = compute_prod(uncertainties_at_ech, limitables_list_l, ts, s)
-            c_name = @sprintf("c_max_global_capped[%s,%s]",ts,s)
+            c_name = @sprintf("%sc_max_global_capped[%s,%s]",prefix,ts,s)
             @constraint(model, global_capping_vars[ts, s] <= prod_capacity , base_name = c_name)
 
             limitations_capped = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), limitables_list_l, ts, s)
-            c_name = @sprintf("c_global_capped_by_limitations[%s,%s]",ts,s)
+            c_name = @sprintf("%sc_global_capped_by_limitations[%s,%s]",prefix,ts,s)
             @constraint(model, global_capping_vars[ts, s] >= limitations_capped , base_name = c_name)
 
             if haskey(min_cap, (ts,s))
-                c_name = @sprintf("c_min_global_capping[%s,%s]",ts,s)
+                c_name = @sprintf("%sc_min_global_capping[%s,%s]",prefix,ts,s)
                 @constraint(model, global_capping_vars[ts, s] >= min_cap[ts,s] , base_name = c_name)
             end
         end
@@ -366,7 +376,8 @@ end
 
 function add_limitation_vars!(model::AbstractModel,
                             limitable_model::AbstractLimitableModel,
-                            limitables_list::Vector{Networks.Generator}, target_timepoints, scenarios)
+                            limitables_list::Vector{Networks.Generator}, target_timepoints, scenarios,
+                            prefix::String)
     p_limit = limitable_model.p_limit
     b_is_limited = limitable_model.b_is_limited
     p_limit_x_is_limited = limitable_model.p_limit_x_is_limited
@@ -376,13 +387,13 @@ function add_limitation_vars!(model::AbstractModel,
         pmax = Networks.get_p_max(limitable_gen)
         for ts in target_timepoints
             for s in scenarios
-                name =  @sprintf("P_limit[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sP_limit[%s,%s,%s]", prefix, gen_id, ts, s)
                 p_limit[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=pmax)
 
-                name =  @sprintf("B_is_limited[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sB_is_limited[%s,%s,%s]", prefix, gen_id, ts, s)
                 b_is_limited[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
 
-                name =  @sprintf("P_limit_x_is_limited[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sP_limit_x_is_limited[%s,%s,%s]", prefix, gen_id, ts, s)
                 p_limit_x_is_limited[gen_id, ts, s] = add_prod_vars!(model,
                                                                     p_limit[gen_id, ts, s],
                                                                     b_is_limited[gen_id, ts, s],
@@ -437,7 +448,8 @@ function limitable_power_constraints!(model::AbstractModel,
                                     limitable_model::AbstractLimitableModel,
                                     limitables_list_l, target_timepoints, scenarios,
                                     firmness, uncertainties_at_ech::UncertaintiesAtEch;
-                                    always_link_scenarios::Bool=false)
+                                    always_link_scenarios::Bool=false,
+                                    prefix::String="")
     bound_limit!(model,
                 limitable_model, limitables_list_l, target_timepoints, scenarios)
     inject_at_limit!(model,
@@ -450,7 +462,8 @@ function limitable_power_constraints!(model::AbstractModel,
                                         limitable_model.p_limit,
                                         target_timepoints, scenarios,
                                         get_power_level_firmness(firmness, gen_id),
-                                        always_link_scenarios
+                                        always_link_scenarios,
+                                        prefix="limitable_power_c_linking"*prefix
                                         )
     end
 
@@ -508,7 +521,8 @@ end
 function local_capping_constraints!(model::AbstractModel,
                             limitable_model::AbstractLimitableModel,
                             limitables_list, target_timepoints, scenarios,
-                            uncertainties_at_ech)
+                            uncertainties_at_ech;
+                            prefix::String="")
     p_capping = get_local_capping(limitable_model)
     p_injected = get_p_injected(limitable_model)
 
@@ -517,9 +531,9 @@ function local_capping_constraints!(model::AbstractModel,
         for ts in target_timepoints
             for s in scenarios
                 p_uncert = get_uncertainties(uncertainties_at_ech, gen_id, ts, s)
-                c_name =  @sprintf("c_ub_p_capping[%s,%s,%s]", gen_id, ts, s)
+                c_name =  @sprintf("%sc_ub_p_capping[%s,%s,%s]", prefix, gen_id, ts, s)
                 @constraint(model, p_capping[gen_id, ts, s] <= p_uncert, base_name=c_name)
-                c_name =  @sprintf("c_link_injection_to_capping[%s,%s,%s]", gen_id, ts, s)
+                c_name =  @sprintf("%sc_link_injection_to_capping[%s,%s,%s]", prefix, gen_id, ts, s)
                 @constraint(model, p_capping[gen_id, ts, s] == p_uncert - p_injected[gen_id,ts,s], base_name=c_name)
             end
         end
@@ -534,30 +548,31 @@ function add_pilotables_vars!(model_container::AbstractModelContainer,
                             reference_market_schedule::Union{Schedule,Missing}=missing;
                             injection_vars::Bool=false, commitment_vars::Bool=false,
                             delta_vars::Bool=false,
-                            imposition_vars::Bool=false)
+                            imposition_vars::Bool=false,
+                            prefix::String="")
     model = get_model(model_container)
     pilotable_model = model_container.pilotable_model
 
     if injection_vars
         add_injection_vars!(model, pilotable_model,
-                            pilotables_list, target_timepoints, scenarios)
+                            pilotables_list, target_timepoints, scenarios, prefix)
 
         if delta_vars
             if ismissing(reference_market_schedule)
                 error("reference_market_schedule argument is mandatory to define delta variables!")
             end
             add_delta_p_vars!(model, pilotable_model,
-                                pilotables_list, target_timepoints, scenarios, reference_market_schedule)
+                                pilotables_list, target_timepoints, scenarios, reference_market_schedule, prefix)
         end
     end
 
     if commitment_vars
         add_unit_commitment_vars!(model, pilotable_model,
-                                pilotables_list, target_timepoints, scenarios)
+                                pilotables_list, target_timepoints, scenarios, prefix)
     end
 
     if imposition_vars
-        add_imposition_vars(model, pilotable_model, pilotables_list, target_timepoints, scenarios)
+        add_imposition_vars(model, pilotable_model, pilotables_list, target_timepoints, scenarios, prefix)
     end
 end
 
@@ -569,16 +584,17 @@ function get_p_imposition_max(pilotable_model::AbstractPilotableModel)
 end
 
 function add_imposition_vars(model::AbstractModel, pilotable_model::AbstractPilotableModel,
-                            pilotables_list::Vector{Generator}, target_timepoints, scenarios)
+                            pilotables_list::Vector{Generator}, target_timepoints, scenarios,
+                            prefix::String="")
     for generator in pilotables_list
         gen_id = Networks.get_id(generator)
         p_max = Networks.get_p_max(generator)
         for ts in target_timepoints
             for s in scenarios
-                name =  @sprintf("P_imposition_min[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sP_imposition_min[%s,%s,%s]", prefix, gen_id, ts, s)
                 get_p_imposition_min(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name,
                                                                     lower_bound=0., upper_bound=p_max)
-                name =  @sprintf("P_imposition_max[%s,%s,%s]", gen_id, ts, s)
+                name =  @sprintf("%sP_imposition_max[%s,%s,%s]", prefix, gen_id, ts, s)
                 get_p_imposition_max(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name,
                                                                     lower_bound=0., upper_bound=p_max)
             end
@@ -594,11 +610,11 @@ function get_b_start(pilotable_model::AbstractPilotableModel)
 end
 
 function add_b_on_start!(pilotable_model::AbstractPilotableModel, model::AbstractModel,
-                    gen_id::String, ts::DateTime, s::String,
+                    gen_id::String, ts::DateTime, s::String, prefix::String
                     )
-    name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
+    name =  @sprintf("%sB_on[%s,%s,%s]", prefix, gen_id, ts, s)
     get_b_on(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-    name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
+    name =  @sprintf("%sB_start[%s,%s,%s]", prefix, gen_id, ts, s)
     get_b_start(pilotable_model)[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
 end
 
@@ -610,7 +626,8 @@ function pilotable_power_constraints!(model::AbstractModel,
                                     gen_commitment_firmness::Union{Missing, SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness}},
                                     gen_power_level_firmness::SortedDict{Dates.DateTime, PSCOPF.DecisionFirmness},
                                     gen_schedule::GeneratorSchedule,
-                                    always_link_scenarios::Bool
+                                    always_link_scenarios::Bool;
+                                    prefix::String=""
                                     )
     @assert(Networks.get_type(pilotable_gen) == Networks.PILOTABLE)
 
@@ -627,7 +644,8 @@ function pilotable_power_constraints!(model::AbstractModel,
                                         get_p_injected(pilotable_model),
                                         target_timepoints, scenarios,
                                         gen_power_level_firmness,
-                                        always_link_scenarios
+                                        always_link_scenarios,
+                                        prefix="pilotable_power_c_linking"*prefix
                                         )
 
     add_power_level_decided_constraints!(model,
@@ -645,7 +663,8 @@ function pilotable_power_constraints!(model::AbstractModel,
                                     pilotables_list_l, target_timepoints, scenarios,
                                     firmness::Firmness,
                                     reference_schedule::Schedule;
-                                    always_link_scenarios::Bool=false)
+                                    always_link_scenarios::Bool=false,
+                                    prefix::String="")
     for pilotable_gen in pilotables_list_l
         gen_id = Networks.get_id(pilotable_gen)
         pilotable_power_constraints!(model,
@@ -664,7 +683,8 @@ end
 function unit_commitment_constraints!(model::AbstractModel,
                                 pilotable_model::AbstractPilotableModel, pilotables_list_l,  target_timepoints, scenarios,
                                 firmness, reference_schedule, generators_initial_state;
-                                always_link_scenarios::Bool=false)
+                                always_link_scenarios::Bool=false,
+                                prefix::String="")
     for pilotable_gen in pilotables_list_l
         if !Networks.needs_commitment(pilotable_gen)
             continue
@@ -683,7 +703,8 @@ function unit_commitment_constraints!(model::AbstractModel,
                                         pilotable_gen, get_b_on(pilotable_model),
                                         target_timepoints, scenarios,
                                         get_commitment_firmness(firmness, gen_id),
-                                        always_link_scenarios
+                                        always_link_scenarios,
+                                        prefix="commitment_c_linking"*prefix
                                         )
         #linking b_on => linking b_start
         add_commitment_sequencing_constraints!(model, pilotable_gen,
@@ -732,44 +753,12 @@ function add_commitment_constraints!(model::AbstractModel,
     end
     return model
 end
-function add_commitment!(pilotable_model::AbstractPilotableModel, model::AbstractModel,
-                        generator::Networks.Generator,
-                        target_timepoints::Vector{Dates.DateTime},
-                        scenarios::Vector{String},
-                        generator_initial_state::GeneratorState
-                        )
-    p_injected_vars = pilotable_model.p_injected
-    b_on_vars = pilotable_model.b_on
-    b_start_vars = pilotable_model.b_start
-
-    gen_id = Networks.get_id(generator)
-    p_max = Networks.get_p_max(generator)
-    p_min = Networks.get_p_min(generator)
-    for s in scenarios
-        for ts in target_timepoints
-            name =  @sprintf("B_on[%s,%s,%s]", gen_id, ts, s)
-            b_on_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-            name =  @sprintf("B_start[%s,%s,%s]", gen_id, ts, s)
-            b_start_vars[gen_id, ts, s] = @variable(model, base_name=name, binary=true)
-
-            # pmin < P_injected < pmax OR = 0
-            @constraint(model, p_injected_vars[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s]);
-            @constraint(model, p_injected_vars[gen_id, ts, s] >= p_min * b_on_vars[gen_id, ts, s]);
-        end
-    end
-
-    #commitment_constraints : link b_start and b_on
-    add_commitment_constraints!(model,
-                                b_on_vars, b_start_vars,
-                                gen_id, target_timepoints, scenarios, generator_initial_state)
-
-    return pilotable_model, model
-end
 
 
 function respect_impositions_constraints!(model::AbstractModel,
                                         pilotable_model::AbstractPilotableModel, pilotables_list_l,  target_timepoints, scenarios,
-                                        tso_actions::TSOActions)
+                                        tso_actions::TSOActions,
+                                        prefix::String="")
     p_injected_vars = get_p_injected(pilotable_model)
     for pilotable_gen in pilotables_list_l
         gen_id = Networks.get_id(pilotable_gen)
@@ -793,7 +782,8 @@ function power_imposition_constraints!(model::AbstractModel, pilotable_model::Ab
                                         pilotables_list, target_timepoints, scenarios,
                                         firmness::Firmness,
                                         reference_schedule::Schedule;
-                                        always_link_scenarios::Bool=false)
+                                        always_link_scenarios::Bool=false,
+                                        prefix::String="")
     b_on_vars = get_b_on(pilotable_model)
     p_imposition_min = get_p_imposition_min(pilotable_model)
     p_imposition_max = get_p_imposition_max(pilotable_model)
@@ -810,11 +800,11 @@ function power_imposition_constraints!(model::AbstractModel, pilotable_model::Ab
         # Bounds
         for s in scenarios
             for ts in target_timepoints
-                c_name = @sprintf("c_ub_p_imposition_min[%s,%s,%s]",gen_id,ts,s)
+                c_name = @sprintf("%sc_ub_p_imposition_min[%s,%s,%s]",prefix,gen_id,ts,s)
                 @constraint(model, p_imposition_min[gen_id, ts, s] <= p_max, base_name=c_name);
-                c_name = @sprintf("c_ub_p_imposition_max[%s,%s,%s]",gen_id,ts,s)
+                c_name = @sprintf("%sc_ub_p_imposition_max[%s,%s,%s]",prefix,gen_id,ts,s)
                 @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max, base_name=c_name);
-                c_name = @sprintf("c_imposition_min_less_max[%s,%s,%s]",gen_id,ts,s)
+                c_name = @sprintf("%sc_imposition_min_less_max[%s,%s,%s]",prefix,gen_id,ts,s)
                 @constraint(model, p_imposition_min[gen_id, ts, s] <= p_imposition_max[gen_id, ts, s], base_name=c_name);
             end
         end
@@ -824,13 +814,15 @@ function power_imposition_constraints!(model::AbstractModel, pilotable_model::Ab
                                     p_imposition_min,
                                     target_timepoints, scenarios,
                                     gen_power_firmness,
-                                    always_link_scenarios
+                                    always_link_scenarios,
+                                    prefix="power_imposition_min_c_linking"*prefix
                                     )
         add_scenarios_linking_constraints!(model, generator,
                                     p_imposition_max,
                                     target_timepoints, scenarios,
                                     gen_power_firmness,
-                                    always_link_scenarios
+                                    always_link_scenarios,
+                                    prefix="power_imposition_max_c_linking"*prefix
                                     )
 
         # Sequencing
@@ -912,16 +904,17 @@ end
 ############################
 function add_lol_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
                     buses_list::Union{Missing,Vector{Networks.Bus}}=missing;
-                    global_lol_vars::Bool=false, local_lol_vars::Bool=false)
+                    global_lol_vars::Bool=false, local_lol_vars::Bool=false,
+                    prefix::String="")
     model = get_model(model_container)
     lol_model = model_container.lol_model
 
     if global_lol_vars
-        add_global_lol_vars!(model, lol_model, target_timepoints, scenarios)
+        add_global_lol_vars!(model, lol_model, target_timepoints, scenarios, prefix)
     end
 
     if local_lol_vars
-        add_local_lol_vars!(model, lol_model, buses_list, target_timepoints, scenarios)
+        add_local_lol_vars!(model, lol_model, buses_list, target_timepoints, scenarios, prefix)
     end
 end
 
@@ -929,10 +922,12 @@ function get_global_lol(lol_model::AbstractLoLModel)
     return lol_model.p_global_loss_of_load
 end
 
-function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel, target_timepoints, scenarios)
+function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            target_timepoints, scenarios,
+                            prefix::String="")
     for ts in target_timepoints
         for s in scenarios
-            name =  @sprintf("P_global_lol[%s,%s]", ts, s)
+            name =  @sprintf("%sP_global_lol[%s,%s]", prefix, ts, s)
             get_global_lol(lol_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
         end
     end
@@ -944,18 +939,18 @@ end
 
 function global_lol_constraints!(model::AbstractModel,
                             lol_model::AbstractLoLModel, buses_list, target_timepoints, scenarios,
-                            uncertainties_at_ech::UncertaintiesAtEch,
-                            min_lol::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}()
-                            ) where V <: Union{AbstractVariableRef,Float64}
+                            uncertainties_at_ech::UncertaintiesAtEch;
+                            min_lol::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}(),
+                            prefix::String="") where V <: Union{AbstractVariableRef,Float64}
     global_lol_vars = get_global_lol(lol_model)
     for ts in target_timepoints
         for s in scenarios
             max_load = compute_load(uncertainties_at_ech, buses_list, ts, s)
-            c_name = @sprintf("c_ub_global_lol[%s,%s]",ts,s)
+            c_name = @sprintf("%sc_ub_global_lol[%s,%s]",prefix,ts,s)
             @constraint(model, global_lol_vars[ts, s] <= max_load , base_name = c_name)
 
             if haskey(min_lol, (ts,s))
-                c_name = @sprintf("c_min_global_lol[%s,%s]",ts,s)
+                c_name = @sprintf("%sc_min_global_lol[%s,%s]",prefix,ts,s)
                 @constraint(model, global_lol_vars[ts, s] >= min_lol[ts,s] , base_name = c_name)
             end
         end
@@ -967,12 +962,13 @@ function get_local_lol(lol_model::AbstractLoLModel)
 end
 
 function add_local_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
-                            buses_list::Vector{Networks.Bus}, target_timepoints, scenarios)
+                            buses_list::Vector{Networks.Bus}, target_timepoints, scenarios,
+                            prefix::String="")
     for bus in buses_list
         bus_id = Networks.get_id(bus)
         for ts in target_timepoints
             for s in scenarios
-                name =  @sprintf("P_local_lol[%s,%s,%s]", bus_id, ts, s)
+                name =  @sprintf("%sP_local_lol[%s,%s,%s]", prefix, bus_id, ts, s)
                 get_local_lol(lol_model)[bus_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
             end
         end
@@ -980,14 +976,15 @@ function add_local_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
 end
 
 function local_lol_constraints!(model::AbstractModel, lol_model::AbstractLoLModel,
-                            buses_list, target_timepoints, scenarios, uncertainties_at_ech)
+                            buses_list, target_timepoints, scenarios, uncertainties_at_ech;
+                            prefix::String="")
     local_lol_vars = get_local_lol(lol_model)
     for bus in buses_list
         bus_id = Networks.get_id(bus)
         for ts in target_timepoints
             for s in scenarios
                 bus_load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-                c_name = @sprintf("c_ub_local_lol[%s,%s,%s]",bus_id,ts,s)
+                c_name = @sprintf("%sc_ub_local_lol[%s,%s,%s]",prefix,bus_id,ts,s)
                 @constraint(model, local_lol_vars[bus_id, ts, s] <= bus_load , base_name = c_name)
             end
         end
@@ -999,25 +996,6 @@ function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: Abs
     #e.g. 1e-15 is supposed to be 0.
 end
 
-function add_loss_of_load_by_bus!(model::AbstractModel, p_loss_of_load,
-                                buses,
-                                target_timepoints::Vector{Dates.DateTime},
-                                scenarios::Vector{String},
-                                uncertainties_at_ech::UncertaintiesAtEch
-                                )
-    for ts in target_timepoints
-        for s in scenarios
-            for bus in buses
-                bus_id = Networks.get_id(bus)
-                name =  @sprintf("P_loss_of_load[%s,%s,%s]", bus_id, ts, s)
-                load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-                p_loss_of_load[bus_id, ts, s] = @variable(model, base_name=name,
-                                                            lower_bound=0., upper_bound=load)
-            end
-        end
-    end
-    return p_loss_of_load
-end
 
 # Constraints
 ##################
@@ -1045,7 +1023,8 @@ function eod_constraints!(model::AbstractModel, eod_constraints::SortedDict{Tupl
                         limitable_model::AbstractLimitableModel,
                         lol_model::AbstractLoLModel,
                         target_timepoints, scenarios,
-                        uncertainties_at_ech, network)
+                        uncertainties_at_ech, network;
+                        prefix::String="")
     for ts in target_timepoints
         for s in scenarios
 
@@ -1076,13 +1055,14 @@ function rso_constraints!(model::AbstractModel,
                         limitable_model::AbstractLimitableModel,
                         lol_model::AbstractLoLModel,
                         target_timepoints, scenarios,
-                        uncertainties_at_ech, network::Networks.Network)
+                        uncertainties_at_ech, network::Networks.Network;
+                        prefix::String="")
     for branch in Networks.get_branches(network)
         branch_id = Networks.get_id(branch)
         flow_limit_l = Networks.get_limit(branch)
         for ts in target_timepoints
             for s in scenarios
-                name =  @sprintf("Flow[%s,%s,%s]", branch_id, ts, s)
+                name =  @sprintf("%sFlow[%s,%s,%s]", prefix, branch_id, ts, s)
                 flows[branch_id, ts, s] =
                     @variable(model, base_name=name, lower_bound=-flow_limit_l, upper_bound=flow_limit_l)
 
@@ -1111,7 +1091,8 @@ function rso_constraints!(model::AbstractModel,
                     # + cutting loads ~ injections
                     flow_l += ptdf * get_local_lol(lol_model)[bus_id, ts, s]
                 end
-                rso_constraints[branch_id, ts, s] = @constraint(model, flows[branch_id, ts, s] == flow_l )
+                c_name =  @sprintf("%sRSO[%s,%s,%s]", prefix, branch_id, ts, s)
+                rso_constraints[branch_id, ts, s] = @constraint(model, flows[branch_id, ts, s] == flow_l, base_name=c_name)
             end
         end
     end
@@ -1122,13 +1103,13 @@ end
 
 function link_scenarios!(model::AbstractModel, vars::AbstractDict{Tuple{String,DateTime,String},V},
                         gen_id::String, ts::DateTime, scenarios::Vector{String};
-                        name=nothing) where V<:AbstractVariableRef
+                        prefix::String="") where V<:AbstractVariableRef
     s1 = scenarios[1]
     for (s_index, s) in enumerate(scenarios)
         if s_index > 1
             cstr_l = @constraint(model, vars[gen_id, ts, s] == vars[gen_id, ts, s1]);
             if !isnothing(name)
-                set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
+                set_name(cstr_l, @sprintf("%s[%s,%s,%s]",prefix,gen_id,ts,s))
             end
         end
     end
@@ -1166,19 +1147,6 @@ function add_commitment_sequencing_constraints!(model::AbstractModel,
     return model
 end
 
-function freeze_vars!(model, p_injected_vars,
-                        gen_id, ts, scenarios,
-                        imposed_value::Float64;
-                        name=nothing)
-    for s in scenarios
-        @assert( !has_upper_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value <= upper_bound(p_injected_vars[gen_id, ts, s])) )
-        @assert( !has_lower_bound(p_injected_vars[gen_id, ts, s]) || (imposed_value >= lower_bound(p_injected_vars[gen_id, ts, s])) )
-        cstr_l = @constraint(model, p_injected_vars[gen_id, ts, s] == imposed_value)
-        if !isnothing(name)
-            set_name(cstr_l, @sprintf("%s[%s,%s,%s]",name,gen_id,ts,s))
-        end
-    end
-end
 
 function add_scenarios_linking_constraints!(model::AbstractModel,
                                                 generator::Networks.Generator,
@@ -1186,12 +1154,13 @@ function add_scenarios_linking_constraints!(model::AbstractModel,
                                                 target_timepoints::Vector{Dates.DateTime},
                                                 scenarios::Vector{String},
                                                 gen_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                always_link::Bool
+                                                always_link::Bool;
+                                                prefix::String=""
                                                 )
     gen_id = Networks.get_id(generator)
     for ts in target_timepoints
         if requires_linking(gen_firmness[ts], always_link)
-            link_scenarios!(model, vars, gen_id, ts, scenarios)
+            link_scenarios!(model, vars, gen_id, ts, scenarios, prefix=prefix)
         end
     end
 
@@ -1226,66 +1195,6 @@ function add_power_level_decided_constraints!(model::AbstractModel,
                 @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
                 c_name = @sprintf("c_%s[%s,%s,%s]",cstr_prefix_name,gen_id,ts,s)
                 @constraint(model, p_injected_vars[gen_id,ts,s] == scheduled_prod, base_name=c_name)
-            end
-        end
-    end
-
-    return model
-end
-
-"""
-look at tso_actions commitment
-    if unit is off, impose a level of 0.
-If past DP, impose reference scheduled prod
-else, impose bounds for production level
-"""
-function add_power_level_sequencing_constraints!(model::AbstractModel,
-                                                generator::Networks.Generator,
-                                                p_injected_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
-                                                target_timepoints::Vector{Dates.DateTime},
-                                                scenarios::Vector{String},
-                                                power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness}, #by ts
-                                                generator_reference_schedule::GeneratorSchedule,
-                                                tso_actions::TSOActions=TSOActions()
-                                                )
-    @assert(Networks.get_type(generator) == Networks.PILOTABLE)
-
-    gen_id = Networks.get_id(generator)
-    for ts in target_timepoints
-        ref_commitment = get_commitment_value(generator_reference_schedule, ts)
-
-        for s in scenarios
-            imposition_bounds = missing
-
-            tso_action_impositions = get_imposition(tso_actions, gen_id, ts, s)
-            @assert(ismissing(tso_action_impositions)
-                    || (tso_action_impositions[1] <= tso_action_impositions[2]))
-            if !ismissing(ref_commitment) && (ref_commitment == OFF)
-                if !ismissing(tso_action_impositions) && (tso_action_impositions[1] > 1e-09)
-                    msg = @sprintf("(%s,%s) : minimum imposition %f and reference unit commitment %s are incompatible!",
-                                    gen_id,ts,tso_action_impositions[2],ref_commitment)
-                    throw(error(msg))
-                end
-                imposition_bounds = (0., 0.)
-            elseif !ismissing(tso_action_impositions)
-                imposition_bounds = (tso_action_impositions[1], tso_action_impositions[2])
-            end
-
-            if power_level_firmness[ts]==DECIDED
-            # => does not allow unit shutdown after DP cause level is forced
-                scheduled_prod = safeget_prod_value(generator_reference_schedule,ts)
-                @debug @sprintf("imposed decided level[%s,%s,%s] : %s", gen_id, ts, s, scheduled_prod)
-                @assert( ismissing(imposition_bounds) ||
-                        (imposition_bounds[1] <= scheduled_prod <= imposition_bounds[2]) )
-                c_name = @sprintf("c_decided_level[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_injected_vars[gen_id,ts,s] == scheduled_prod, base_name=c_name)
-            elseif !ismissing(imposition_bounds)
-                c_name = @sprintf("c_min_imposition[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, imposition_bounds[1] <= p_injected_vars[gen_id,ts,s], base_name=c_name)
-                c_name = @sprintf("c_max_imposition[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_injected_vars[gen_id,ts,s] <= imposition_bounds[2], base_name=c_name)
-                @debug @sprintf("impositions constraints [%s,%s,%s] : [%s,%s]",
-                                gen_id, ts, s, imposition_bounds[1], imposition_bounds[2])
             end
         end
     end
