@@ -217,81 +217,9 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                         limitables_list_l,
                         injection_vars=true, limit_vars=true, local_capping_vars=true, global_capping_vars=true,
                         )
-    limitable_power_constraints!(model_container.model,
-                        model_container.limitable_model, limitables_list_l, target_timepoints, scenarios,
-                        firmness, uncertainties_at_ech,
-                        always_link_scenarios=configs.LINK_SCENARIOS_LIMIT)
-    local_capping_constraints!(model_container.model,
-                            model_container.limitable_model, limitables_list_l, target_timepoints, scenarios,
-                            uncertainties_at_ech)
-    global_capping_constraints!(model_container.model,
-                            model_container.limitable_model, limitables_list_l,
-                            target_timepoints, scenarios,
-                            uncertainties_at_ech)
     #distribute market capping and injections done in constraints section
 
-    # add_limitables!(model_container,
-    #                         network, target_timepoints, scenarios,
-    #                         uncertainties_at_ech, firmness,
-    #                         configs.LINK_SCENARIOS_LIMIT)
     add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
-end
-
-function add_limitable!(limitable_model::TSOBilevelTSOLimitableModel, model::AbstractModel,
-                            generator::Networks.Generator,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            inject_uncertainties::InjectionUncertainties,
-                            power_level_firmness::SortedDict{Dates.DateTime, DecisionFirmness},#by ts
-                            always_link_scenarios_limit
-                        )
-    gen_id = Networks.get_id(generator)
-    gen_pmax = Networks.get_p_max(generator)
-    for ts in target_timepoints
-        for s in scenarios
-            p_uncert = get_uncertainties(inject_uncertainties, ts, s)
-            p_enr = min(gen_pmax, p_uncert)
-            p_inj_var = add_p_injected!(limitable_model, model, gen_id, ts, s, p_enr, false)
-            name =  @sprintf("P_capping[%s,%s,%s]", gen_id, ts, s)
-            limitable_model.p_capping[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=p_enr)
-            name =  @sprintf("c_define_e[%s,%s,%s]", gen_id, ts, s)
-            @constraint(model, limitable_model.p_capping[gen_id, ts, s] == p_uncert - p_inj_var, base_name=name)
-        end
-        add_p_limit!(limitable_model, model, gen_id, ts, scenarios, gen_pmax,
-                inject_uncertainties,
-                power_level_firmness[ts],
-                always_link_scenarios_limit)
-    end
-    return limitable_model
-end
-function add_limitables!(model_container::TSOBilevelTSOModelContainer,
-                            network::Networks.Network,
-                            target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String},
-                            uncertainties_at_ech::UncertaintiesAtEch,
-                            firmness::Firmness,
-                            always_link_scenarios_limit=false
-                            )
-    model = model_container.model
-    limitable_model = model_container.limitable_model
-    for generator in Networks.get_generators_of_type(network, Networks.LIMITABLE)
-        gen_id = Networks.get_id(generator)
-        inject_uncertainties = get_uncertainties(uncertainties_at_ech, gen_id)
-        add_limitable!(limitable_model, model,
-                        generator, target_timepoints, scenarios,
-                        inject_uncertainties,
-                        get_power_level_firmness(firmness, gen_id), always_link_scenarios_limit)
-    end
-
-    for ts in target_timepoints
-        for s in scenarios
-            enr_max = compute_prod(uncertainties_at_ech, network, ts, s)
-            name =  @sprintf("P_capping_min[%s,%s]", ts, s)
-            limitable_model.p_global_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
-        end
-    end
-
-    return model_container
 end
 
 
@@ -339,6 +267,23 @@ function add_loss_of_load_distribution_constraint!(tso_model_container::TSOBilev
     return tso_model_container
 end
 
+function distribution_constraint!(model::AbstractModel,
+                                global_vars::SortedDict{Tuple{DateTime,String},VariableRef},
+                                local_vars::SortedDict{Tuple{String,DateTime,String},VariableRef},
+                                local_ids::Vector{String}, target_timepoints, scenarios;
+                                cstr_prefix_name::String="distribute")
+    if !isempty(local_ids)
+        for ts in target_timepoints
+            for s in scenarios
+                vars_sum = sum(local_vars[id_l, ts, s]
+                                for id_l in local_ids)
+                c_name = @sprintf("c_%s[%s,%s]",cstr_prefix_name,ts,s)
+                @constraint(model, global_vars[ts, s] == vars_sum, base_name=c_name)
+            end
+        end
+    end
+end
+
 function add_enr_distribution_constraint!(tso_model_container::TSOBilevelTSOModelContainer,
                                         market_limitable_model::TSOBilevelMarketLimitableModel,
                                         target_timepoints, scenarios, network)
@@ -383,18 +328,44 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             firmness, reference_schedule, generators_initial_state,
                             uncertainties_at_ech::UncertaintiesAtEch,
                             configs::TSOBilevelConfigs)
+    model = bimodel_container.model
     tso_model_container::TSOBilevelTSOModelContainer = bimodel_container.upper
     market_model_container::TSOBilevelMarketModelContainer = bimodel_container.lower
 
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
-    unit_commitment_constraints!(bimodel_container.model,
+    unit_commitment_constraints!(model,
                     tso_model_container.pilotable_model, pilotables_list_l,  target_timepoints, scenarios,
                     firmness, reference_schedule, generators_initial_state,
                     always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_ON)
-    power_imposition_constraints!(tso_model_container.model, tso_model_container.pilotable_model,
+    power_imposition_constraints!(model, tso_model_container.pilotable_model,
                     pilotables_list_l, target_timepoints, scenarios,
                     firmness, reference_schedule;
                     always_link_scenarios=configs.LINK_SCENARIOS_PILOTABLE_LEVEL)
+
+    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    limitables_ids_l = map(lim_gen->Networks.get_id(lim_gen), limitables_list_l)
+    limitable_model = tso_model_container.limitable_model
+    limitable_power_constraints!(model,
+                        limitable_model, limitables_list_l, target_timepoints, scenarios,
+                        firmness, uncertainties_at_ech,
+                        always_link_scenarios=configs.LINK_SCENARIOS_LIMIT)
+    local_capping_constraints!(model,
+                            limitable_model, limitables_list_l, target_timepoints, scenarios,
+                            uncertainties_at_ech)
+    global_capping_constraints!(model,
+                            limitable_model, limitables_list_l,
+                            target_timepoints, scenarios,
+                            uncertainties_at_ech)
+    distribution_constraint!(model,
+                            get_global_capping(market_model_container.limitable_model),
+                            get_local_capping(tso_model_container.limitable_model),
+                            limitables_ids_l, target_timepoints, scenarios,
+                            cstr_prefix_name="distribute_capping")
+    distribution_constraint!(model,
+                            market_model_container.limitable_model.p_injected, #TODO rename to avoid onfusion between localised injections and global ones
+                            get_p_injected(tso_model_container.limitable_model),
+                            limitables_ids_l, target_timepoints, scenarios,
+                            cstr_prefix_name="distribute_enr_injections")
 
     rso_constraints!(bimodel_container.model,
                     tso_model_container.flows,
@@ -408,13 +379,6 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
     add_loss_of_load_distribution_constraint!(tso_model_container,
                                         market_model_container.lol_model,
                                         target_timepoints, scenarios, network)
-    add_enr_distribution_constraint!(tso_model_container,
-                                    market_model_container.limitable_model,
-                                    target_timepoints, scenarios, network)
-    add_capping_distribution_constraint!(tso_model_container,
-                                    market_model_container.limitable_model,
-                                    target_timepoints, scenarios, network)
-    
 
     return bimodel_container
 end
