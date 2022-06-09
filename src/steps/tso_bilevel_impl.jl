@@ -78,7 +78,7 @@ end
 ##########################################################
 @with_kw struct TSOBilevelMarketLimitableModel <: AbstractLimitableModel
     #ts,s #FIXME not sure if this should be a lower or an upper variable
-    p_injected = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_injected = SortedDict{Tuple{DateTime,String},VariableRef}();
     #ts,s
     p_global_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
@@ -268,7 +268,7 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             limitables_ids_l, target_timepoints, scenarios,
                             cstr_prefix_name="tso_distribute_capping")
     distribution_constraint!(model,
-                            market_model_container.limitable_model.p_injected, #TODO rename to avoid onfusion between localised injections and global ones
+                            market_model_container.limitable_model.p_global_injected, #TODO rename to avoid onfusion between localised injections and global ones
                             get_p_injected(tso_model_container.limitable_model),
                             limitables_ids_l, target_timepoints, scenarios,
                             cstr_prefix_name="tso_distribute_enr_injections")
@@ -446,7 +446,7 @@ function add_limitables!(model_container::TSOBilevelMarketModelContainer,
         for s in scenarios
             enr_max = compute_prod(uncertainties_at_ech, network, ts, s)
             name =  @sprintf("P_injected[%s,%s]", ts, s)
-            limitable_model.p_injected[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
+            limitable_model.p_global_injected[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
             name =  @sprintf("P_capping[%s,%s]", ts, s)
             limitable_model.p_global_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
         end
