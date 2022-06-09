@@ -277,8 +277,8 @@ end
 function add_limitables_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
                             limitables_list::Union{Missing,Vector{Networks.Generator}}=missing,
                             reference_market_schedule::Union{Missing,Schedule}=missing;
-                            global_capping_vars::Bool=false, local_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false,
-                            delta_vars::Bool=false,
+                            global_capping_vars::Bool=false, global_injection_vars::Bool=false,
+                            local_capping_vars::Bool=false, injection_vars::Bool=false, limit_vars::Bool=false, delta_vars::Bool=false,
                             prefix::String=""
                             )
     model = get_model(model_container)
@@ -305,12 +305,19 @@ function add_limitables_vars!(model_container::AbstractModelContainer, target_ti
         add_global_capping_vars!(model, limitable_model, target_timepoints, scenarios, prefix)
     end
 
+    if global_injection_vars
+        add_global_injection_vars!(model, limitable_model, target_timepoints, scenarios, prefix)
+    end
+
     if local_capping_vars
         add_local_capping_vars!(model, limitable_model, limitables_list, target_timepoints, scenarios, prefix)
     end
 
 end
 
+function get_global_injection(limitable_model::AbstractLimitableModel)
+    return limitable_model.p_global_injected
+end
 function get_global_capping(limitable_model::AbstractLimitableModel)
     return limitable_model.p_global_capping
 end
@@ -324,6 +331,16 @@ function add_global_capping_vars!(model::AbstractModel, limitable_model::Abstrac
         for s in scenarios
             name =  @sprintf("%sP_global_capping[%s,%s]", prefix, ts, s)
             get_global_capping(limitable_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
+        end
+    end
+end
+
+function add_global_injection_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios,
+                                prefix::String)
+    for ts in target_timepoints
+        for s in scenarios
+            name =  @sprintf("%sP_global_injected[%s,%s]", prefix, ts, s)
+            get_global_injection(limitable_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
         end
     end
 end
@@ -349,7 +366,7 @@ function sum_capping(limitable_model::AbstractLimitableModel, ts, s, ::Networks.
 end
 
 function global_capping_constraints!(model::AbstractModel,
-                                    limitable_model::AbstractLimitableModel, limitables_list_l,
+                                    limitable_model::AbstractLimitableModel, limitables_list,
                                     target_timepoints, scenarios,
                                     uncertainties_at_ech::UncertaintiesAtEch;
                                     min_cap::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}(),
@@ -358,11 +375,11 @@ function global_capping_constraints!(model::AbstractModel,
     global_capping_vars = get_global_capping(limitable_model)
     for ts in target_timepoints
         for s in scenarios
-            prod_capacity = compute_prod(uncertainties_at_ech, limitables_list_l, ts, s)
+            prod_capacity = compute_prod(uncertainties_at_ech, limitables_list, ts, s)
             c_name = @sprintf("%sc_max_global_capped[%s,%s]",prefix,ts,s)
             @constraint(model, global_capping_vars[ts, s] <= prod_capacity , base_name = c_name)
 
-            limitations_capped = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), limitables_list_l, ts, s)
+            limitations_capped = compute_capped(uncertainties_at_ech, get_limitations(tso_actions), limitables_list, ts, s)
             c_name = @sprintf("%sc_global_capped_by_limitations[%s,%s]",prefix,ts,s)
             @constraint(model, global_capping_vars[ts, s] >= limitations_capped , base_name = c_name)
 
@@ -370,6 +387,21 @@ function global_capping_constraints!(model::AbstractModel,
                 c_name = @sprintf("%sc_min_global_capping[%s,%s]",prefix,ts,s)
                 @constraint(model, global_capping_vars[ts, s] >= min_cap[ts,s] , base_name = c_name)
             end
+        end
+    end
+end
+
+function global_injected_constraints!(model::AbstractModel,
+                                    limitable_model::AbstractLimitableModel, limitables_list,
+                                    target_timepoints, scenarios,
+                                    uncertainties_at_ech::UncertaintiesAtEch;
+                                    prefix::String="")
+    global_injected_vars = get_global_injection(limitable_model)
+    for ts in target_timepoints
+        for s in scenarios
+            prod_capacity = compute_prod(uncertainties_at_ech, limitables_list, ts, s)
+            c_name = @sprintf("%sc_max_global_limitables_injection[%s,%s]",prefix,ts,s)
+            @constraint(model, global_injected_vars[ts, s] <= prod_capacity , base_name = c_name)
         end
     end
 end
