@@ -208,13 +208,32 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             firmness::Firmness,
                             configs::TSOBilevelConfigs)
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
+    limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
     add_pilotables_vars!(model_container,
                         pilotables_list_l, target_timepoints, scenarios,
                         imposition_vars=true, commitment_vars=true)
-    add_limitables!(model_container,
-                            network, target_timepoints, scenarios,
-                            uncertainties_at_ech, firmness,
-                            configs.LINK_SCENARIOS_LIMIT)
+    add_limitables_vars!(model_container,
+                        target_timepoints, scenarios,
+                        limitables_list_l,
+                        injection_vars=true, limit_vars=true, local_capping_vars=true, global_capping_vars=true,
+                        )
+    limitable_power_constraints!(model_container.model,
+                        model_container.limitable_model, limitables_list_l, target_timepoints, scenarios,
+                        firmness, uncertainties_at_ech,
+                        always_link_scenarios=configs.LINK_SCENARIOS_LIMIT)
+    local_capping_constraints!(model_container.model,
+                            model_container.limitable_model, limitables_list_l, target_timepoints, scenarios,
+                            uncertainties_at_ech)
+    global_capping_constraints!(model_container.model,
+                            model_container.limitable_model, limitables_list_l,
+                            target_timepoints, scenarios,
+                            uncertainties_at_ech)
+    #distribute market capping and injections done in constraints section
+
+    # add_limitables!(model_container,
+    #                         network, target_timepoints, scenarios,
+    #                         uncertainties_at_ech, firmness,
+    #                         configs.LINK_SCENARIOS_LIMIT)
     add_slacks!(model_container, network, target_timepoints, scenarios, uncertainties_at_ech)
 end
 
@@ -358,83 +377,6 @@ function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSO
     return tso_model_container
 end
 
-
-function power_imposition_constraints!(model::AbstractModel, pilotable_model::TSOBilevelTSOPilotableModel,
-                                        pilotables_list, target_timepoints, scenarios,
-                                        firmness::Firmness,
-                                        reference_schedule::Schedule;
-                                        always_link_scenarios::Bool=false)
-    b_on_vars = get_b_on(pilotable_model)
-    p_imposition_min = get_p_imposition_min(pilotable_model)
-    p_imposition_max = get_p_imposition_max(pilotable_model)
-
-    for generator in pilotables_list
-
-        gen_id = Networks.get_id(generator)
-        p_max = Networks.get_p_max(generator)
-        p_min = Networks.get_p_min(generator)
-        gen_power_firmness = get_power_level_firmness(firmness, gen_id)
-        gen_commitment_firmness = get_commitment_firmness(firmness, gen_id)
-        gen_schedule = get_sub_schedule(reference_schedule, gen_id)
-
-        # Bounds
-        for s in scenarios
-            for ts in target_timepoints
-                c_name = @sprintf("c_ub_p_imposition_min[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_max, base_name=c_name);
-                c_name = @sprintf("c_ub_p_imposition_max[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max, base_name=c_name);
-                c_name = @sprintf("c_imposition_min_less_max[%s,%s,%s]",gen_id,ts,s)
-                @constraint(model, p_imposition_min[gen_id, ts, s] <= p_imposition_max[gen_id, ts, s], base_name=c_name);
-            end
-        end
-
-        # Firmness
-        add_scenarios_linking_constraints!(model, generator,
-                                    p_imposition_min,
-                                    target_timepoints, scenarios,
-                                    gen_power_firmness,
-                                    always_link_scenarios
-                                    )
-        add_scenarios_linking_constraints!(model, generator,
-                                    p_imposition_max,
-                                    target_timepoints, scenarios,
-                                    gen_power_firmness,
-                                    always_link_scenarios
-                                    )
-
-        # Sequencing
-        add_power_level_decided_constraints!(model,
-                                    generator,
-                                    p_imposition_min,
-                                    target_timepoints, scenarios,
-                                    gen_commitment_firmness, gen_power_firmness,
-                                    gen_schedule,
-                                    cstr_prefix_name="decided_p_min"
-                                    )
-        add_power_level_decided_constraints!(model,
-                                    generator,
-                                    p_imposition_max,
-                                    target_timepoints, scenarios,
-                                    gen_commitment_firmness, gen_power_firmness,
-                                    gen_schedule,
-                                    cstr_prefix_name="decided_p_max"
-                                    )
-
-        # commitment-imposition linking
-        if Networks.needs_commitment(generator)
-            for s in scenarios
-                for ts in target_timepoints
-                    # pmin B_on < P_tso_min < P_tso_max < pmax B_on
-                    c_name = @sprintf("c_p_imposition_min_commitment[%s,%s,%s]",gen_id,ts,s)
-                    @constraint(model, p_min * b_on_vars[gen_id, ts, s] <= p_imposition_min[gen_id, ts, s], base_name=c_name);
-                    c_name = @sprintf("c_p_imposition_max_commitment[%s,%s,%s]",gen_id,ts,s)
-                    @constraint(model, p_imposition_max[gen_id, ts, s] <= p_max * b_on_vars[gen_id, ts, s], base_name=c_name)
-                end
-            end
-        end
-    end
-end
 
 function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             target_timepoints, scenarios, network,
