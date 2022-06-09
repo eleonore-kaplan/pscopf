@@ -122,10 +122,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S2"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S2"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         # no limitations : Limitations are by scenario : p_limit can be different for scenario 1 and 2
@@ -172,10 +172,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S2"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S2"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         # Limitations are by scenario
@@ -290,10 +290,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK, but there would be a disbalance in S2 due to RSO action
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        @test 15. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S2"])
+        @test 15. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S2"])
         @test 15. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"])
 
         # need to limit in S2
@@ -349,10 +349,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are disbalanced due to TSO limiting
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        @test 15. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S2"])
+        @test 15. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S2"])
         @test 15. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"])
 
         # Limitations are by scenario
@@ -470,10 +470,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are OK, but there would be a disbalance in S2 due to RSO action
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        @test 20. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S2"])
+        @test 20. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S2"])
         @test 20. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"])
 
         # need to limit in S2
@@ -559,10 +559,10 @@ using Printf
         @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S2"]) < 1e-09
 
         #Market EOD constraints are disbalanced due to TSO limiting
-        @test 15. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
+        @test 15. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S1"])
         @test 15. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
-        @test 20. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S2"])
+        @test 20. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S2"])
         @test 20. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S2"])
 
         # Limitations are common to both scenarios

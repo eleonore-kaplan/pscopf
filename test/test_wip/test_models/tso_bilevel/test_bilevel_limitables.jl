@@ -100,7 +100,7 @@ using Printf
         @test value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #costs
@@ -177,7 +177,7 @@ using Printf
 
         #Market :
         #Market caps ENR for EOD reasons
-        @test 60. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
+        @test 60. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S1"])
         @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) <= 1e-09
 
         #costs
@@ -251,7 +251,7 @@ using Printf
 
         #Market :
         #Market cuts conso for EOD reasons
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
         @test 90. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO distributes the cut conso (arbitrarily) while assuring RSO constraint
@@ -346,7 +346,7 @@ using Printf
 
         #Market :
         #Market only cuts as required since EOD is OK
-        @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
+        @test 5. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S1"])
         @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO decides the distribution :
@@ -404,7 +404,7 @@ using Printf
 
         #Market :
         #Market only cuts as required since EOD is OK
-        @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
+        @test 5. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S1"])
         @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO decides the distribution :

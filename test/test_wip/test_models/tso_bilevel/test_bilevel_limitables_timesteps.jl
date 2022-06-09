@@ -89,7 +89,7 @@ using Printf
             @test value(result.upper.limitable_model.b_is_limited["wind_1_1",TS[1],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
-            @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
+            @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
             @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         end
@@ -155,7 +155,7 @@ using Printf
             @test value(result.upper.lol_model.p_global_loss_of_load[TS[2],"S1"]) < 1e-09
 
             #Market EOD constraints are OK
-            @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.limitable_model.p_global_capping[TS[2],"S1"]) < 1e-09
             @test value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"]) < 1e-09
 
             # no limitation
@@ -247,7 +247,7 @@ using Printf
             @test 20. ≈ ( value(result.upper.limitable_model.p_capping["wind_1_1",TS[2],"S1"]))
 
             # EOD problem in TS2 : lots of prod
-            @test 20. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
+            @test 20. ≈ value(result.lower.limitable_model.p_global_capping[TS[2],"S1"])
             @test value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"]) < 1e-09
 
             #costs
@@ -325,7 +325,7 @@ using Printf
             @test value(result.upper.limitable_model.p_capping["wind_1_1",TS[2],"S1"]) < 1e-09
 
             # EOD problem in TS2 : lot of conso
-            @test value(result.lower.limitable_model.p_capping[TS[2],"S1"]) < 1e-09
+            @test value(result.lower.limitable_model.p_global_capping[TS[2],"S1"]) < 1e-09
             @test 20. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
@@ -420,7 +420,7 @@ using Printf
             @test 5. ≈ value(result.upper.limitable_model.p_capping["wind_1_1",TS[2],"S1"])
 
             # EOD problem in TS2 due to TSO action solved by cutting conso
-            @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
+            @test 5. ≈ value(result.lower.limitable_model.p_global_capping[TS[2],"S1"])
             @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
             #TSO distributes the cut conso assuring RSO
@@ -526,7 +526,7 @@ using Printf
         @test 10. ≈ value(result.upper.limitable_model.p_capping["wind_1_1",TS[1],"S1"])
 
         # EOD problem in TS1 due to TSO action solved by cutting conso
-        @test 10. ≈ value(result.lower.limitable_model.p_capping[TS[1],"S1"])
+        @test 10. ≈ value(result.lower.limitable_model.p_global_capping[TS[1],"S1"])
         @test 10. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"])
 
         #TSO distributes the cut conso assuring RSO
@@ -545,7 +545,7 @@ using Printf
         @test 5. ≈ value(result.upper.limitable_model.p_capping["wind_1_1",TS[2],"S1"])
 
         # EOD problem in TS2 due to TSO action solved by cutting conso
-        @test 5. ≈ value(result.lower.limitable_model.p_capping[TS[2],"S1"])
+        @test 5. ≈ value(result.lower.limitable_model.p_global_capping[TS[2],"S1"])
         @test 5. ≈ value(result.lower.lol_model.p_global_loss_of_load[TS[2],"S1"])
 
         #TSO distributes the cut conso assuring RSO

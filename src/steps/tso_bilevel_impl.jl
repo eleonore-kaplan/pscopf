@@ -80,7 +80,7 @@ end
     #ts,s #FIXME not sure if this should be a lower or an upper variable
     p_injected = SortedDict{Tuple{DateTime,String},VariableRef}();
     #ts,s
-    p_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
+    p_global_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
 @with_kw struct TSOBilevelMarketPilotableModel <: AbstractPilotableModel
@@ -315,7 +315,7 @@ function add_capping_distribution_constraint!(tso_model_container::TSOBilevelTSO
                 name = @sprintf("c_dist_e[%s,%s]",ts,s)
                 vars_sum = sum(tso_limitable_model.p_capping[gen_id, ts, s]
                                 for gen_id in limitables_ids)
-                @constraint(tso_model, market_limitable_model.p_capping[ts, s] == vars_sum, base_name=name)
+                @constraint(tso_model, market_limitable_model.p_global_capping[ts, s] == vars_sum, base_name=name)
             end
         end
     end
@@ -524,7 +524,7 @@ function add_limitables!(model_container::TSOBilevelMarketModelContainer,
             name =  @sprintf("P_injected[%s,%s]", ts, s)
             limitable_model.p_injected[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
             name =  @sprintf("P_capping[%s,%s]", ts, s)
-            limitable_model.p_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
+            limitable_model.p_global_capping[ts, s] = @variable(model, base_name=name, lower_bound=0., upper_bound=enr_max)
         end
     end
     return model_container
@@ -641,7 +641,7 @@ function add_link_capping_constraint!(market_model_container::TSOBilevelMarketMo
         for s in scenarios
             name = @sprintf("c_min_e[%s,%s]",ts,s)
             @constraint(market_model,
-                        tso_limitable_model.p_global_capping[ts,s] <= market_limitable_model.p_capping[ts,s],
+                        tso_limitable_model.p_global_capping[ts,s] <= market_limitable_model.p_global_capping[ts,s],
                         base_name=name)
 
             #create duals and indicators relative to TSO min capping constraint
@@ -764,7 +764,7 @@ function create_market_objectives!(model_container::TSOBilevelMarketModelContain
                             model_container.pilotable_model.p_injected, network)
 
     # limitable_cost : capping (fr. ecretement)
-    objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_capping, capping_cost)
+    objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_global_capping, capping_cost)
 
     # cost for cutting load/consumption
     objective_model.penalty += coeffxsum(model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
@@ -832,7 +832,7 @@ function add_capping_stationarity_constraints!(kkt_model::TSOBilevelKKTModelCont
     for ts in target_timepoints
         for s in scenarios
             # @assert ( capping_cost ≈ coefficient(market_model.objective_model.full_obj,
-            #                                                 market_model.limitable_model.p_capping[ts,s]) )
+            #                                                 market_model.limitable_model.p_global_capping[ts,s]) )
             name = @sprintf("c_stationarity_e[%s,%s]",ts,s)
             @constraint(kkt_model.model,
                         capping_cost - kkt_model.eod_duals[ts,s] - kkt_model.capping_duals[ts,s] == 0,
@@ -897,7 +897,7 @@ function add_emin_complementarity_constraints!(model_container::TSOBilevelModel,
     for ts in target_timepoints
         for s in scenarios
             kkt_var = kkt_model.capping_duals[ts,s]
-            cstr_expr = market_limitable_model.p_capping[ts,s] - tso_limitable_model.p_global_capping[ts,s]
+            cstr_expr = market_limitable_model.p_global_capping[ts,s] - tso_limitable_model.p_global_capping[ts,s]
             b_indicator = kkt_model.capping_indicators[ts,s]
             ub_cstr = compute_ub(cstr_expr, big_m)
             formulate_complementarity_constraints!(kkt_model.model, kkt_var, cstr_expr, b_indicator, big_m, ub_cstr)
