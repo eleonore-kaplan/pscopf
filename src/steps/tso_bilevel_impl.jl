@@ -469,27 +469,20 @@ function add_eod_constraints_duals!(kkt_model_container::TSOBilevelKKTModelConta
     end
 end
 
-function add_link_capping_constraint!(market_model_container::TSOBilevelMarketModelContainer,
-                                        kkt_model_container::TSOBilevelKKTModelContainer,
-                                    tso_limitable_model::TSOBilevelTSOLimitableModel,
-                                    target_timepoints, scenarios, network)
-    market_model = market_model_container.model
-    market_limitable_model = market_model_container.limitable_model
+
+function add_min_global_capping_duals!(kkt_model_container::TSOBilevelKKTModelContainer,
+                                    target_timepoints, scenarios)
     for ts in target_timepoints
         for s in scenarios
-            name = @sprintf("c_min_e[%s,%s]",ts,s)
-            @constraint(market_model,
-                        tso_limitable_model.p_global_capping[ts,s] <= market_limitable_model.p_global_capping[ts,s],
-                        base_name=name)
-
             #create duals and indicators relative to TSO min capping constraint
+            name = @sprintf("c_min_e[%s,%s]",ts,s)
             add_dual_and_indicator!(kkt_model_container.model,
                                     kkt_model_container.capping_duals, kkt_model_container.capping_indicators, (ts,s),
                                     name, true)
         end
     end
-    return market_model_container
 end
+
 
 function add_min_global_lol_duals!(market_model_container::TSOBilevelMarketModelContainer,
                                 kkt_model_container::TSOBilevelKKTModelContainer,
@@ -542,6 +535,7 @@ function add_pilotable_pmax_duals!(kkt_model_container::TSOBilevelKKTModelContai
     return kkt_model_container
 end
 
+
 function add_market_constraints!(bimodel_container::TSOBilevelModel,
                             target_timepoints, scenarios, network,
                             firmness, #reference_schedule, generators_initial_state,
@@ -580,6 +574,8 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
                             uncertainties_at_ech,
                             min_cap=get_global_capping(tso_model_container.limitable_model)
                             )
+    add_min_global_capping_duals!(kkt_model_container,
+                            target_timepoints, scenarios)
     global_injected_constraints!(model,
                             market_model_container.limitable_model,
                             limitables_list_l, target_timepoints, scenarios,
@@ -603,10 +599,6 @@ function add_market_constraints!(bimodel_container::TSOBilevelModel,
                     uncertainties_at_ech, network
                     )
     add_eod_constraints_duals!(kkt_model_container, target_timepoints, scenarios)
-
-    add_link_capping_constraint!(market_model_container, kkt_model_container,
-                                tso_model_container.limitable_model,
-                                target_timepoints, scenarios, network)
 
     return bimodel_container
 end
@@ -636,29 +628,6 @@ end
 ##########################################################
 #        kkt reformulation : TSOBilevelKKTModelContainer
 ##########################################################
-
-function add_dual_and_indicator!(kkt_model::Model, duals_dict, indicators_dict,
-                                key, name,
-                                is_positive::Bool)
-
-    add_dual!(kkt_model, duals_dict, key, name, is_positive)
-
-    indicators_dict[key] = @variable(kkt_model, binary=true, base_name="indicator_"*name)
-
-    return duals_dict[key] , indicators_dict[key]
-end
-
-function add_dual!(kkt_model::Model, duals_dict,
-                    key, name,
-                    is_positive::Bool)
-    if is_positive
-        duals_dict[key] = @variable(kkt_model, lower_bound=0., base_name="dual_"*name)
-    else
-        duals_dict[key] = @variable(kkt_model, base_name="dual_"*name)
-    end
-
-    return duals_dict[key]
-end
 
 function add_kkt_stationarity_constraints!(kkt_model::TSOBilevelKKTModelContainer,
                                             target_timepoints, scenarios, network,
@@ -745,6 +714,9 @@ function add_kkt_complementarity_constraints!(model_container::TSOBilevelModel,
     add_pmax_complementarity_constraints!(model_container, big_m, target_timepoints, scenarios, network)
 end
 
+"""
+    complementarity constraint linked to @ref PSCOPF.global_capping_constraints!
+"""
 function add_emin_complementarity_constraints!(model_container::TSOBilevelModel,
                                             big_m, target_timepoints, scenarios)
     tso_limitable_model = model_container.upper.limitable_model
@@ -763,6 +735,9 @@ function add_emin_complementarity_constraints!(model_container::TSOBilevelModel,
     return model_container
 end
 
+"""
+    complementarity constraint linked to @ref PSCOPF.global_lol_constraints!
+"""
 function add_lolmin_complementarity_constraints!(model_container::TSOBilevelModel,
                                                 big_m, target_timepoints, scenarios)
     tso_lol_model = model_container.upper.lol_model
@@ -781,6 +756,9 @@ function add_lolmin_complementarity_constraints!(model_container::TSOBilevelMode
     return model_container
 end
 
+"""
+    complementarity constraint linked to the p_min part of @ref PSCOPF.respect_impositions_constraints!
+"""
 function add_pmin_complementarity_constraints!(model_container::TSOBilevelModel,
                                                 big_m, target_timepoints, scenarios, network)
     tso_pilotable_model = model_container.upper.pilotable_model
@@ -803,6 +781,9 @@ function add_pmin_complementarity_constraints!(model_container::TSOBilevelModel,
     return model_container
 end
 
+"""
+    complementarity constraint linked to the p_max part of @ref PSCOPF.respect_impositions_constraints!
+"""
 function add_pmax_complementarity_constraints!(model_container::TSOBilevelModel,
                                                 big_m, target_timepoints, scenarios, network)
     tso_pilotable_model = model_container.upper.pilotable_model

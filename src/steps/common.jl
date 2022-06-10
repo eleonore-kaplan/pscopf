@@ -162,22 +162,6 @@ function has_injections(generator_model::AbstractGeneratorModel)
     return hasproperty(generator_model, :p_injected)
 end
 
-function add_unit_commitment_vars!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
-                                    pilotables_list, target_timepoints, scenarios,
-                                    prefix::String)
-    for gen in pilotables_list
-        if Networks.needs_commitment(gen)
-            gen_id = Networks.get_id(gen)
-            for ts in target_timepoints
-                for s in scenarios
-                    add_b_on_start!(pilotable_model, model,
-                                    gen_id, ts, s, prefix)
-                end
-            end
-        end
-    end
-end
-
 function add_injection_vars!(model::AbstractModel, generator_model::AbstractGeneratorModel,
                             generators_list::Vector{Networks.Generator}, target_timepoints, scenarios,
                             prefix::String)
@@ -575,6 +559,23 @@ end
 # AbstractPilotableModel
 ############################
 
+function get_b_on(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.b_on
+end
+
+function get_b_start(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.b_start
+end
+
+function get_p_imposition_min(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.p_imposition_min
+end
+
+function get_p_imposition_max(pilotable_model::AbstractPilotableModel)
+    return pilotable_model.p_imposition_max
+end
+
+
 function add_pilotables_vars!(model_container::AbstractModelContainer,
                             pilotables_list, target_timepoints, scenarios,
                             reference_market_schedule::Union{Schedule,Missing}=missing;
@@ -608,11 +609,21 @@ function add_pilotables_vars!(model_container::AbstractModelContainer,
     end
 end
 
-function get_p_imposition_min(pilotable_model::AbstractPilotableModel)
-    return pilotable_model.p_imposition_min
-end
-function get_p_imposition_max(pilotable_model::AbstractPilotableModel)
-    return pilotable_model.p_imposition_max
+
+function add_unit_commitment_vars!(model::AbstractModel, pilotable_model::AbstractPilotableModel,
+                                    pilotables_list, target_timepoints, scenarios,
+                                    prefix::String)
+    for gen in pilotables_list
+        if Networks.needs_commitment(gen)
+            gen_id = Networks.get_id(gen)
+            for ts in target_timepoints
+                for s in scenarios
+                    add_b_on_start!(pilotable_model, model,
+                                    gen_id, ts, s, prefix)
+                end
+            end
+        end
+    end
 end
 
 function add_imposition_vars(model::AbstractModel, pilotable_model::AbstractPilotableModel,
@@ -632,13 +643,6 @@ function add_imposition_vars(model::AbstractModel, pilotable_model::AbstractPilo
             end
         end
     end
-end
-
-function get_b_on(pilotable_model::AbstractPilotableModel)
-    return pilotable_model.b_on
-end
-function get_b_start(pilotable_model::AbstractPilotableModel)
-    return pilotable_model.b_start
 end
 
 function add_b_on_start!(pilotable_model::AbstractPilotableModel, model::AbstractModel,
@@ -723,6 +727,7 @@ function pilotable_power_constraints!(model::AbstractModel,
                         )
     end
 end
+
 
 function unit_commitment_constraints!(model::AbstractModel,
                                 pilotable_model::AbstractPilotableModel, pilotables_list_l,  target_timepoints, scenarios,
@@ -924,6 +929,106 @@ function power_imposition_constraints!(model::AbstractModel, pilotable_model::Ab
 end
 
 
+# AbstractLoLModel
+############################
+
+function get_global_lol(lol_model::AbstractLoLModel)
+    return lol_model.p_global_loss_of_load
+end
+
+function get_local_lol(lol_model::AbstractLoLModel)
+    return lol_model.p_loss_of_load
+end
+
+function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: AbstractVariableRef
+    return any(e -> value(e[2]) > 1e-09, dict_vars)
+    #e.g. 1e-15 is supposed to be 0.
+end
+
+function add_lol_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
+                    buses_list::Union{Missing,Vector{Networks.Bus}}=missing;
+                    global_lol_vars::Bool=false, local_lol_vars::Bool=false,
+                    prefix::String="")
+    model = get_model(model_container)
+    lol_model = model_container.lol_model
+
+    if global_lol_vars
+        add_global_lol_vars!(model, lol_model, target_timepoints, scenarios, prefix)
+    end
+
+    if local_lol_vars
+        add_local_lol_vars!(model, lol_model, buses_list, target_timepoints, scenarios, prefix)
+    end
+end
+
+
+function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            target_timepoints, scenarios,
+                            prefix::String="")
+    for ts in target_timepoints
+        for s in scenarios
+            name =  @sprintf("%sP_global_lol[%s,%s]", prefix, ts, s)
+            get_global_lol(lol_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
+        end
+    end
+end
+
+function sum_lol(lol_model::AbstractLoLModel, ts, s, network=nothing)
+    return get_global_lol(lol_model)[ts,s]
+end
+
+function global_lol_constraints!(model::AbstractModel,
+                            lol_model::AbstractLoLModel, buses_list, target_timepoints, scenarios,
+                            uncertainties_at_ech::UncertaintiesAtEch;
+                            min_lol::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}(),
+                            prefix::String="") where V <: Union{AbstractVariableRef,Float64}
+    global_lol_vars = get_global_lol(lol_model)
+    for ts in target_timepoints
+        for s in scenarios
+            max_load = compute_load(uncertainties_at_ech, buses_list, ts, s)
+            c_name = @sprintf("%sc_ub_global_lol[%s,%s]",prefix,ts,s)
+            @constraint(model, global_lol_vars[ts, s] <= max_load , base_name = c_name)
+
+            if haskey(min_lol, (ts,s))
+                c_name = @sprintf("%sc_min_global_lol[%s,%s]",prefix,ts,s)
+                @constraint(model, global_lol_vars[ts, s] >= min_lol[ts,s] , base_name = c_name)
+            end
+        end
+    end
+end
+
+
+function add_local_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            buses_list::Vector{Networks.Bus}, target_timepoints, scenarios,
+                            prefix::String="")
+    for bus in buses_list
+        bus_id = Networks.get_id(bus)
+        for ts in target_timepoints
+            for s in scenarios
+                name =  @sprintf("%sP_local_lol[%s,%s,%s]", prefix, bus_id, ts, s)
+                get_local_lol(lol_model)[bus_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
+            end
+        end
+    end
+end
+
+function local_lol_constraints!(model::AbstractModel, lol_model::AbstractLoLModel,
+                            buses_list, target_timepoints, scenarios, uncertainties_at_ech;
+                            prefix::String="")
+    local_lol_vars = get_local_lol(lol_model)
+    for bus in buses_list
+        bus_id = Networks.get_id(bus)
+        for ts in target_timepoints
+            for s in scenarios
+                bus_load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
+                c_name = @sprintf("%sc_ub_local_lol[%s,%s,%s]",prefix,bus_id,ts,s)
+                @constraint(model, local_lol_vars[bus_id, ts, s] <= bus_load , base_name = c_name)
+            end
+        end
+    end
+end
+
+
 # Objective
 ##################
 
@@ -962,103 +1067,6 @@ function add_coeffxsum_cost!(obj_component::AffExpr,
     end
 
     return obj_component
-end
-
-
-# AbstractLoLModel
-############################
-function add_lol_vars!(model_container::AbstractModelContainer, target_timepoints, scenarios,
-                    buses_list::Union{Missing,Vector{Networks.Bus}}=missing;
-                    global_lol_vars::Bool=false, local_lol_vars::Bool=false,
-                    prefix::String="")
-    model = get_model(model_container)
-    lol_model = model_container.lol_model
-
-    if global_lol_vars
-        add_global_lol_vars!(model, lol_model, target_timepoints, scenarios, prefix)
-    end
-
-    if local_lol_vars
-        add_local_lol_vars!(model, lol_model, buses_list, target_timepoints, scenarios, prefix)
-    end
-end
-
-function get_global_lol(lol_model::AbstractLoLModel)
-    return lol_model.p_global_loss_of_load
-end
-
-function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
-                            target_timepoints, scenarios,
-                            prefix::String="")
-    for ts in target_timepoints
-        for s in scenarios
-            name =  @sprintf("%sP_global_lol[%s,%s]", prefix, ts, s)
-            get_global_lol(lol_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
-        end
-    end
-end
-
-function sum_lol(lol_model::AbstractLoLModel, ts, s, network=nothing)
-    return get_global_lol(lol_model)[ts,s]
-end
-
-function global_lol_constraints!(model::AbstractModel,
-                            lol_model::AbstractLoLModel, buses_list, target_timepoints, scenarios,
-                            uncertainties_at_ech::UncertaintiesAtEch;
-                            min_lol::SortedDict{Tuple{DateTime,String},V}=SortedDict{Tuple{DateTime,String},Float64}(),
-                            prefix::String="") where V <: Union{AbstractVariableRef,Float64}
-    global_lol_vars = get_global_lol(lol_model)
-    for ts in target_timepoints
-        for s in scenarios
-            max_load = compute_load(uncertainties_at_ech, buses_list, ts, s)
-            c_name = @sprintf("%sc_ub_global_lol[%s,%s]",prefix,ts,s)
-            @constraint(model, global_lol_vars[ts, s] <= max_load , base_name = c_name)
-
-            if haskey(min_lol, (ts,s))
-                c_name = @sprintf("%sc_min_global_lol[%s,%s]",prefix,ts,s)
-                @constraint(model, global_lol_vars[ts, s] >= min_lol[ts,s] , base_name = c_name)
-            end
-        end
-    end
-end
-
-function get_local_lol(lol_model::AbstractLoLModel)
-    return lol_model.p_loss_of_load
-end
-
-function add_local_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
-                            buses_list::Vector{Networks.Bus}, target_timepoints, scenarios,
-                            prefix::String="")
-    for bus in buses_list
-        bus_id = Networks.get_id(bus)
-        for ts in target_timepoints
-            for s in scenarios
-                name =  @sprintf("%sP_local_lol[%s,%s,%s]", prefix, bus_id, ts, s)
-                get_local_lol(lol_model)[bus_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
-            end
-        end
-    end
-end
-
-function local_lol_constraints!(model::AbstractModel, lol_model::AbstractLoLModel,
-                            buses_list, target_timepoints, scenarios, uncertainties_at_ech;
-                            prefix::String="")
-    local_lol_vars = get_local_lol(lol_model)
-    for bus in buses_list
-        bus_id = Networks.get_id(bus)
-        for ts in target_timepoints
-            for s in scenarios
-                bus_load = get_uncertainties(uncertainties_at_ech, bus_id, ts, s)
-                c_name = @sprintf("%sc_ub_local_lol[%s,%s,%s]",prefix,bus_id,ts,s)
-                @constraint(model, local_lol_vars[bus_id, ts, s] <= bus_load , base_name = c_name)
-            end
-        end
-    end
-end
-
-function has_positive_value(dict_vars::AbstractDict{T,V}) where T where V <: AbstractVariableRef
-    return any(e -> value(e[2]) > 1e-09, dict_vars)
-    #e.g. 1e-15 is supposed to be 0.
 end
 
 
@@ -1319,6 +1327,29 @@ function add_prod_expr_x_b!(model::AbstractModel,
     @constraint(model, M*(1-var_binary) + var_expra_x_b >= expr_a, base_name=c_name)
 
     return var_expra_x_b
+end
+
+function add_dual_and_indicator!(kkt_model::Model, duals_dict, indicators_dict,
+                                key, name,
+                                is_positive::Bool)
+
+    add_dual!(kkt_model, duals_dict, key, name, is_positive)
+
+    indicators_dict[key] = @variable(kkt_model, binary=true, base_name="indicator_"*name)
+
+    return duals_dict[key] , indicators_dict[key]
+end
+
+function add_dual!(kkt_model::Model, duals_dict,
+                    key, name,
+                    is_positive::Bool)
+    if is_positive
+        duals_dict[key] = @variable(kkt_model, lower_bound=0., base_name="dual_"*name)
+    else
+        duals_dict[key] = @variable(kkt_model, base_name="dual_"*name)
+    end
+
+    return duals_dict[key]
 end
 
 function formulate_complementarity_constraints!(model::Model,
