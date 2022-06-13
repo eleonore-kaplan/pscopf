@@ -19,8 +19,8 @@ using Dates
         @test length(network.branches) == 1
         @test length(network.generators) == 4
 
-        @test network.generators["alta"].type == PSCOPF.Networks.IMPOSABLE
-        @test network.generators["park_city"].type == PSCOPF.Networks.IMPOSABLE
+        @test network.generators["alta"].type == PSCOPF.Networks.PILOTABLE
+        @test network.generators["park_city"].type == PSCOPF.Networks.PILOTABLE
         @test network.generators["wind_1"].type == PSCOPF.Networks.LIMITABLE
         @test network.generators["wind_2"].type == PSCOPF.Networks.LIMITABLE
 
