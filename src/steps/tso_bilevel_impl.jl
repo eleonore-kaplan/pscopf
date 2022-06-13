@@ -472,8 +472,10 @@ function add_rso_constraints!(model_container::TSOBilevelModel,
                     flow_l += ptdf * tso_model_container.slack_model.p_cut_conso[bus_id, ts, s]
                 end
 
-                name = @sprintf("c_RSO[%s,%s,%s]",branch_id,ts,s)
-                @constraint(tso_model, -flow_limit_l <= flow_l <= flow_limit_l, base_name=name)
+                name = @sprintf("c_RSO_left[%s,%s,%s]",branch_id,ts,s)
+                @constraint(tso_model, -flow_limit_l <= flow_l, base_name=name)
+                name = @sprintf("c_RSO_right[%s,%s,%s]",branch_id,ts,s)
+                @constraint(tso_model, flow_l <= flow_limit_l, base_name=name)
 
             end
         end
@@ -811,7 +813,7 @@ function add_firmness_duals(kkt_model_container::TSOBilevelKKTModelContainer,
         gen_id = Networks.get_id(gen_imposable)
         for ts in target_timepoints
             decision_firmness_l = get_power_level_firmness(firmness, gen_id, ts)
-            for s in scenarios
+            for s in scenarios[2:end] #no need for duals for the reference scenario
                 name = @sprintf("c_firmness[%s,%s,%s]",gen_id,ts,s)
 
                 if requires_linking(decision_firmness_l, link_scenarios_imposable_level_market)
