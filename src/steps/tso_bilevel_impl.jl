@@ -167,6 +167,12 @@ function BilevelModelContainer{TSOBilevelTSOModelContainer,TSOBilevelMarketModel
     return BilevelModelContainer(bilevel_model, upper, lower, kkt_model)
 end
 
+"""
+Computes the actual capping in the Limitable model
+
+    The global capping of the upper limitable model can be lower than the actual capping
+    The actual capping is given by the localised capping in the upper problem or the global capping in the lower problem
+"""
 function sum_capping(limitable_model::TSOBilevelTSOLimitableModel, ts,s, network::Networks.Network)
     sum_l = 0.
     for gen in Networks.get_generators_of_type(network, Networks.LIMITABLE)
@@ -176,6 +182,12 @@ function sum_capping(limitable_model::TSOBilevelTSOLimitableModel, ts,s, network
     return sum_l
 end
 
+"""
+Computes the actual loss of load (LoL) in the LoL model
+
+    The global LoL of the upper limitable model can be lower than the actual LoL
+    The actual LoL is given by the localised LoL in the upper problem or the global LoL in the lower problem
+"""
 function sum_lol(lol_model::TSOBilevelTSOLoLModel, ts, s, network::Networks.Network)
     sum_l = 0.
     for bus in Networks.get_buses(network)

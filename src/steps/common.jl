@@ -133,15 +133,6 @@ function solve!(model_container::AbstractModelContainer, problem_name, out_path)
     return model_container
 end
 
-function get_p_injected(model_container, type::Networks.GeneratorType)
-    if type == Networks.LIMITABLE
-        return model_container.limitable_model.p_injected
-    elseif type == Networks.PILOTABLE
-        return model_container.pilotable_model.p_injected
-    end
-    return nothing
-end
-
 function has_positive_slack(model_container)::Bool
     error("unimplemented")
 end
@@ -153,6 +144,26 @@ end
 
 # AbstractGeneratorModel
 ############################
+
+function sum_injections(generator_model::AbstractGeneratorModel,
+                        ts::Dates.DateTime, s::String)
+    sum_l = 0.
+    for ((_,ts_l,s_l), var_l) in get_p_injected(generator_model)
+        if (ts_l,s_l) == (ts, s)
+            sum_l += var_l
+        end
+    end
+    return sum_l
+end
+
+function get_p_injected(model_container::AbstractModelContainer, type::Networks.GeneratorType)
+    if type == Networks.LIMITABLE
+        return model_container.limitable_model.p_injected
+    elseif type == Networks.PILOTABLE
+        return model_container.pilotable_model.p_injected
+    end
+    return nothing
+end
 
 function get_p_injected(generator_model::AbstractGeneratorModel)
     return generator_model.p_injected
@@ -184,42 +195,6 @@ function add_p_injected!(generator_model::AbstractGeneratorModel, model::Abstrac
     name =  @sprintf("%sP_injected[%s,%s,%s]", prefix, gen_id, ts, s)
     var_l = get_p_injected(generator_model)[gen_id, ts, s] = @variable(model, base_name=name, lower_bound=0.)
     return var_l
-end
-
-function add_p_injected!(generator_model::AbstractGeneratorModel, model::AbstractModel,
-                        gen_id::String, ts::DateTime, s::String,
-                        p_max::Float64,
-                        force_to_max::Bool
-                        )::AbstractVariableRef
-    name =  @sprintf("P_injected[%s,%s,%s]", gen_id, ts, s)
-
-    if force_to_max
-        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
-                                                        lower_bound=p_max, upper_bound=p_max)
-    else
-        generator_model.p_injected[gen_id, ts, s] = @variable(model, base_name=name,
-                                                        lower_bound=0., upper_bound=p_max)
-    end
-
-    return generator_model.p_injected[gen_id, ts, s]
-end
-
-function sum_injections(generator_model::AbstractGeneratorModel,
-    ids::AbstractArray, ts::Dates.DateTime, s::String)::AffExpr
-    error("TODO")
-    for id in ids
-        #...
-    end
-end
-function sum_injections(generator_model::AbstractGeneratorModel,
-                        ts::Dates.DateTime, s::String)
-    sum_l = 0.
-    for ((_,ts_l,s_l), var_l) in get_p_injected(generator_model)
-        if (ts_l,s_l) == (ts, s)
-            sum_l += var_l
-        end
-    end
-    return sum_l
 end
 
 function add_p_delta!(generator_model::AbstractGeneratorModel, model::Model,
@@ -299,6 +274,15 @@ function add_limitables_vars!(model_container::AbstractModelContainer, target_ti
 
 end
 
+
+function sum_capping(limitable_model::AbstractLimitableModel, ts,s)
+    return get_global_capping(limitable_model)[ts,s]
+end
+function sum_capping(limitable_model::AbstractLimitableModel, ts, s, ::Networks.Network)
+    return get_global_capping(limitable_model)[ts,s]
+end
+
+
 function get_global_injection(limitable_model::AbstractLimitableModel)
     return limitable_model.p_global_injected
 end
@@ -308,6 +292,7 @@ end
 function get_local_capping(limitable_model::AbstractLimitableModel)
     return limitable_model.p_capping
 end
+
 
 function add_global_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios,
                                 prefix::String)
@@ -319,6 +304,7 @@ function add_global_capping_vars!(model::AbstractModel, limitable_model::Abstrac
     end
 end
 
+
 function add_global_injection_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, target_timepoints, scenarios,
                                 prefix::String)
     for ts in target_timepoints
@@ -328,6 +314,7 @@ function add_global_injection_vars!(model::AbstractModel, limitable_model::Abstr
         end
     end
 end
+
 
 function add_local_capping_vars!(model::AbstractModel, limitable_model::AbstractLimitableModel, limitables_list, target_timepoints, scenarios,
                                 prefix::String)
@@ -342,12 +329,6 @@ function add_local_capping_vars!(model::AbstractModel, limitable_model::Abstract
     end
 end
 
-function sum_capping(limitable_model::AbstractLimitableModel, ts,s)
-    return get_global_capping(limitable_model)[ts,s]
-end
-function sum_capping(limitable_model::AbstractLimitableModel, ts, s, ::Networks.Network)
-    return get_global_capping(limitable_model)[ts,s]
-end
 
 function global_capping_constraints!(model::AbstractModel,
                                     limitable_model::AbstractLimitableModel, limitables_list,

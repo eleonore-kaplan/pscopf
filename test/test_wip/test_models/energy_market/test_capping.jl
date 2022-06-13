@@ -78,8 +78,7 @@ using Printf
         S1: 40          |
                         |
 
-    When EnergyMarketConfigs::force_limitables is true (Default behaviour),
-    The limitables are supposed to produce to their highest possible level
+    The limitables are supposed to produce to their highest possible level (forced)
     If needed, a global capping is applied to ensure EOD.
     The capping needs to be dispatched but this is not done by the market model. It is done during schedule update.
 
@@ -131,7 +130,7 @@ using Printf
 
     when CONSIDER_TSOACTIONS_LIMITATIONS is true (like in the BalanceMarket),
     Market respects limitations.
-    Even if force_limitables is true, the forced level will be equal to the limit.
+    Even if limitables are forced, the forced level will be equal to the limit.
     but capping is global.
     The capping is uniformly distributed => it does not show the capping due to limitation.
 
@@ -197,7 +196,6 @@ using Printf
         S1: 40          |
                         |
 
-    EnergyMarketConfigs::force_limitables is true,
     when CONSIDER_TSOACTIONS_LIMITATIONS is true (like in the BalanceMarket),
     Market respects limitations but capping is global.
     The capping is uniformly distributed => it does not show the capping due to limitation.
