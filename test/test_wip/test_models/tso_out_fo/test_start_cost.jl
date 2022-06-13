@@ -13,11 +13,11 @@ using DataStructures
     S: [S1,S2]
                         bus 1
                         |
-    (imposable) prod_1_1|          load_1
+    (pilotable) prod_1_1|          load_1
     Pmin=10, Pmax=100   |S1: 30     S1: 50
     Csta=45k, Cprop=10  |S2: 25     S2: 35
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=80k, Cprop=15 |
     =#
@@ -27,12 +27,12 @@ using DataStructures
     network = PSCOPF.Networks.Network()
     # Buses
     PSCOPF.Networks.add_new_bus!(network, "bus_1")
-    # Imposables
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+    # Pilotables
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                             10., 100.,
                                             45000., 10.,
                                             Dates.Second(0), Dates.Second(0))
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                             10., 100.,
                                             80000., 15.,
                                             Dates.Second(0), Dates.Second(0))
@@ -543,11 +543,11 @@ using DataStructures
     S: [S1,S2]
                         bus 1
                         |
-    (imposable) prod_1_1|          load_1
+    (pilotable) prod_1_1|          load_1
     Pmin=10, Pmax=100   |S1: 30     S1: 50
     Csta=45k, Cprop=10  |S2: 25     S2: 165
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=80k, Cprop=15 |
 

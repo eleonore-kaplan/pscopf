@@ -12,7 +12,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    ?
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -33,8 +33,8 @@ using DataStructures
         network = PSCOPF.Networks.Network()
         # Buses
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 10.,
                                                 Dates.Second(3*60*60), Dates.Second(0))
@@ -92,7 +92,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -137,7 +137,7 @@ using DataStructures
         # we started prod_1_1
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
     #=
@@ -148,7 +148,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -187,7 +187,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 20. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 20. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
     end
 
     #=
@@ -198,7 +198,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -242,7 +242,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 20. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 20. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
     end
 
     #=
@@ -253,7 +253,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -296,7 +296,7 @@ using DataStructures
         # we could not start prod_1_1
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
     #=
@@ -307,7 +307,7 @@ using DataStructures
     S: [S1]
                         bus 1
                         |
-    (imposable) prod_1_1|load
+    (pilotable) prod_1_1|load
     Pmin=10, Pmax=100   |    20.
     Csta=0, Cprop=10    |
     DMO => 8h           |
@@ -346,7 +346,7 @@ using DataStructures
         # 0 demand => we shutdown the unit
         @test PSCOPF.OFF == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(context.tso_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
     end
 
 end

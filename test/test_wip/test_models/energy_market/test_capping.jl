@@ -78,8 +78,7 @@ using Printf
         S1: 40          |
                         |
 
-    When EnergyMarketConfigs::force_limitables is true (Default behaviour),
-    The limitables are supposed to produce to their highest possible level
+    The limitables are supposed to produce to their highest possible level (forced)
     If needed, a global capping is applied to ensure EOD.
     The capping needs to be dispatched but this is not done by the market model. It is done during schedule update.
 
@@ -96,7 +95,7 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
+        @test 20. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
@@ -131,7 +130,7 @@ using Printf
 
     when CONSIDER_TSOACTIONS_LIMITATIONS is true (like in the BalanceMarket),
     Market respects limitations.
-    Even if force_limitables is true, the forced level will be equal to the limit.
+    Even if limitables are forced, the forced level will be equal to the limit.
     but capping is global.
     The capping is uniformly distributed => it does not show the capping due to limitation.
 
@@ -162,9 +161,9 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 20. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #15 due to limitation, 5 due to EOD
+        @test 20. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #15 due to limitation, 5 due to EOD
 
-        @test value(result.slack_model.p_cut_conso[TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_global_loss_of_load[TS[1], "S1"]) < 1e-09
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
@@ -197,7 +196,6 @@ using Printf
         S1: 40          |
                         |
 
-    EnergyMarketConfigs::force_limitables is true,
     when CONSIDER_TSOACTIONS_LIMITATIONS is true (like in the BalanceMarket),
     Market respects limitations but capping is global.
     The capping is uniformly distributed => it does not show the capping due to limitation.
@@ -230,9 +228,9 @@ using Printf
                     PSCOPF.get_target_timepoints(context),
                     context)
 
-        @test 30. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #due to limitation
+        @test 30. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #due to limitation
 
-        @test 10. ≈ value(result.slack_model.p_cut_conso[TS[1], "S1"])
+        @test 10. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
 
         @testset "schedule_update" begin
             PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
