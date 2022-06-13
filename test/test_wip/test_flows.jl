@@ -18,7 +18,7 @@ using DataStructures
       S2: 30    S2: 30  |         35           |
                         |                      |
                         |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
+    (pilotable) prod_1_1|                      |(pilotable) prod_2_1
     Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
     Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
     ON                  |                      | ON
@@ -45,12 +45,12 @@ using DataStructures
                                             0., 100.,
                                             0., 1.,
                                             Dates.Second(0), Dates.Second(0))
-    # Imposables
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+    # Pilotables
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                             0., 100.,
                                             0., 2.,
                                             Dates.Second(0), Dates.Second(0))
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.PILOTABLE,
                                             0., 100.,
                                             0., 3.,
                                             Dates.Second(0), Dates.Second(0))
@@ -152,9 +152,9 @@ using DataStructures
         @test 50. ≈ PSCOPF.compute_flow("branch_1_2", uncertainties, schedule, network, ech, TS[2], "S2")
     end
 
-    @testset "test_flows_cut_conso" begin
+    @testset "test_flows_loss_of_load" begin
         schedule = create_schedule()
-        PSCOPF.set_cut_conso_value!(schedule, "bus_2", TS[1], "S1", 15.)
+        PSCOPF.set_loss_of_load_value!(schedule, "bus_2", TS[1], "S1", 15.)
 
         # cut a 15MW conso on bus2 => 40-15
         @test ( PSCOPF.compute_flow("branch_1_2", uncertainties, schedule, network, ech, TS[1], "S1")

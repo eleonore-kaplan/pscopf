@@ -8,7 +8,7 @@ using Dates
 using DataStructures
 using Printf
 
-@testset verbose=true "test_bilevel_imposables_costing" begin
+@testset verbose=true "test_bilevel_pilotables_costing" begin
 
     TS = [DateTime("2015-01-01T11:00:00")]
     ech = DateTime("2015-01-01T07:00:00")
@@ -18,12 +18,12 @@ using Printf
                             limit::Float64=35.,
                             logs=nothing)
         network = PSCOPFFixtures.network_2buses(limit=limit)
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 0., 200.,
                                                 0., prop_cost_1,
                                                 Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.PILOTABLE,
                                                 0., 200.,
                                                 0., prop_cost_2,
                                                 Dates.Second(0), Dates.Second(0))
@@ -82,24 +82,24 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         #TSO RSO constraints are OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        #TSO sets the bounds for imposable production respecting units' pmin and pmax
+        #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
-        @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
         #prod_2_1 bounding + EOD, guarantees RSO constraints
-        @test 65. ≈ value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"])
-        @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+        @test 65. ≈ value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"])
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
-        #Market chooses the levels sets the bounds for imposable production
-        @test 45. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
-        @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+        #Market chooses the levels sets the bounds for pilotable production
+        @test 45. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
+        @test 65. ≈ value(result.lower.pilotable_model.p_injected["prod_2_1",TS[1],"S1"])
 
         @test objective_value(result.upper.model) ≈ ( 65 )
 
@@ -121,7 +121,7 @@ using Printf
       S1: 10            |                      | S1: 100
 
     TSOBilevelConfigs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST allows using the units' prop cost as
-     coeff in the objective function for limiting imposables.
+     coeff in the objective function for limiting pilotables.
 
     prod_1_1 is cheaper than prod_2_1
      but using only prod_1_1, like a market would, will cause RSO problems
@@ -151,24 +151,24 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         #TSO RSO constraints are OK
-        @test value(result.upper.limitable_model.p_capping_min[TS[1],"S1"]) < 1e-09
-        @test value(result.upper.slack_model.p_cut_conso_min[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.upper.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
         #Market EOD constraints are OK
-        @test value(result.lower.limitable_model.p_capping[TS[1],"S1"]) < 1e-09
-        @test value(result.lower.slack_model.p_cut_conso[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.limitable_model.p_global_capping[TS[1],"S1"]) < 1e-09
+        @test value(result.lower.lol_model.p_global_loss_of_load[TS[1],"S1"]) < 1e-09
 
-        #TSO sets the bounds for imposable production respecting units' pmin and pmax
+        #TSO sets the bounds for pilotable production respecting units' pmin and pmax
         #prod_1_1 is not bound
-        @test value(result.upper.imposable_model.p_tso_min["prod_1_1",TS[1],"S1"]) < 1e-09
-        @test 45. ≈ value(result.upper.imposable_model.p_tso_max["prod_1_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_1_1",TS[1],"S1"]) < 1e-09
+        @test 45. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_1_1",TS[1],"S1"])
         #prod_2_1 bounding + EOD, guarantees RSO constraints
-        @test value(result.upper.imposable_model.p_tso_min["prod_2_1",TS[1],"S1"]) < 1e-09
-        @test 200. ≈ value(result.upper.imposable_model.p_tso_max["prod_2_1",TS[1],"S1"])
+        @test value(result.upper.pilotable_model.p_imposition_min["prod_2_1",TS[1],"S1"]) < 1e-09
+        @test 200. ≈ value(result.upper.pilotable_model.p_imposition_max["prod_2_1",TS[1],"S1"])
 
-        #Market chooses the levels sets the bounds for imposable production
-        @test 45. ≈ value(result.lower.imposable_model.p_injected["prod_1_1",TS[1],"S1"])
-        @test 65. ≈ value(result.lower.imposable_model.p_injected["prod_2_1",TS[1],"S1"])
+        #Market chooses the levels sets the bounds for pilotable production
+        @test 45. ≈ value(result.lower.pilotable_model.p_injected["prod_1_1",TS[1],"S1"])
+        @test 65. ≈ value(result.lower.pilotable_model.p_injected["prod_2_1",TS[1],"S1"])
 
         @test objective_value(result.upper.model) ≈ 1550.
 

@@ -46,7 +46,7 @@ function compute_flow(branch_id::String,
         ptdf = Networks.get_ptdf(network, branch_id, bus_id)
 
         load = get_uncertainties(uncertainties_at_ech, bus_id, ts, scenario)
-        cut_load = get_cut_conso(schedule, bus_id, ts, scenario)
+        cut_load = get_loss_of_load(schedule, bus_id, ts, scenario)
         load = ismissing(cut_load) ? load : ( load - cut_load )
 
         prod = 0.

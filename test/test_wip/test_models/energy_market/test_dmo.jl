@@ -17,12 +17,12 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DMO => 8h           |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DMO => 10h30       |
@@ -42,12 +42,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 10.,
                                                 Dates.Second(3*60*60), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 15.,
                                                 Dates.Second(30*60), Dates.Second(0))
@@ -116,18 +116,18 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DMO => 8h           |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DMO => 10h30       |
                         |
 
-    We can start an imposable before its DMO.
+    We can start an pilotable before its DMO.
     ech = 7h
     TS = 11h
     DMO(prod_1_1) = 3h => 8h
@@ -188,18 +188,18 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DMO => 8h           |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DMO => 10h30       |
                         |
 
-    We can no longer start an imposable after its DMO.
+    We can no longer start an pilotable after its DMO.
     ech = 9h
     TS = 11h
     DMO(prod_1_1) = 3h => 8h => We are past DMO!
@@ -260,12 +260,12 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DMO => 8h           |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DMO => 10h30       |

@@ -68,16 +68,16 @@ using DataStructures
                                                 0., 200.,
                                                 0., 11.,
                                                 Dates.Second(15*60), Dates.Second(15*60))
-        #Generators - Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1", PSCOPF.Networks.IMPOSABLE,
+        #Generators - Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1", PSCOPF.Networks.PILOTABLE,
                                                 150., 600., #pmin, pmax
                                                 45000., 30., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "tac_1", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "tac_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 300.,
                                                 12000., 100.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "ccg_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "ccg_2", PSCOPF.Networks.PILOTABLE,
                                                 100., 600., #pmin, pmax
                                                 50000., 20., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
@@ -185,12 +185,12 @@ using DataStructures
                                                 0., 0.,
                                                 0., 11.,
                                                 Dates.Second(0), Dates.Second(0))
-        #Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1_0", PSCOPF.Networks.IMPOSABLE,
+        #Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1_0", PSCOPF.Networks.PILOTABLE,
                                                 10., 200., #pmin, pmax
                                                 45000., 30., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "tac_2_0", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "tac_2_0", PSCOPF.Networks.PILOTABLE,
                                                 10., 200.,
                                                 12000., 120.,
                                                 Dates.Second(30*60), Dates.Second(15*60))

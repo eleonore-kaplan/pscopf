@@ -25,11 +25,11 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 25            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=0, Pmax=100    |
     Csta=0, Cprop=10    |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=0, Pmax=100   |
      Csta=0, Cprop=15   |
                         |
@@ -49,12 +49,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 0., 100.,
                                                 0., 10.,
                                                 Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 0., 100.,
                                                 0., 15.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -116,7 +116,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test value(result.objective_model.deltas) < 1e-09 # followed the market
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1")
@@ -172,7 +172,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test 5. ≈ value(result.objective_model.deltas)
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1")
@@ -206,7 +206,7 @@ using DataStructures
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
             @test 55. ≈ value(result.objective_model.deltas)
-            @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+            @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
             @test 20. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1") #Cprop=150 : Highlu penalized if not used
             @test 25. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_2", TS[1], "S1") #Cprop=1
@@ -231,7 +231,7 @@ using DataStructures
     Csta=0, Cprop=1     |
       S1: 45            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=20, Pmax=100   |
     Csta=0, Cprop=10    |
                         |
@@ -247,8 +247,8 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables : have a Pmin but no start cost
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables : have a Pmin but no start cost
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 0., 10.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -296,7 +296,7 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         @test 20. ≈ value(result.objective_model.deltas)
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
 
         @test 35. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
         @test PSCOPF.ON == PSCOPF.get_commitment_value(context.tso_schedule, "prod_1_1", TS[1], "S1")
