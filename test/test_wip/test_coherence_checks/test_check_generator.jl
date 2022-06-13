@@ -7,7 +7,7 @@ using Dates
 
     @testset "definition_example" begin
         gen_imp = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -23,7 +23,7 @@ using Dates
 
     @testset "prop_cost>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             50000., -1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -32,7 +32,7 @@ using Dates
 
     @testset "start_cost>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             -50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -41,7 +41,7 @@ using Dates
 
     @testset "dp<=dmo" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             50000., 1000.,
                                             Dates.Second(2*60), Dates.Second(15*60))
@@ -50,7 +50,7 @@ using Dates
 
     @testset "dp>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(-15*60))
@@ -60,7 +60,7 @@ using Dates
     #implied by dp<=dmo and dp>=0
     @testset "dmo>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., 200.,
                                             50000., 1000.,
                                             Dates.Second(-4*3600), Dates.Second(15*60))
@@ -69,7 +69,7 @@ using Dates
 
     @testset "pmax>=pmin" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             500., 200.,
                                             50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -78,7 +78,7 @@ using Dates
 
     @testset "pmin>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             -10., 200.,
                                             50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -88,7 +88,7 @@ using Dates
     #implied by pmin<=pmax and pmin>=0
     @testset "pmax>=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             10., -200.,
                                             50000., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -100,7 +100,7 @@ using Dates
     # => dmo=dp, the unit will always be ON, at DP we decide the ferm production level
     @testset "if_pmin=0_then_dmo=dp" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             0., 200.,
                                             0., 1000.,
                                             Dates.Second(4*3600), Dates.Second(15*60))
@@ -111,7 +111,7 @@ using Dates
     # and the starting cost was paid far in the past
     @testset "if_pmin=0_then_startcost=0" begin
         gen = PSCOPF.Networks.Generator("gen", "bus",
-                                            PSCOPF.Networks.IMPOSABLE,
+                                            PSCOPF.Networks.PILOTABLE,
                                             0., 200.,
                                             50000., 1000.,
                                             Dates.Second(15*60), Dates.Second(15*60))

@@ -45,7 +45,7 @@ L12 = 35.
 # D2 = 30.
 # L12 = 35.
 
-# # equivalent testcase : EOD_problem_needs_cut_conso
+# # equivalent testcase : EOD_problem_needs_loss_of_load
 # # FAIL : cuts all prod and conso for a cost of 130*e17+40
 # # while a solution of cost 90*1e7 exists
 # # adding @constraint(Lower(model), e_st == 0), gives the expected result

@@ -37,8 +37,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
     for ((gen_id, ts, s), p_injected_var) in result.upper.limitable_model.p_injected
         set_prod_value!(tso_schedule, gen_id, ts, s, value(p_injected_var))
     end
-    # lower problem (Market) decides imposable injections
-    for ((gen_id, ts, s), p_injected_var) in result.lower.imposable_model.p_injected
+    # lower problem (Market) decides pilotable injections
+    for ((gen_id, ts, s), p_injected_var) in result.lower.pilotable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) == FREE
             set_prod_value!(tso_schedule, gen_id, ts, s, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
@@ -50,7 +50,7 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
         end
     end
 
-    for ((gen_id, ts, s), b_on_var) in result.upper.imposable_model.b_on
+    for ((gen_id, ts, s), b_on_var) in result.upper.pilotable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(tso_schedule, gen_id, ts, s, gen_state_value)
@@ -62,8 +62,8 @@ function update_tso_schedule!(context::AbstractContext, ech, result::TSOBilevelM
     # Capping : upper problem (TSO) locates cappings
     update_schedule_capping!(tso_schedule, result.upper.limitable_model)
 
-    # cut_conso (load-shedding) : upper problem (TSO) locates load shedding
-    update_schedule_cut_conso!(tso_schedule, result.upper.slack_model)
+    # loss_of_load (load-shedding) : upper problem (TSO) locates load shedding
+    update_schedule_loss_of_load!(tso_schedule, result.upper.lol_model)
 
     return tso_schedule
 end
@@ -76,11 +76,11 @@ function update_schedule_capping!(tso_schedule, limitable_model::TSOBilevelTSOLi
     end
 end
 
-function update_schedule_cut_conso!(tso_schedule, slack_model::TSOBilevelTSOSlackModel)
-    reset_cut_conso_by_bus!(tso_schedule)
+function update_schedule_loss_of_load!(tso_schedule, lol_model::TSOBilevelTSOLoLModel)
+    reset_loss_of_load_by_bus!(tso_schedule)
 
-    for ((bus_id, ts, s), p_cut_conso_var) in slack_model.p_cut_conso
-        tso_schedule.cut_conso_by_bus[bus_id, ts, s] = value(p_cut_conso_var)
+    for ((bus_id, ts, s), p_loss_of_load_var) in lol_model.p_loss_of_load
+        tso_schedule.loss_of_load_by_bus[bus_id, ts, s] = value(p_loss_of_load_var)
     end
 end
 
@@ -108,9 +108,9 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
 
     # Impositions
     impositions = SortedDict{Tuple{String,DateTime}, Float64}() #TODELETE
-    for ((gen_id, ts, s), p_injected_var) in result.lower.imposable_model.p_injected
-        p_min_var = result.upper.imposable_model.p_tso_min[gen_id, ts, s]
-        p_max_var = result.upper.imposable_model.p_tso_max[gen_id, ts, s]
+    for ((gen_id, ts, s), p_injected_var) in result.lower.pilotable_model.p_injected
+        p_min_var = result.upper.pilotable_model.p_imposition_min[gen_id, ts, s]
+        p_max_var = result.upper.pilotable_model.p_imposition_max[gen_id, ts, s]
 
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios

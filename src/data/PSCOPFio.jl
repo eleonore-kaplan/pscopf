@@ -443,7 +443,7 @@ function _write(dir_path::String, schedule::PSCOPF.Schedule, context::PSCOPF.Abs
             for ts in TS
                 for scenario in scenarios
                     power_value = PSCOPF.get_uncertainties(uncertainties_at_ech, bus_id, ts, scenario)
-                    load_shed = PSCOPF.get_cut_conso(schedule, bus_id, ts, scenario)
+                    load_shed = PSCOPF.get_loss_of_load(schedule, bus_id, ts, scenario)
                     inject_value = power_value - load_shed
 
                     Base.write(schedule_file_l, @sprintf("%20s%8s%25s%8s%20s%10s%16.8E%16.8E%16.8E%16.8E%8s%6s%8s\n",

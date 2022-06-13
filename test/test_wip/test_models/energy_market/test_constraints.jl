@@ -23,7 +23,7 @@ using Printf
         S2: 30    S2: 30    |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
     INIT: ON                |                      |INIT: ON
@@ -73,7 +73,7 @@ using Printf
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
         # But, RSO constraints are not satisfied:
-        # Note : compute_flow does not consider cut_conso (valid here cause cut_conso=0, proven by pscopf_OPTIMAL)
+        # Note : compute_flow does not consider loss_of_load (valid here cause loss_of_load=0, proven by pscopf_OPTIMAL)
         for ts in TS
             for s in ["S1", "S2"]
                 flow = PSCOPF.compute_flow("branch_1_2",

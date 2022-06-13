@@ -110,8 +110,8 @@ using DataStructures
         @test 1. ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
 
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"]) < 1e-09
     end
 
     #=
@@ -186,8 +186,8 @@ using DataStructures
         @test 1. ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"]) < 1e-09
     end
 
     #=
@@ -262,8 +262,8 @@ using DataStructures
         @test 1. ≈ value(result.limitable_model.b_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_limit_x_is_limited["wind_1_1",TS[1], "S2"])
         @test 60. ≈ value(result.limitable_model.p_injected["wind_1_1",TS[1], "S2"])
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"]) < 1e-09
     end
 
 end

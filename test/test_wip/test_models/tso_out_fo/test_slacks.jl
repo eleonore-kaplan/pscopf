@@ -22,13 +22,13 @@ using DataStructures
     Pinj         = [15 , 25]
     B_islim      = [1  , 0]
     Pislim_x_lim = [0  , 0]
-    cut_conso    = [0  , 0]
+    loss_of_load    = [0  , 0]
     We have what we want :
     Plim         =     15
     Pinj         = [15 , 15]
     B_islim      = [0  , 1]
     Pislim_x_lim = [0  , 15]
-    cut_conso    = [0  , 10]
+    loss_of_load    = [0  , 10]
 
     TS: [11h]
     S: [S1]
@@ -87,8 +87,8 @@ using DataStructures
 
         # Solution is optimal
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"]) < 1e-09
-        @test 10. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"])
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"]) < 1e-09
+        @test 10. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"])
         # Limitable produces to the available level
         @test 15. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "wind_1_1", TS[1], "S1")
         @test 15. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "wind_1_1", TS[1], "S2")
@@ -99,7 +99,7 @@ using DataStructures
                     - PSCOPF.get_uncertainties(uncertainties[ech], "wind_1_1", TS[1], "S2") )
         # We do not pay for capped power
         #If it was due to TSO constraints, we would have paid for the generator used instead of limitables
-        @test (10*1e7 + 1e-3) ≈ value(result.objective_model.penalty) # 10 cut_conso + 1 limitation
+        @test (10*1e7 + 1e-3) ≈ value(result.objective_model.penalty) # 10 loss_of_load + 1 limitation
         @test value(result.objective_model.start_cost) < 1e-09
         @test ((20. - 15.) *1. + (25. - 15.) *1. ) ≈ value(result.objective_model.prop_cost)
     end
@@ -115,7 +115,7 @@ using DataStructures
     S: [S1]
                         bus 1
                          |
-    (imposable) prod_1_1 |    load_1
+    (pilotable) prod_1_1 |    load_1
     Pmin=20, Pmax=100    |  S1: 150
     Csta=100k, Cprop=1   |  S2: 15
                          |  S3: 25
@@ -125,8 +125,8 @@ using DataStructures
         ech = DateTime("2015-01-01T07:00:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 100000., 1.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -166,15 +166,15 @@ using DataStructures
         @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
         # S1 : prod_capacity < load => cannot satisfy demand
         @test 100. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S1")
-        @test 50. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 50. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
         # S2 : load < pmin => cannot start the unit for such load
         @test PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S2") < 1e-09
-        @test 15. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"])
+        @test 15. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"])
         # S3 : works fine
         @test 25. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S3")
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S3"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S3"]) < 1e-09
         # penalize cutting consumption
-        @test 1e7 ≈ tso.configs.cut_conso_penalty
+        @test 1e7 ≈ tso.configs.loss_of_load_penalty
         @test (50. * 1e7 + 15. * 1e7 + 0. ) ≈ value(result.objective_model.penalty)
         @test (0. + 0. + 0.) ≈ value(result.objective_model.start_cost) #The market paid for starting
         @test (100. + 0. + 25. ) ≈ value(result.objective_model.prop_cost) #FIXME : pay just for the difference ? i.e. delta*prop_cost instead of injected*prop_cost
@@ -193,22 +193,22 @@ using DataStructures
          S1 : 10         |
          S1 : 10         |
                          |
-    (imposable) prod_1_1 |
+    (pilotable) prod_1_1 |
     Pmin=20, Pmax=100    |
     Csta=100k, Cprop=100 |
     =#
-    @testset "tso_capping_limitables_due_to_imposable_pmin" begin
+    @testset "tso_capping_limitables_due_to_pilotable_pmin" begin
         TS = [DateTime("2015-01-01T11:00:00")]
         ech = DateTime("2015-01-01T09:30:00")
         network = PSCOPF.Networks.Network()
         PSCOPF.Networks.add_new_bus!(network, "bus_1")
-        # Imposables
+        # Pilotables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(90*60), Dates.Second(90*60))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 20., 100.,
                                                 100000., 100.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -259,15 +259,15 @@ using DataStructures
         # But limit links the two scenarios and we can only produce to limit or uncertainty levels
         @test 5. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "wind_1_1", TS[1], "S1")
         @test PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S1") < 1e-09
-        @test 10. ≈ value(result.slack_model.p_cut_conso["bus_1", TS[1], "S1"])
+        @test 10. ≈ value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S1"])
 
         # In S2 : Load=25, wind provides 10 => still missing 15 but pmin=20
-        # imposable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
+        # pilotable produces 20 => 5 extra prod (20+10 - 25) => reduce wind by 5.
         @test 5. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "wind_1_1", TS[1], "S2")
         @test 20. ≈ PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "prod_1_1", TS[1], "S2")
         @test -5. ≈ ( PSCOPF.get_prod_value(PSCOPF.get_tso_schedule(context), "wind_1_1", TS[1], "S2")
                     - PSCOPF.get_uncertainties(uncertainties[ech], "wind_1_1", TS[1], "S2") )
-        @test value(result.slack_model.p_cut_conso["bus_1", TS[1], "S2"]) < 1e-09
+        @test value(result.lol_model.p_loss_of_load["bus_1", TS[1], "S2"]) < 1e-09
     end
 
 
@@ -423,11 +423,11 @@ using DataStructures
 
         # possible production is 160 but load is 200
         @test 160. ≈ PSCOPF.get_prod_value(context.tso_schedule, "wind_1_1", TS[1], "S1")
-        @test 40. ≈ (context.tso_schedule.cut_conso_by_bus["bus_1", TS[1], "S1"]
-                    + context.tso_schedule.cut_conso_by_bus["bus_2", TS[1], "S1"])
+        @test 40. ≈ (context.tso_schedule.loss_of_load_by_bus["bus_1", TS[1], "S1"]
+                    + context.tso_schedule.loss_of_load_by_bus["bus_2", TS[1], "S1"])
         # cut conso by bus
-        @test context.tso_schedule.cut_conso_by_bus["bus_1", TS[1], "S1"] <= 25
-        @test context.tso_schedule.cut_conso_by_bus["bus_2", TS[1], "S1"] >= 15
+        @test context.tso_schedule.loss_of_load_by_bus["bus_1", TS[1], "S1"] <= 25
+        @test context.tso_schedule.loss_of_load_by_bus["bus_2", TS[1], "S1"] >= 15
     end
 
     #TODO : illustrate ptdf effect
