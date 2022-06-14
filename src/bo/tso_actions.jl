@@ -11,7 +11,7 @@ using DataStructures
     # Max allowed P of a limitable for a given ts
     limitations::SortedDict{Tuple{String, Dates.DateTime}, Float64} =
         SortedDict{Tuple{String, Dates.DateTime}, Float64}()
-    # Imposed P bounds of an imposable for a given ts
+    # Imposed P bounds of an pilotable for a given ts
     impositions::SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}} =
         SortedDict{Tuple{String, Dates.DateTime}, UncertainValue{Tuple{Float64,Float64}}}()
 end

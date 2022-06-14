@@ -154,7 +154,7 @@ mutable struct Schedule <: AbstractSchedule
     generator_schedules::SortedDict{String, GeneratorSchedule }
 
     #bus,ts,s
-    cut_conso_by_bus::SortedDict{Tuple{String,DateTime,String}, Float64 }
+    loss_of_load_by_bus::SortedDict{Tuple{String,DateTime,String}, Float64 }
     #limitable_gen_id,ts,s
     capping::SortedDict{Tuple{String,DateTime,String}, Float64 }
 end
@@ -335,22 +335,22 @@ function safeget_capping(schedule::Schedule, gen_id::String, ts::Dates.DateTime,
     end
 end
 
-function get_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
+function get_loss_of_load(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Union{Float64, Missing}
     key_l = (bus_id, ts, scenario)
-    if !haskey(schedule.cut_conso_by_bus, key_l)
+    if !haskey(schedule.loss_of_load_by_bus, key_l)
         return missing
     else
-        return schedule.cut_conso_by_bus[key_l]
+        return schedule.loss_of_load_by_bus[key_l]
     end
 end
-function safeget_cut_conso(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Float64
-    cut_conso = get_cut_conso(schedule, bus_id, ts, scenario)
-    if ismissing(cut_conso)
-        msg = @sprintf("Missing cut_conso value for (gen_id=%s,ts=%s,s=%s) in schedule",
+function safeget_loss_of_load(schedule::Schedule, bus_id, ts::Dates.DateTime, scenario)::Float64
+    loss_of_load = get_loss_of_load(schedule, bus_id, ts, scenario)
+    if ismissing(loss_of_load)
+        msg = @sprintf("Missing loss_of_load value for (gen_id=%s,ts=%s,s=%s) in schedule",
                         bus_id, ts, scenario)
         throw( error(msg) )
     else
-        return cut_conso
+        return loss_of_load
     end
 end
 
@@ -410,12 +410,12 @@ end
 function set_capping_value!(schedule::Schedule, gen_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
     schedule.capping[gen_id, ts, scenario] = value
 end
-function set_cut_conso_value!(schedule::Schedule, bus_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
-    schedule.cut_conso_by_bus[bus_id, ts, scenario] = value
+function set_loss_of_load_value!(schedule::Schedule, bus_id::String, ts::Dates.DateTime, scenario::String, value::Float64)
+    schedule.loss_of_load_by_bus[bus_id, ts, scenario] = value
 end
 
-function reset_cut_conso_by_bus!(schedule::Schedule)
-    empty!(schedule.cut_conso_by_bus)
+function reset_loss_of_load_by_bus!(schedule::Schedule)
+    empty!(schedule.loss_of_load_by_bus)
 end
 function reset_capping!(schedule::Schedule)
     empty!(schedule.capping)
@@ -441,8 +441,8 @@ function Base.show(io::IO, schedule::Schedule)
     pretty_print(io, schedule.generator_schedules)
     println("capping:")
     pretty_print(io, schedule.capping)
-    println("cut_conso_by_bus:")
-    pretty_print(io, schedule.cut_conso_by_bus)
+    println("loss_of_load_by_bus:")
+    pretty_print(io, schedule.loss_of_load_by_bus)
 end
 
 

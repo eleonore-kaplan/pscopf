@@ -22,7 +22,7 @@ using DataStructures
       S2: 40            |         35           |
                         |                      |
                         |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
+    (pilotable) prod_1_1|                      |(pilotable) prod_2_1
     Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
     Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
     ON                  |                      | ON
@@ -42,12 +42,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(0), Dates.Second(0))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 45000., 10.,
                                                 Dates.Second(0), Dates.Second(0))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 80000., 15.,
                                                 Dates.Second(0), Dates.Second(0))
@@ -115,7 +115,7 @@ using DataStructures
     S2: 40              |         35           |
                         |                      |
                         |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
+    (pilotable) prod_1_1|                      |(pilotable) prod_2_1
     Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
     Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
     ON                  |                      | ON
@@ -140,8 +140,8 @@ using DataStructures
         # Limitable respects limitations
         @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
         @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-        @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-        @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+        @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
 
         @test 90. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
         @test 100. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -166,7 +166,7 @@ using DataStructures
         S2: 40              |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
         ON                  |                      | ON
@@ -191,8 +191,8 @@ using DataStructures
             # Limitable respects limitations
             @test 45. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S1"])
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"])
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
 
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test 100. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -215,7 +215,7 @@ using DataStructures
         S2: 40              |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
         ON                  |                      | ON
@@ -241,8 +241,8 @@ using DataStructures
             # Limitable respects limitations
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 35. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test 15. ≈ value(result.limitable_model.p_capping[TS[1], "S1"]) #35MW /50
-            @test 5. ≈ value(result.limitable_model.p_capping[TS[1], "S2"]) #35MW /40
+            @test 15. ≈ value(result.limitable_model.p_global_capping[TS[1], "S1"]) #35MW /50
+            @test 5. ≈ value(result.limitable_model.p_global_capping[TS[1], "S2"]) #35MW /40
 
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test 95. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
@@ -272,7 +272,7 @@ using DataStructures
         S2: 40              |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
         ON                  |                      | ON
@@ -302,11 +302,11 @@ using DataStructures
             # Solution is optimal
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-            # Imposable respects impositions
-            @test 80. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S1"])
+            # Pilotable respects impositions
+            @test 80. ≈ value(result.pilotable_model.p_injected["prod_1_1",TS[1], "S1"])
             @test 80. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
-            @test 90. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S2"])
+            @test 90. ≈ value(result.pilotable_model.p_injected["prod_1_1",TS[1], "S2"])
             @test 90. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
 
@@ -316,8 +316,8 @@ using DataStructures
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
         #=
@@ -339,7 +339,7 @@ using DataStructures
         S2: 40              |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
         ON                  |                      | ON
@@ -369,11 +369,11 @@ using DataStructures
             # Solution is optimal
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-            # Imposable respects impositions
-            @test 75. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S1"])
+            # Pilotable respects impositions
+            @test 75. ≈ value(result.pilotable_model.p_injected["prod_1_1",TS[1], "S1"])
             @test 75. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1"), impos_1_s1_l[1], impos_1_s1_l[2])
-            @test 80. ≈ value(result.imposable_model.p_injected["prod_1_1",TS[1], "S2"])
+            @test 80. ≈ value(result.pilotable_model.p_injected["prod_1_1",TS[1], "S2"])
             @test 80. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2"), impos_1_s2_l[1], impos_1_s2_l[2])
 
@@ -383,8 +383,8 @@ using DataStructures
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
         #=
@@ -406,7 +406,7 @@ using DataStructures
         S2: 40              |         35           |
                             |                      |
                             |                      |
-        (imposable) prod_1_1|                      |(imposable) prod_2_1
+        (pilotable) prod_1_1|                      |(pilotable) prod_2_1
         Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
         Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
         ON                  |                      | ON
@@ -436,22 +436,22 @@ using DataStructures
             # Solution is optimal
             @test PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL
 
-            # Imposable respects impositions
+            # Pilotable respects impositions
             @test 90. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S1")
             @test 100. ≈ PSCOPF.get_prod_value(m_schedule_l, "prod_1_1", TS[1], "S2")
 
-            @test value(result.imposable_model.p_injected["prod_2_1",TS[1], "S1"]) < 1e-09
+            @test value(result.pilotable_model.p_injected["prod_2_1",TS[1], "S1"]) < 1e-09
             @test PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1") < 1e-09
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S1"), impos_2_s1_l[1], impos_2_s1_l[2])
-            @test value(result.imposable_model.p_injected["prod_2_1",TS[1], "S2"])  < 1e-09
+            @test value(result.pilotable_model.p_injected["prod_2_1",TS[1], "S2"])  < 1e-09
             @test PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2")  < 1e-09
             @test PSCOPF.in_bounds(PSCOPF.get_prod_value(m_schedule_l, "prod_2_1", TS[1], "S2"), impos_2_s2_l[1], impos_2_s2_l[2])
 
             # Limitable is used at maximum allowed
             @test 50. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S1")
             @test 40. ≈ PSCOPF.get_prod_value(m_schedule_l, "wind_1_1", TS[1], "S2")
-            @test value(result.limitable_model.p_capping[TS[1], "S1"]) < 1e-09
-            @test value(result.limitable_model.p_capping[TS[1], "S2"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S1"]) < 1e-09
+            @test value(result.limitable_model.p_global_capping[TS[1], "S2"]) < 1e-09
         end
 
     end

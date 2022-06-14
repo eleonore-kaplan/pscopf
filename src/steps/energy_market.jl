@@ -26,10 +26,6 @@ function run(runnable::Union{EnergyMarket,BalanceMarket},
     end
     @debug("gratis_starts : ", gratis_starts)
 
-    tso_actions = filter_tso_actions(get_tso_actions(context),
-                                    keep_limitations=runnable.configs.CONSIDER_TSOACTIONS_LIMITATIONS,
-                                    keep_impositions=runnable.configs.CONSIDER_TSOACTIONS_IMPOSITIONS)
-
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
 
@@ -41,7 +37,7 @@ function run(runnable::Union{EnergyMarket,BalanceMarket},
                         firmness,
                         get_market_schedule(context),
                         get_tso_schedule(context),
-                        tso_actions,
+                        get_tso_actions(context),
                         gratis_starts,
                         runnable.configs
                         )
@@ -55,8 +51,8 @@ function update_market_schedule!(context::AbstractContext, ech,
     market_schedule.decider_type = DeciderType(runnable)
     market_schedule.decision_time = ech
 
-    # Imposables levels
-    for ((gen_id, ts, s), p_injected_var) in result.imposable_model.p_injected
+    # Pilotables levels
+    for ((gen_id, ts, s), p_injected_var) in result.pilotable_model.p_injected
         if get_power_level_firmness(firmness, gen_id, ts) == FREE
             set_prod_value!(market_schedule, gen_id, ts, s, value(p_injected_var))
         elseif get_power_level_firmness(firmness, gen_id, ts) == TO_DECIDE
@@ -69,7 +65,7 @@ function update_market_schedule!(context::AbstractContext, ech,
     end
 
     # Commitment
-    for ((gen_id, ts, s), b_on_var) in result.imposable_model.b_on
+    for ((gen_id, ts, s), b_on_var) in result.pilotable_model.b_on
         gen_state_value = parse(GeneratorState, value(b_on_var))
         if get_commitment_firmness(firmness, gen_id, ts) == FREE
             set_commitment_value!(market_schedule, gen_id, ts, s, gen_state_value)
@@ -94,8 +90,8 @@ function update_market_schedule!(context::AbstractContext, ech,
         end
     end
 
-    # cut_conso (load-shedding)
-    update_schedule_cut_conso!(market_schedule, context, ech, result.slack_model)
+    # loss_of_load (load-shedding)
+    update_schedule_loss_of_load!(market_schedule, context, ech, result.lol_model)
 
     return market_schedule
 end

@@ -77,7 +77,7 @@ function safeget_bus(network::Network, bus_id::String)::Bus
 end
 
 function get_buses(network::Network)
-    return values(network.buses)
+    return collect(values(network.buses))
 end
 
 ############
