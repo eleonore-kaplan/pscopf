@@ -8,7 +8,7 @@ using Parameters
 @with_kw mutable struct EODAssessmentConfigs
     cut_prod_coeff = 100 #must be greater than LoL coeff in objective
     inj_prod_coeff = 10 #must be greater than LoL coeff in objective
-    cut_conso_coeff = 1 #LoL
+    loss_of_load_coeff = 1 #LoL
     out_path = nothing
     problem_name = "EODAssessment"
 end
@@ -22,9 +22,9 @@ function run(runnable::EODAssessment, ech::Dates.DateTime, TS::Vector{Dates.Date
     runnable.configs.out_path = context.out_dir
     runnable.configs.problem_name = problem_name_l
 
-    # @assert( runnable.configs.cut_conso_penalty >=
+    # @assert( runnable.configs.loss_of_load_penalty >=
     #         biggest_min_imposition(get_tso_actions(context)) * runnable.configs.cut_prod_penalty)
-    @assert( runnable.configs.cut_conso_coeff
+    @assert( runnable.configs.loss_of_load_coeff
                 <= runnable.configs.inj_prod_coeff
                     <= runnable.configs.cut_prod_coeff )
 

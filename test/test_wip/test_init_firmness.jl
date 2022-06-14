@@ -5,11 +5,11 @@ using Dates
 
 @testset verbose=true "test_init_firmness" begin
 
-    gen1 = PSCOPF.Networks.Generator("fuel_1_0", "bus_1", PSCOPF.Networks.IMPOSABLE, 10., 100., 0., 10.,
+    gen1 = PSCOPF.Networks.Generator("fuel_1_0", "bus_1", PSCOPF.Networks.PILOTABLE, 10., 100., 0., 10.,
                                     Dates.Second(210*60), Dates.Second(210*60)) #dmo, dp
-    gen2 = PSCOPF.Networks.Generator( "fuel_1_1", "bus_1", PSCOPF.Networks.IMPOSABLE, 10., 100., 0., 10.,
+    gen2 = PSCOPF.Networks.Generator( "fuel_1_1", "bus_1", PSCOPF.Networks.PILOTABLE, 10., 100., 0., 10.,
                                     Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
-    gen_no_pmin = PSCOPF.Networks.Generator("fuel_1_2", "bus_1", PSCOPF.Networks.IMPOSABLE, 0., 0., 0., 10.,
+    gen_no_pmin = PSCOPF.Networks.Generator("fuel_1_2", "bus_1", PSCOPF.Networks.PILOTABLE, 0., 0., 0., 10.,
                                     Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp
     lim1 = PSCOPF.Networks.Generator("wind_1_0", "bus_1", PSCOPF.Networks.LIMITABLE, 0., 0., 0., 10.,
                                     Dates.Second(4*60*60), Dates.Second(210*60)) #dmo, dp

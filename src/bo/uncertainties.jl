@@ -140,23 +140,32 @@ function sum_uncertainties(uncertainties_at_ech::UncertaintiesAtEch,
 end
 
 function compute_prod(uncertainties_at_ech::UncertaintiesAtEch,
-    network, ts::Dates.DateTime, s::String)
-    generators_ids = map(Networks.get_id, Networks.get_generators_of_type(network, Networks.LIMITABLE))
+    limitables_gens, ts::Dates.DateTime, s::String)
+    generators_ids = map(Networks.get_id, limitables_gens)
     return sum_uncertainties(uncertainties_at_ech, generators_ids, ts, s)
 end
+function compute_prod(uncertainties_at_ech::UncertaintiesAtEch,
+    network::Networks.Network, ts::Dates.DateTime, s::String)
+    limitables_list = Networks.get_generators_of_type(network, Networks.LIMITABLE)
+    return compute_prod(uncertainties_at_ech, limitables_list, ts, s)
+end
 function compute_prod(uncertainties::Uncertainties,
-    network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
+    network::Networks.Network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
     uncertainties_at_ech = get_uncertainties(uncertainties, ech)
     return compute_prod(uncertainties_at_ech, network, ts, s)
 end
 
 function compute_load(uncertainties_at_ech::UncertaintiesAtEch,
-    network, ts::Dates.DateTime, s::String)
-    buses_ids = map(Networks.get_id, Networks.get_buses(network))
+    buses_list, ts::Dates.DateTime, s::String)
+    buses_ids = map(Networks.get_id, buses_list)
     return sum_uncertainties(uncertainties_at_ech, buses_ids, ts, s)
 end
+function compute_load(uncertainties_at_ech::UncertaintiesAtEch,
+    network::Networks.Network, ts::Dates.DateTime, s::String)
+    return compute_load(uncertainties_at_ech, Networks.get_buses(network), ts, s)
+end
 function compute_load(uncertainties::Uncertainties,
-    network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
+    network::Networks.Network, ech::Dates.DateTime, ts::Dates.DateTime, s::String)
     uncertainties_at_ech = get_uncertainties(uncertainties, ech)
     return compute_load(uncertainties_at_ech, network, ts, s)
 end

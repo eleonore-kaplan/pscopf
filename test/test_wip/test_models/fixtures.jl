@@ -36,7 +36,7 @@ end
       S2: 30    S2: 30  |         35           |
                         |                      |
                         |                      |
-    (imposable) prod_1_1|                      |(imposable) prod_2_1
+    (pilotable) prod_1_1|                      |(pilotable) prod_2_1
     Pmin=10, Pmax=100   |                      | Pmin=10, Pmax=100
     Csta=45k, Cprop=10  |                      | Csta=80k, Cprop=15
 INIT: ON                |                      |INIT: ON
@@ -48,9 +48,9 @@ INIT: ON                |                      |INIT: ON
 =#
 """
 Creates a context with preset uncertainties and for a preset 2 buses network :
-    - on bus_1 : a limitable and an imposable
-    - on bus_2 : an imposable
-    imposable unit of bus_2 has a DP=DMO=2h
+    - on bus_1 : a limitable and an pilotable
+    - on bus_2 : an pilotable
+    pilotable unit of bus_2 has a DP=DMO=2h
 Arguments :
     TS  : a 2 elements DateTime vector for the target timesteps
     ech : DateTime giving the current horizon timepoint
@@ -65,12 +65,12 @@ function context_2buses_2TS_2S(TS, ech;
                                             0., 100.,
                                             0., 1.,
                                             Dates.Second(0), Dates.Second(0))
-    # Imposables
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+    # Pilotables
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                             10., 100.,
                                             45000., 10.,
                                             Dates.Second(0), Dates.Second(0))
-    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.IMPOSABLE,
+    PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "prod_2_1", PSCOPF.Networks.PILOTABLE,
                                             10., 100.,
                                             80000., 15.,
                                             Dates.Second(2*60*60), Dates.Second(2*60*60))

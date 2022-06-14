@@ -18,12 +18,12 @@ using DataStructures
     DP => 10h40         |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DP => 10h30         |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DP => 10h45        |
@@ -45,12 +45,12 @@ using DataStructures
                                                 0., 100.,
                                                 0., 1.,
                                                 Dates.Second(20*60), Dates.Second(20*60))
-        # Imposables
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.IMPOSABLE,
+        # Pilotables
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 10.,
                                                 Dates.Second(3*60*60), Dates.Second(30*60))
-        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.IMPOSABLE,
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "prod_1_2", PSCOPF.Networks.PILOTABLE,
                                                 10., 100.,
                                                 0., 15.,
                                                 Dates.Second(3*60*60), Dates.Second(15*60))
@@ -137,12 +137,12 @@ using DataStructures
     DP => 10h40         |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DP => 10h30         |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DP => 10h45        |
@@ -217,12 +217,12 @@ using DataStructures
     DP => 10h40         |
       S1: 20            |
                         |
-    (imposable) prod_1_1|
+    (pilotable) prod_1_1|
     Pmin=10, Pmax=100   |
     Csta=0, Cprop=10    |
     DP => 10h30         |
                         |
-    (imposable) prod_1_2|
+    (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
      Csta=0, Cprop=15   |
      DP => 10h45        |
