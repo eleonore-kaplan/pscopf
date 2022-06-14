@@ -109,7 +109,7 @@ function get_i_for_bus(network_p::Network, bus_name_p::String)
     #or for now, return first(filter( x -> x[2].name == bus_name_l , network.buses))[1]
 end
 
-function get_B(network::Network, DIAG_EPS::Float64)
+function get_B(network::Network, DIAG_EPS::Float64, dense::Bool)
     B_dict = Dict{Tuple{Int,Int},Float64}();
     for kvp in collect(network.branches)
         b = get_b(kvp[2]);
@@ -117,30 +117,14 @@ function get_B(network::Network, DIAG_EPS::Float64)
         ior = kvp[2].from;
         iex = kvp[2].to;
 
-
-        # ior->iex
-        # + dans ior
-        # - dans iex
-
-        # diagonal part
-        # sur ior
-        # +theta_ior
-        # -theta_iex
+        # ior->iex: + dans ior, - dans iex
+        # sur ior :  +theta_ior,  -theta_iex
         B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
         B_dict[ior, iex] = get(B_dict, (ior, iex), 0) - b;
 
-        # sur iex
-        # -theta_ior
-        # +theta_iex
+        # sur iex:  -theta_ior,  +theta_iex
         B_dict[iex, ior] = get(B_dict, (iex, ior), 0) - b;
         B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) + b;
-
-
-        # B_dict[ior, ior] = get(B_dict, (ior, ior), DIAG_EPS) + b;
-        # B_dict[iex, iex] = get(B_dict, (iex, iex), DIAG_EPS) - b;
-
-        # B_dict[ior, iex] = get(B_dict, (ior, iex), 0) + b;
-        # B_dict[iex, ior] = get(B_dict, (iex, ior), 0) - b;
     end
     Brow = Int[];
     Bcol = Int[];
@@ -153,8 +137,12 @@ function get_B(network::Network, DIAG_EPS::Float64)
     n = length(network.bus_to_i);
     println("n = ", n)
     B = sparse(Brow, Bcol, Bval, n, n);
-    Bdense = Matrix(B);
-    return Bdense
+    if dense
+        Bdense = Matrix(B);
+        return Bdense
+    else
+        return B
+    end
 end
 
 function write_B(file_path_p, B::Matrix, network_p::Network)
@@ -277,7 +265,7 @@ function write_PTDF(file_path::String,
 end
 
 function compute_ptdf(network, ref_bus::Int=1)
-    B = get_B(network, 1e-6);
+    B = get_B(network, 1e-6, true);
     Binv = get_B_inv(B, ref_bus);
     PTDF = get_PTDF(network, Binv, ref_bus);
 
