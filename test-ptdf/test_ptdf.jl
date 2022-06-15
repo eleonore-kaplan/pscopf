@@ -30,7 +30,7 @@ function compute_theta(B,P)
 
     optimize!(model);
 
-    return [value(theta[i]) for i in range(1,nb_buses)]
+    return [value(theta[i]) for i in range(1,nb_buses)];
 end;
 
 
@@ -77,14 +77,14 @@ function compare_ptdfs(network::PTDF.Network,ref_bus_num::Int, EPS_DIAG::Float64
     ptdf_optim = compute_ptdf_by_optim(network,ref_bus_num, EPS_DIAG);
     ptdf_with_inv = PTDF.compute_ptdf(network,ref_bus_num, EPS_DIAG);
 
-    return ptdf_optim-ptdf_with_inv
+    return ptdf_optim-ptdf_with_inv;
 end;
 
 
 ##### Example
 EPS_DIAG = 0e-6;
 ref_bus_num = 1;
-data_path_sparse = joinpath(@__DIR__, "..", "data_matpower", "case2848rte");
+data_path_sparse = joinpath(@__DIR__, "..", "data_matpower", "case1354pegase");
 data_path = data_path_sparse;
 
 network = PTDF.read_network(data_path);

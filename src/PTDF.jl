@@ -156,9 +156,9 @@ function get_B(network::Network, DIAG_EPS::Float64, dense::Bool)
     B = sparse(Brow, Bcol, Bval, n, n);
     if dense
         Bdense = Matrix(B);
-        return Bdense
+        return Bdense;
     else
-        return B
+        return B;
     end
 end
 
@@ -212,8 +212,8 @@ function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)
             # end
         end
     end
-    println("PTDF=\n",PTDF)
-    return PTDF
+    # println("PTDF=\n",PTDF)
+    return PTDF;
 end
 
 function distribute_slack(PTDF::Matrix, coeffs::Vector{Float64})
