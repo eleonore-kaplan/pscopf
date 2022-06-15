@@ -35,19 +35,19 @@ end;
 
 
 
-function compute_ptdf_by_optim(network::PTDF.Network,ref_bus_num::Int)
+function compute_ptdf_by_optim(network::PTDF.Network,ref_bus_num::Int, EPS_DIAG::Float64)
     nb_buses = length(network.buses);
     nb_branches = length(network.branches);
 
     # calcul de B
-    B=PTDF.get_B(network,1e-6,false);
+    B=PTDF.get_B(network,EPS_DIAG,false);
 
     # calcul de la colonne de la PTDF pour chaque noeud
     PTDF_matrix = zeros(nb_branches,nb_buses);
-    println(network.buses)
+    # println(network.buses)
     for bus in network.buses
         bus_num = bus[1]
-        println("$bus, id is $bus_num")
+        # println("$bus, id is $bus_num")
         #définition de la distribution des injections
         P = zeros(nb_buses);
         if bus_num != ref_bus_num
@@ -72,24 +72,23 @@ function compute_ptdf_by_optim(network::PTDF.Network,ref_bus_num::Int)
     return PTDF_matrix;
 end;
 
-function compare_ptdfs(network::PTDF.Network,ref_bus_num::Int=1)
-    ptdf_optim = compute_ptdf_by_optim(network,ref_bus_num);
-    ptdf_with_inv = PTDF.compute_ptdf(network,ref_bus_num);
+function compare_ptdfs(network::PTDF.Network,ref_bus_num::Int, EPS_DIAG::Float64)
 
-    println(ptdf_optim);
-    println(ptdf_with_inv);
+    ptdf_optim = compute_ptdf_by_optim(network,ref_bus_num, EPS_DIAG);
+    ptdf_with_inv = PTDF.compute_ptdf(network,ref_bus_num, EPS_DIAG);
+
     return ptdf_optim-ptdf_with_inv
 end;
 
 
 ##### Example
+EPS_DIAG = 0e-6;
 ref_bus_num = 1;
-data_path_small = joinpath(@__DIR__, "ptdf_small");
-data_path_sparse = joinpath(@__DIR__, "ptdf_sparse");
+data_path_sparse = joinpath(@__DIR__, "..", "data_matpower", "case2848rte");
 data_path = data_path_sparse;
 
 network = PTDF.read_network(data_path);
 
 # ptdf_optim = compute_ptdf_by_optim(network,ref_bus_num);
-ptdf_difference = norm(compare_ptdfs(network,1), 1);
-println("error_max = $ptdf_difference")
+ptdf_difference = norm(compare_ptdfs(network, ref_bus_num, EPS_DIAG));
+println("error_max = $ptdf_difference");
