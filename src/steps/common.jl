@@ -1254,6 +1254,26 @@ function all_combinations(network, target_timepoints, scenarios)
             ]
 end
 
+function log_flows(flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr},out_folder,filename)
+    if !isnothing(out_folder)
+        @info @sprintf("%20s %20s %20s %20s %s",
+                    "branch_id", "ts", "s", "ptdf_case", "flow")
+        log_file_l = joinpath(out_folder, filename*"_flows.log")
+        open(log_file_l, "w") do file_l
+            for ((branch_id, ts, s, ptdf_case), flow_expr) in sort_by_cut_branch(flows)
+                line_l = @sprintf("%20s %20s %20s %20s %s",
+                                    branch_id, ts, s, ptdf_case, value(flow_expr))
+                write(file_l, line_l)
+                @info line_l
+            end
+        end
+    end
+end
+
+function sort_by_cut_branch(flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr})
+    sort(collect(flows), by= x -> (x[1][4], x[1][1:3]...))
+end
+
 
 # Utils
 ##################
