@@ -21,7 +21,7 @@ function read_buses!(network::Network, data::String)
             # don't read commentted line
             if ln[1] != '#'
                 buffer = PSCOPF.split_with_space(ln);
-                push!(buses_ids, buffer[2])
+                push!(buses_ids, buffer[3])
             end
         end
     end
@@ -47,7 +47,7 @@ function read_branches!(network::Network, data::String)
             # don't read commentted line
             if ln[1] != '#'
                 buffer = PSCOPF.split_with_space(ln);
-                branch_id = buffer[1]
+                branch_id = buffer[2]
                 push!(branches, branch_id => default_limit)
             end
         end
@@ -76,10 +76,11 @@ function read_ptdf!(network::Network, data::String, filename="pscopf_ptdf.txt")
             # don't read commentted line
             if ln[1] != '#'
                 buffer = PSCOPF.split_with_space(ln);
-                branch_id = buffer[1]
-                bus_id = buffer[2]
-                ptdf_value = parse(Float64, buffer[3])
-                Networks.add_ptdf_elt!(network, branch_id, bus_id, ptdf_value)
+                ptdf_case = buffer[1]
+                branch_id = buffer[2]
+                bus_id = buffer[3]
+                ptdf_value = parse(Float64, buffer[4])
+                Networks.add_ptdf_elt!(network, branch_id, bus_id, ptdf_value, ptdf_case)
             end
         end
     end
@@ -227,19 +228,22 @@ function write(dir_path::String, branches::SortedDict{String, Networks.Branch})
 end
 
 
-function write(dir_path::String, ptdf::SortedDict{String,SortedDict{String, Float64}})
+function write(dir_path::String, ptdf_dict::Networks.PTDFDict)
     output_file_l = joinpath(dir_path, "pscopf_ptdf.txt")
     open(output_file_l, "w") do file_l
-        Base.write(file_l, @sprintf("#%24s%16s\n", "REF_BUS", "unknown"))
-        Base.write(file_l, @sprintf("#%24s%25s%16s\n", "branch", "bus", "value"))
-        for (branch_id_l, _) in ptdf
-            for (bus_id_l, val_l) in ptdf[branch_id_l]
-                Base.write(file_l, @sprintf("%25s%25s%16.8E\n",
-                                        branch_id_l,
-                                        bus_id_l,
-                                        val_l
-                                        )
-                            )
+        Base.write(file_l, @sprintf("#%24s %16s\n", "REF_BUS", "unknown"))
+        Base.write(file_l, @sprintf("#%24s %25s %25s %16s\n", "case", "branch", "bus", "value"))
+        for (case_l, ptdf) in ptdf_dict
+            for (branch_id_l, _) in ptdf
+                for (bus_id_l, val_l) in ptdf[branch_id_l]
+                    Base.write(file_l, @sprintf("%24s %25s %25s %16.8E\n",
+                                            case_l,
+                                            branch_id_l,
+                                            bus_id_l,
+                                            val_l
+                                            )
+                                )
+                end
             end
         end
     end
