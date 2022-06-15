@@ -12,6 +12,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct TSOConfigs
+    CONSIDER_N_1_CSTRS::Bool = false
     loss_of_load_penalty = 1e7
     limitation_penalty = 1e-03
     out_path = nothing
@@ -22,9 +23,9 @@ end
 
 @with_kw struct TSOLimitableModel <: AbstractLimitableModel
     #gen,ts,s
-    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts,s
     delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
+    #gen,ts,s
+    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     p_limit = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -35,9 +36,9 @@ end
 
 @with_kw struct TSOPilotableModel <: AbstractPilotableModel
     #gen,ts,s
-    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
-    #gen,ts,s
     delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
+    #gen,ts,s
+    p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     b_start = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -71,11 +72,11 @@ end
     #ts,s
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
         SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
-    #branch,ts,s
-    flows::SortedDict{Tuple{String,DateTime,String},VariableRef} =
-        SortedDict{Tuple{String,DateTime,String},VariableRef}()
-    rso_constraint::SortedDict{Tuple{String,DateTime,String},ConstraintRef} =
-        SortedDict{Tuple{String,DateTime,String},ConstraintRef}()
+    #branch,ts,s,ptdf_case
+    flows::SortedDict{Tuple{String,DateTime,String,String},AffExpr} =
+        SortedDict{Tuple{String,DateTime,String,String},AffExpr}()
+    rso_constraint::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
+        SortedDict{Tuple{String,DateTime,String,String},ConstraintRef}()
 end
 
 function has_positive_slack(model_container::TSOModel)::Bool
@@ -162,15 +163,6 @@ function create_objectives!(model_container::TSOModel,
     return model_container
 end
 
-function bound_sum_p_deltas(model_container::TSOModel)
-    model_l = get_model(model_container)
-    deltas_expr = model_container.objective_model.deltas
-    value_sum_deltas = value(deltas_expr)
-
-    @constraint(model_l, deltas_expr<=value_sum_deltas)
-    return model_container
-end
-
 
 function tso_out_fo(network::Networks.Network,
                     target_timepoints::Vector{Dates.DateTime},
@@ -246,31 +238,28 @@ function tso_out_fo(network::Networks.Network,
                     )
 
     # RSO
-    rso_constraints!(model_container_l.model, model_container_l.flows, model_container_l.rso_constraint,
-                    model_container_l.pilotable_model,
-                    model_container_l.limitable_model,
-                    model_container_l.lol_model,
-                    target_timepoints, scenarios,
-                    uncertainties_at_ech, network)
+    add_rso_flows_exprs(model_container_l.flows,
+                model_container_l.pilotable_model,
+                model_container_l.limitable_model,
+                model_container_l.lol_model,
+                all_combinations(network, target_timepoints, scenarios),
+                uncertainties_at_ech, network)
+    combinations = (configs.CONSIDER_N_1_CSTRS) ? all_combinations(network, target_timepoints, scenarios) :
+                                                    all_n_combinations(network, target_timepoints, scenarios)
+    rso_constraints!(model_container_l.model,
+                    model_container_l.rso_constraint,
+                    model_container_l.flows,
+                    combinations,
+                    network,
+                    prefix="tso")
 
     create_objectives!(model_container_l,
                         network, uncertainties_at_ech,
                         gratis_starts,
                         configs.loss_of_load_penalty, configs.limitation_penalty)
 
-    obj = model_container_l.objective_model.full_obj_1
-    @objective(get_model(model_container_l), Min, obj)
-    solve!(model_container_l, configs.problem_name*"_step1", configs.out_path)
-    @info "step2 objective current value : $(value(model_container_l.objective_model.full_obj_2))"
 
-    if (get_status(model_container_l)!=pscopf_INFEASIBLE
-        && value(model_container_l.objective_model.deltas)>0 )
-        bound_sum_p_deltas(model_container_l)
-
-        obj = model_container_l.objective_model.full_obj_2
-        @objective(get_model(model_container_l), Min, obj)
-        solve!(model_container_l, configs.problem_name*"_step2", configs.out_path)
-    end
+    solve_2steps_deltas!(model_container_l, configs)
 
     return model_container_l
 end

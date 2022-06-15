@@ -10,11 +10,13 @@ REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilo
                             for sequencing constraints and TSO objective function.
 """
 @with_kw mutable struct TSOBilevelConfigs
+    CONSIDER_DELTAS::Bool = true
+    CONSIDER_N_1_CSTRS::Bool = false
     TSO_LIMIT_PENALTY::Float64 = 1e-3
     TSO_LOL_PENALTY::Float64 = 1e5
     TSO_CAPPING_COST::Float64 = 1.
     TSO_PILOTABLE_BOUNDING_COST::Float64 = 1.
-    USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST::Bool = false
+    USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST::Bool = true
     MARKET_LOL_PENALTY::Float64 = 1e5
     MARKET_CAPPING_COST::Float64 = 1.
     out_path::Union{Nothing,String} = nothing
@@ -32,6 +34,8 @@ end
 ##########################################################
 
 @with_kw struct TSOBilevelTSOLimitableModel <: AbstractLimitableModel
+    #gen,ts,s
+    delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
@@ -65,12 +69,15 @@ end
 end
 
 @with_kw mutable struct TSOBilevelTSOObjectiveModel <: AbstractObjectiveModel
+    deltas = GenericAffExpr{Float64, VariableRef}()
+
     limitable_cost = GenericAffExpr{Float64, VariableRef}()
     pilotable_cost = GenericAffExpr{Float64, VariableRef}()
 
     penalty = GenericAffExpr{Float64, VariableRef}()
 
-    full_obj = GenericAffExpr{Float64, VariableRef}()
+    full_obj_1 = GenericAffExpr{Float64, VariableRef}()
+    full_obj_2 = GenericAffExpr{Float64, VariableRef}()
 end
 
 ##########################################################
@@ -83,7 +90,16 @@ end
     p_global_capping = SortedDict{Tuple{DateTime,String},VariableRef}();
 end
 
+"""
+# Note :
+    deltas are added here to allow automatically computing them and their constraints
+    but the constraints are not included in the reformulation (stationarity nor complementarity)
+    cause they can be seen as part of the upper
+    constraints discussed here are : delta >= +- (p_injected - P_ref)
+"""
 @with_kw struct TSOBilevelMarketPilotableModel <: AbstractPilotableModel
+    #gen,ts,s
+    delta_p = SortedDict{Tuple{String,DateTime,String},VariableRef}();
     #gen,ts,s
     p_injected = SortedDict{Tuple{String,DateTime,String},VariableRef}();
 end
@@ -112,11 +128,11 @@ end
     pilotable_model::TSOBilevelTSOPilotableModel = TSOBilevelTSOPilotableModel()
     lol_model::TSOBilevelTSOLoLModel = TSOBilevelTSOLoLModel()
     objective_model::TSOBilevelTSOObjectiveModel = TSOBilevelTSOObjectiveModel()
-    #branch,ts,s
-    flows::SortedDict{Tuple{String,DateTime,String},VariableRef} =
-        SortedDict{Tuple{String,DateTime,String},VariableRef}()
-    rso_constraint::SortedDict{Tuple{String,DateTime,String},ConstraintRef} =
-        SortedDict{Tuple{String,DateTime,String},ConstraintRef}()
+    #branch,ts,s,ptdf_case
+    flows::SortedDict{Tuple{String,DateTime,String,String},AffExpr} =
+        SortedDict{Tuple{String,DateTime,String,String},AffExpr}()
+    rso_constraint::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
+        SortedDict{Tuple{String,DateTime,String,String},ConstraintRef}()
 end
 @with_kw struct TSOBilevelMarketModelContainer <: AbstractModelContainer
     model::Model
@@ -201,8 +217,12 @@ function has_positive_slack(model_container::TSOBilevelModel)::Bool
     return has_positive_value(model_container.lower.lol_model.p_global_loss_of_load) #If TSO cut => market did too
 end
 
+function has_positive_slack(model_container::TSOBilevelTSOModelContainer)::Bool
+    return has_positive_value(model_container.lol_model.p_loss_of_load) #If market cut => TSO localised the LoL
+end
+
 function get_upper_obj_expr(bilevel_model::TSOBilevelModel)
-    return bilevel_model.upper.objective_model.full_obj
+    return bilevel_model.upper.objective_model.full_obj_2
 end
 function get_lower_obj_expr(bilevel_model::TSOBilevelModel)
     return bilevel_model.lower.objective_model.full_obj
@@ -215,7 +235,8 @@ end
 function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
                             network::Networks.Network,
                             target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String}
+                            scenarios::Vector{String},
+                            preceding_market_schedule::Schedule
                             )
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
     limitables_list_l = Networks.get_generators_of_type(network, Networks.LIMITABLE)
@@ -227,6 +248,8 @@ function create_tso_vars!( model_container::TSOBilevelTSOModelContainer,
     add_limitables_vars!(model_container,
                         target_timepoints, scenarios,
                         limitables_list_l,
+                        preceding_market_schedule,
+                        delta_vars=true,
                         injection_vars=true, limit_vars=true, local_capping_vars=true, global_capping_vars=true,
                         prefix="tso"
                         )
@@ -303,47 +326,68 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             buses_ids_l, target_timepoints, scenarios,
                             cstr_prefix_name="tso_distribute_lol")
 
+    add_rso_flows_exprs(tso_model_container.flows,
+                market_model_container.pilotable_model,
+                tso_model_container.limitable_model,
+                tso_model_container.lol_model,
+                all_combinations(network, target_timepoints, scenarios),
+                uncertainties_at_ech, network)
+    combinations = (configs.CONSIDER_N_1_CSTRS) ? all_combinations(network, target_timepoints, scenarios) :
+                                                    all_n_combinations(network, target_timepoints, scenarios)
     rso_constraints!(bimodel_container.model,
-                    tso_model_container.flows,
                     tso_model_container.rso_constraint,
-                    market_model_container.pilotable_model, #pilotable injections are decided by Market
-                    tso_model_container.limitable_model, #limitable injections are decided by TSO
-                    tso_model_container.lol_model,
-                    target_timepoints, scenarios,
-                    uncertainties_at_ech, network,
+                    tso_model_container.flows,
+                    combinations,
+                    network,
                     prefix="tso")
 
     return bimodel_container
 end
 
-function create_tso_objectives!(model_container::TSOBilevelTSOModelContainer,
+function create_tso_objectives!(bimodel_container::TSOBilevelModel,
                                 target_timepoints, scenarios, network,
                                 preceding_market_schedule::Schedule,
                                 capping_cost, loss_of_load_cost,
                                 limit_penalty,
                                 pilotable_bounding_cost,
                                 use_prop_cost_for_bounding::Bool)
-    objective_model = model_container.objective_model
+    tso_model_container = bimodel_container.upper
+    market_model_container = bimodel_container.lower
+    objective_model = tso_model_container.objective_model
+
+    # cost for deviating from market schedule
+    for (_, var_delta) in market_model_container.pilotable_model.delta_p
+        objective_model.deltas += var_delta
+    end
+    for (_, var_delta) in tso_model_container.limitable_model.delta_p
+        objective_model.deltas += var_delta
+    end
 
     # objective_model.pilotable_cost
-    add_tsobilevel_impositions_cost!(model_container,
+    add_tsobilevel_impositions_cost!(tso_model_container,
                                     target_timepoints, scenarios, network,
                                     preceding_market_schedule,
                                     pilotable_bounding_cost,
                                     use_prop_cost_for_bounding)
 
     # limitable_cost : capping (fr. ecretement)
-    objective_model.limitable_cost += coeffxsum(model_container.limitable_model.p_global_capping, capping_cost)
+    objective_model.limitable_cost += coeffxsum(tso_model_container.limitable_model.p_global_capping, capping_cost)
 
     # cost for cutting consumption (lol) and avoid limiting for no reason
-    objective_model.penalty += coeffxsum(model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
-    objective_model.penalty += coeffxsum(model_container.limitable_model.b_is_limited, limit_penalty)
+    objective_model.penalty += coeffxsum(tso_model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
+    objective_model.penalty += coeffxsum(tso_model_container.limitable_model.b_is_limited, limit_penalty)
 
-    objective_model.full_obj = ( objective_model.pilotable_cost +
+    # cost for cutting load/consumption by the market
+    objective_model.penalty += coeffxsum(market_model_container.lol_model.p_global_loss_of_load, loss_of_load_cost)
+
+    #Objective 1 : add penalty ?
+    objective_model.full_obj_1 = objective_model.deltas + objective_model.penalty
+    #Objective 2 : add penalty ?
+    objective_model.full_obj_2 = ( objective_model.pilotable_cost +
                                 objective_model.limitable_cost +
                                 objective_model.penalty )
-    @objective(model_container.model, Min, objective_model.full_obj)
-    return model_container
+
+    return tso_model_container
 end
 
 function add_tsobilevel_impositions_cost!(model_container::TSOBilevelTSOModelContainer,
@@ -426,12 +470,15 @@ end
 function create_market_vars!(model_container::TSOBilevelMarketModelContainer,
                             network::Networks.Network,
                             target_timepoints::Vector{Dates.DateTime},
-                            scenarios::Vector{String}
+                            scenarios::Vector{String},
+                            preceding_market_schedule::Schedule
                             )
 
     pilotables_list_l = Networks.get_generators_of_type(network, Networks.PILOTABLE)
     add_pilotables_vars!(model_container,
                         pilotables_list_l, target_timepoints, scenarios,
+                        preceding_market_schedule,
+                        delta_vars=true,
                         injection_vars=true,
                         prefix="market_"
                         )
@@ -860,9 +907,11 @@ function tso_bilevel(network::Networks.Network,
     bimodel_container_l = TSOBilevelModel()
 
     create_tso_vars!(bimodel_container_l.upper,
-                    network, target_timepoints, scenarios)
+                    network, target_timepoints, scenarios,
+                    preceding_market_schedule)
     create_market_vars!(bimodel_container_l.lower,
-                        network, target_timepoints, scenarios)
+                        network, target_timepoints, scenarios,
+                        preceding_market_schedule)
 
     #this is the expression no objective is added to the jump model
     create_market_objectives!(bimodel_container_l.lower, network,
@@ -880,15 +929,35 @@ function tso_bilevel(network::Networks.Network,
     #kkt complementarity
     add_kkt_complementarity_constraints!(bimodel_container_l, configs.big_m, target_timepoints, scenarios, network)
 
-    create_tso_objectives!(bimodel_container_l.upper,
+    create_tso_objectives!(bimodel_container_l,
                         target_timepoints, scenarios, network,
                         reference_schedule, #reference to see which units are currently on
                         configs.TSO_CAPPING_COST, configs.TSO_LOL_PENALTY,
                         configs.TSO_LIMIT_PENALTY,
                         configs.TSO_PILOTABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)
 
-    solve!(bimodel_container_l, configs.problem_name, configs.out_path)
-    @info("Lower Objective Value : $(value(bimodel_container_l.lower.objective_model.full_obj))")
+    launch_solve!(bimodel_container_l, configs)
 
     return bimodel_container_l
+end
+
+function launch_solve!(bimodel_container::TSOBilevelModel, configs::TSOBilevelConfigs)
+    # first_iter = true
+    # while(!isempty(to_add) || first_iter)
+    #     first_iter = false
+    #     solve!(bimodel_container, configs.problem_name, configs.out_path)
+
+    #     to_add = verify_rso()
+    #     add_constraints(to_add)
+    # end
+
+    #the upper problem's objective model holds the two objective expressions and the deltas expression
+    if configs.CONSIDER_DELTAS
+        solve_2steps_deltas!(bimodel_container.upper, configs)
+    else
+        obj = bimodel_container.upper.objective_model.full_obj_2
+        @objective(get_model(bimodel_container), Min, obj)
+        solve!(bimodel_container, configs.problem_name, configs.out_path)
+    end
+    @info("Lower Objective Value : $(value(bimodel_container.lower.objective_model.full_obj))")
 end

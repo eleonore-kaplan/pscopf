@@ -6,6 +6,8 @@ using PSCOPF
 
 include("test_wip//test_models/fixtures.jl")
 
+println("Testing with solver : ", PSCOPF.OPTIMIZER)
+
 #TODO : redirect logs
 @testset verbose=true "PSCOPF_TESTS" begin
     include("test_wip/test_modes.jl")
@@ -57,6 +59,7 @@ include("test_wip//test_models/fixtures.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables_scenarios.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_limitables_timesteps.jl")
+    include("test_wip/test_models/tso_bilevel/test_bilevel_pilotables_deltas.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_pilotables.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_pilotables_start.jl")
     include("test_wip/test_models/tso_bilevel/test_bilevel_pilotables_costing.jl")
