@@ -9,6 +9,8 @@ using SparseArrays, LinearAlgebra
 
 include("utils.jl")
 
+BASECASE = "BASECASE"
+
 mutable struct Bus
     id::Int
     name::String
@@ -263,13 +265,18 @@ function write_PTDF(file_path::String,
                     network::Network, PTDF::Matrix,
                     distributed=false, ref_bus::Int=-1,
                     i_cut_branch::Union{Nothing,Int}=nothing;
-                    PTDF_TRIMMER::Float64=1e-06,)
+                    PTDF_TRIMMER::Float64=1e-06,
+                    concat::Bool=false)
     n = length(network.bus_to_i);
     m = length(network.branch_to_i);
-    open(file_path, "w") do file
-        ref_name =  distributed ? "\"distributed\"" : @sprintf("\"%s\"", network.buses[ref_bus].name)
-        cut_branch =  isnothing(i_cut_branch) ? "\"NONE\"" : @sprintf("\"%s\"", network.branches[i_cut_branch].name)
-        write(file, @sprintf("#%20s %20s %20s %20s\n", "REF_BUS", ref_name, "CUT_BRANCH", cut_branch))
+    open(file_path, (concat) ? "a" : "w") do file
+        if !concat
+            ref_name =  distributed ? "\"distributed\"" : @sprintf("\"%s\"", network.buses[ref_bus].name)
+            write(file, @sprintf("#%20s %20s\n", "REF_BUS", ref_name))
+            write(file, @sprintf("#%20s %20s %20s %20s\n", "case", "branch_id", "bus_id", "ptdf"))
+        end
+        ptdf_case = @sprintf("\"%s\"", isnothing(i_cut_branch) ? BASECASE : network.branches[i_cut_branch].name)
+
         for branch_id in 1:m
             for bus_id in 1:n
                 branch_name =  @sprintf("\"%s\"", network.branches[branch_id].name)
@@ -278,7 +285,7 @@ function write_PTDF(file_path::String,
                 if abs(ptdf)<PTDF_TRIMMER
                     ptdf = 0.
                 end
-                write(file, @sprintf("%20s %20s %20.6E\n", branch_name, bus_name,ptdf))
+                write(file, @sprintf("%20s %20s %20s %20.6E\n", ptdf_case, branch_name, bus_name, ptdf))
             end
         end
     end
@@ -292,8 +299,42 @@ function compute_ptdf(network, ref_bus::Int, EPS_DIAG::Float64)
     return PTDF
 end
 
-export compute_ptdf
 
+function compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir=".", i_cut_branch_p=nothing;
+                            concat::Bool=false)
+    if isnothing(i_cut_branch_p)
+        network_l = network_p
+        name = ""
+    else
+        cut_branch_l, network_l = PTDF.reduced_network(network_p, i_cut_branch_p)
+        name = "_n1_"*cut_branch_l.name
+    end
+
+    ptdf_l = PTDF.compute_ptdf(network_l, ref_bus_num_p)
+    if distributed_p
+        ptdf_l = PTDF.distribute_slack(ptdf_l);
+        # coeffs = Dict([ "poste_1_0" => .2,
+        #                 "poste_2_0" => .8])
+        # ptdf_l = PTDF.distribute_slack(ptdf_l, coeffs, network_l);
+    end
+    filename = "pscopf_ptdf.txt"
+    output_path = joinpath(outdir, filename)
+    #use original network to print full ptdf containing the cut branch (with 0 coeffs)
+    PTDF.write_PTDF(output_path, network_p, ptdf_l, distributed_p, ref_bus_num_p,
+                    i_cut_branch_p,
+                    concat=concat)
+end
+
+function compute_and_write_all(network_p, ref_bus_num_p, distributed_p, outdir=".")
+    compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir, nothing, concat=false)
+    for (i_cut_branch,_) in network_p.branch_to_i
+        compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir,
+                            i_cut_branch, concat=true)
+    end
+end
+
+export compute_and_write_all, compute_and_write
+export compute_ptdf
 export get_b;
 export get_B;
 export get_B_inv;
