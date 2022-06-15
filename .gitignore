@@ -15,6 +15,7 @@ default_out
 *.lp
 *.sol
 *.log
+/data_matpower/*/pscopf_ptdf.txt
 
 #build directories
 /docs/build
