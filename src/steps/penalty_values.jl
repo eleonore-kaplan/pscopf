@@ -1,0 +1,1 @@
+loss_of_load_penalty_value = 1e4

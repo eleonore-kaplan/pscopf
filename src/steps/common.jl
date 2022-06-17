@@ -2,6 +2,7 @@ using .Networks
 
 using JuMP
 using Dates
+using MathProgBase
 
 try
     using Xpress;
@@ -135,6 +136,14 @@ function solve!(model::AbstractModel,
         mkpath(out_folder)
         model_file_l = joinpath(out_folder, problem_name_l*".lp")
         write_to_file(model, model_file_l)
+        
+        #MathProgBase.writeproblem(getSolverModel(model),model_file_l)
+        
+        model_file_l_new = joinpath(out_folder, problem_name_l*"_new.lp")
+
+        MOI.Utilities.attach_optimizer(model)
+        internalModel = unsafe_backend(model)
+        Xpress.writeprob(internalModel.inner, model_file_l_new, "-l");
 
         log_file_l = joinpath(out_folder, problem_name_l*".log")
     else

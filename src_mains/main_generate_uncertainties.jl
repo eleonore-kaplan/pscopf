@@ -36,7 +36,7 @@ include(joinpath(root_path, "src", "PSCOPF.jl"));
 # pscopf_limits : the flow capacity of each branch
 # pscopf_ptdf : the ptdf coefficients per (branch, bus_id)
 # pscopf_init : the description of the initial state of units (just before the first interest timepoit T)
-data_path = joinpath(@__DIR__, "..", "data", "2buses_small_usecase")
+data_path = joinpath(@__DIR__, "..", "usecases-euro-simple", "usecase1-repartition", "data")
 
 # out_path is the path where uncertainties file will be written:
 # pscopf_uncertainties : the randomly generated nodal injections
@@ -46,7 +46,7 @@ out_path = joinpath(data_path, "generate_uncertainties")
 copy_data_files = true
 
 # Number of scenarios to be generated
-nb_scenarios = 5
+nb_scenarios = 1
 
 # interest time points (ie T)
 ts1 = Dates.DateTime("2015-01-01T11:00:00")

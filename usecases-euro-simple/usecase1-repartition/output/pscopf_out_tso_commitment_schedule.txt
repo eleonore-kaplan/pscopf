@@ -1,0 +1,9 @@
+#                ech   decider                     name                  ts  scenario value  firmness
+ 2015-01-01T10:30:00       tso                     TH_A 2015-01-01T11:00:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_A 2015-01-01T11:15:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_A 2015-01-01T11:30:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_A 2015-01-01T11:45:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_B 2015-01-01T11:00:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_B 2015-01-01T11:15:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_B 2015-01-01T11:30:00        S1    ON      FIRM
+ 2015-01-01T10:30:00       tso                     TH_B 2015-01-01T11:45:00        S1    ON      FIRM

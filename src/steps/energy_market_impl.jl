@@ -6,13 +6,15 @@ using DataStructures
 using Printf
 using Parameters
 
+include("penalty_values.jl")
+
 """
 REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO schedule as a reference.
                     The reference schedule is used to get decided commitment and production levels if
                       tso actions are missing.
 """
 @with_kw mutable struct EnergyMarketConfigs
-    loss_of_load_penalty = 1e7
+    loss_of_load_penalty = loss_of_load_penalty_value
     out_path = nothing
     problem_name = "EnergyMarket"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
