@@ -15,20 +15,20 @@ REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilo
 @with_kw mutable struct TSOBilevelConfigs
     CONSIDER_DELTAS::Bool = true
     CONSIDER_N_1_CSTRS::Bool = false
-    TSO_LIMIT_PENALTY::Float64 = 1e-3
-    TSO_LOL_PENALTY::Float64 = loss_of_load_penalty_value
-    TSO_CAPPING_COST::Float64 = 1.
-    TSO_PILOTABLE_BOUNDING_COST::Float64 = 1.
+    TSO_LIMIT_PENALTY::Float64 = tso_limit_penalty_value
+    TSO_LOL_PENALTY::Float64 = tso_loss_of_load_penalty_value
+    TSO_CAPPING_COST::Float64 = tso_capping_cost
+    TSO_PILOTABLE_BOUNDING_COST::Float64 = tso_pilotable_bounding_cost
     USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST::Bool = true
-    MARKET_LOL_PENALTY::Float64 = 1e5
-    MARKET_CAPPING_COST::Float64 = 1.
+    MARKET_LOL_PENALTY::Float64 = market_loss_of_load_penalty_value
+    MARKET_CAPPING_COST::Float64 = market_capping_cost
     out_path::Union{Nothing,String} = nothing
     problem_name::String = "TSOBilevel"
     LINK_SCENARIOS_LIMIT::Bool = true
     LINK_SCENARIOS_PILOTABLE_LEVEL::Bool = false
     LINK_SCENARIOS_PILOTABLE_ON::Bool = false
     LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET::Bool = false
-    big_m = 1e6
+    big_m = big_m_value
     REF_SCHEDULE_TYPE_IN_TSO::Union{Market,TSO} = Market();
 end
 

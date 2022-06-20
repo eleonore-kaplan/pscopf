@@ -62,7 +62,7 @@ sequence1 = PSCOPF.Sequence(Dict([
 ]))
 
 sequence2 = PSCOPF.Sequence(Dict([
-        ts1 - Dates.Minute(30)  => [PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
+        ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel()],
     ]))
 
 PSCOPF.rm_non_prefixed(output_path, "pscopf_")

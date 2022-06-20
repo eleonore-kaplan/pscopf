@@ -14,7 +14,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct EnergyMarketConfigs
-    loss_of_load_penalty = loss_of_load_penalty_value
+    loss_of_load_penalty = market_loss_of_load_penalty_value
     out_path = nothing
     problem_name = "EnergyMarket"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();

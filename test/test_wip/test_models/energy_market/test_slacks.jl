@@ -142,7 +142,7 @@ using DataStructures
         @test 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S3")
         @test value(result.lol_model.p_global_loss_of_load[TS[1], "S3"]) < 1e-09
         # penalize cutting consumption
-        @test 1e4 ≈ market.configs.loss_of_load_penalty
+        @test 1e3 ≈ market.configs.loss_of_load_penalty
         @test (50. * 1e4 + 15. * 1e4 + 0. ) ≈ value(result.objective_model.penalty)
         @test (1e5 + 0. + 1e5) ≈ value(result.objective_model.start_cost)
         @test (100. + 0. + 25. ) ≈ value(result.objective_model.prop_cost)
