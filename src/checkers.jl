@@ -196,13 +196,16 @@ end
 ##################################
 
 function check(branch::Branch)
-    if Networks.get_limit(branch) < 0
-        msg = @sprintf("Branch %s: Invalid input %f : limit must be non-negative.",
-                    Networks.get_id(branch), Networks.get_limit(branch))
-        @error(msg)
-        return false
+    checks = true
+    for (network_case, limit) in Networks.get_limit(branch)
+        if limit < 0
+            msg = @sprintf("Branch %s: Invalid limit %f in network case %s : limit must be non-negative.",
+                        Networks.get_id(branch), limit, network_case)
+            @error(msg)
+            checks = false
+        end
     end
-    return true
+    return checks
 end
 
 

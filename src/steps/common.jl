@@ -1226,7 +1226,7 @@ function rso_constraint!(model::AbstractModel,
                         prefix::String="")
 
     branch_id = Networks.get_id(branch)
-    flow_limit_l = Networks.get_limit(branch)
+    flow_limit_l = Networks.safeget_limit(branch, ptdf_case)
 
     c_name =  @sprintf("%sRSO[%s,%s,%s,%s]", prefix, branch_id, ts, s, ptdf_case)
     flow_l = flows[branch_id, ts, s, ptdf_case]

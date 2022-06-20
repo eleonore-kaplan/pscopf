@@ -223,7 +223,7 @@ function trace_flows(flows::SortedDict{Tuple{String, DateTime, String}, Float64}
                     network::Networks.Network)
     for ((branch_id, ts, scenario), flow_val) in flows
         branch = Networks.safeget_branch(network, branch_id)
-        limit = Networks.get_limit(branch)
+        limit::Float64 = Networks.safeget_limit(branch, Networks.BASECASE)
         if abs(flow_val) > limit
             @printf("Flow value %f for branch %s, at timestep %s and scenario %s exceeds branch limit (%f)\n",
                     flow_val, branch_id, ts, scenario, limit)
