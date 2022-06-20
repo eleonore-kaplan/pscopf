@@ -114,11 +114,9 @@ function update_tso_actions!(context::AbstractContext, ech, result, firmness,
 
         if get_power_level_firmness(firmness, gen_id, ts) in [TO_DECIDE, DECIDED]
             @assert( value(p_injected_var) ≈ get!(impositions, (gen_id, ts), value(p_injected_var)) ) #TODELETE : checks that all values are the same across scenarios
-            set_imposition_value!(tso_actions, gen_id, ts, s, value(p_injected_var), value(p_injected_var))
-            println(value(p_min_var), " ", value(p_max_var), " ", value(p_injected_var))
+            set_imposition_value!(tso_actions, gen_id, ts, s, value(p_min_var), value(p_max_var))
         else
             set_imposition_value!(tso_actions, gen_id, ts, s, value(p_min_var), value(p_max_var))
-            println(value(p_min_var), " ", value(p_max_var), " ", value(p_injected_var))
 
         end
     end
