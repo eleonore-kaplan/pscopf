@@ -6,6 +6,8 @@ using DataStructures
 using Printf
 using Parameters
 
+include("penalty_values.jl")
+
 """
 REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO schedule as a reference.
                     The reference schedule is used to get decided commitment and production levels if
@@ -13,8 +15,8 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
 """
 @with_kw mutable struct TSOConfigs
     CONSIDER_N_1_CSTRS::Bool = false
-    loss_of_load_penalty = 1e7
-    limitation_penalty = 1e-03
+    loss_of_load_penalty = tso_loss_of_load_penalty_value
+    limitation_penalty = tso_limit_penalty_value
     out_path = nothing
     problem_name = "TSO"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();

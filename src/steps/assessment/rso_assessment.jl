@@ -5,8 +5,10 @@ using JuMP
 using Printf
 using Parameters
 
+include("..\\penalty_values.jl")
+
 @with_kw mutable struct RSOAssessmentConfigs
-    BIG_M = 1e3 #max supposed overflow
+    BIG_M = big_m_value #max supposed overflow
 
     out_path = nothing
     problem_name = "RSOAssessment"

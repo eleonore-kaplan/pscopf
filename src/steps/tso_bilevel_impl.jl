@@ -5,6 +5,9 @@ using Dates
 using DataStructures
 using Printf
 using Parameters
+
+include("penalty_values.jl")
+
 """
 REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilotables state/levels needed
                             for sequencing constraints and TSO objective function.
@@ -12,20 +15,20 @@ REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilo
 @with_kw mutable struct TSOBilevelConfigs
     CONSIDER_DELTAS::Bool = true
     CONSIDER_N_1_CSTRS::Bool = false
-    TSO_LIMIT_PENALTY::Float64 = 1e-3
-    TSO_LOL_PENALTY::Float64 = 1e5
-    TSO_CAPPING_COST::Float64 = 1.
-    TSO_PILOTABLE_BOUNDING_COST::Float64 = 1.
+    TSO_LIMIT_PENALTY::Float64 = tso_limit_penalty_value
+    TSO_LOL_PENALTY::Float64 = tso_loss_of_load_penalty_value
+    TSO_CAPPING_COST::Float64 = tso_capping_cost
+    TSO_PILOTABLE_BOUNDING_COST::Float64 = tso_pilotable_bounding_cost
     USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST::Bool = true
-    MARKET_LOL_PENALTY::Float64 = 1e5
-    MARKET_CAPPING_COST::Float64 = 1.
+    MARKET_LOL_PENALTY::Float64 = market_loss_of_load_penalty_value
+    MARKET_CAPPING_COST::Float64 = market_capping_cost
     out_path::Union{Nothing,String} = nothing
     problem_name::String = "TSOBilevel"
     LINK_SCENARIOS_LIMIT::Bool = true
     LINK_SCENARIOS_PILOTABLE_LEVEL::Bool = false
     LINK_SCENARIOS_PILOTABLE_ON::Bool = false
     LINK_SCENARIOS_PILOTABLE_LEVEL_MARKET::Bool = false
-    big_m = 1e6
+    big_m = big_m_value
     REF_SCHEDULE_TYPE_IN_TSO::Union{Market,TSO} = Market();
 end
 
@@ -401,22 +404,30 @@ function add_tsobilevel_impositions_cost!(model_container::TSOBilevelTSOModelCon
     for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE)
         gen_id = Networks.get_id(gen)
         if use_prop_cost_for_bounding
-            cost = Networks.get_prop_cost(gen)
+            bounding_cost = Networks.get_prop_cost(gen)
         else
-            cost = pilotable_bounding_cost
+            bounding_cost = pilotable_bounding_cost
         end
+
+        start_cost = Networks.get_start_cost(gen)
 
         for ts in target_timepoints
             for s in scenarios
                 commitment = get_commitment_value(preceding_market_schedule, gen_id, ts, s)
-                if  !Networks.needs_commitment(gen) || (!ismissing(commitment) && (commitment==ON))
+                if  !Networks.needs_commitment(gen)
+                    add_tso_bilevel_no_commitment_impositions_cost!(objective_expr, gen,
+                                                                    tso_pilotable_model.p_imposition_min[gen_id, ts, s],
+                                                                    tso_pilotable_model.p_imposition_max[gen_id, ts, s],
+                                                                    bounding_cost)
+                elseif (!ismissing(commitment) && (commitment==ON))
                     add_tsobilevel_started_impositions_cost!(objective_expr, gen,
                                                             tso_pilotable_model.p_imposition_min[gen_id, ts, s],
                                                             tso_pilotable_model.p_imposition_max[gen_id, ts, s],
-                                                            cost)
+                                                            tso_pilotable_model.b_on[gen_id, ts, s],
+                                                            bounding_cost)
                 else
                     add_tsobilevel_non_started_impositions_cost!(objective_expr, model_container,
-                                                                 gen, ts, s, cost)
+                                                                 gen, ts, s, bounding_cost, start_cost)
                 end
             end
         end
@@ -424,11 +435,13 @@ function add_tsobilevel_impositions_cost!(model_container::TSOBilevelTSOModelCon
 
     return model_container
 end
-function add_tsobilevel_started_impositions_cost!(objective_expr::AffExpr,
-                                                gen::Generator,
-                                                pmin_var, pmax_var,
-                                                pilotable_bounding_cost
-                                                )
+
+function add_tso_bilevel_no_commitment_impositions_cost!(objective_expr::AffExpr,
+                                                        gen::Generator,
+                                                        pmin_var, pmax_var,
+                                                        pilotable_bounding_cost
+                                                        )
+
     p_max = Networks.get_p_max(gen)
     p_min = Networks.get_p_min(gen)
 
@@ -437,10 +450,25 @@ function add_tsobilevel_started_impositions_cost!(objective_expr::AffExpr,
 
     return objective_expr
 end
+
+function add_tsobilevel_started_impositions_cost!(objective_expr::AffExpr,
+                                                gen::Generator,
+                                                pmin_var, pmax_var,
+                                                b_on_var,
+                                                pilotable_bounding_cost
+                                                )
+    p_max = Networks.get_p_max(gen)
+    p_min = Networks.get_p_min(gen)
+
+    add_to_expression!(objective_expr, pilotable_bounding_cost * (p_max - pmax_var))
+    add_to_expression!(objective_expr, pilotable_bounding_cost * (pmin_var - p_min*b_on_var))
+
+    return objective_expr
+end
 function add_tsobilevel_non_started_impositions_cost!(objective_expr::AffExpr,
                                                       tso_model_container::TSOBilevelTSOModelContainer,
                                                     gen, ts, s,
-                                                    pilotable_bounding_cost
+                                                    pilotable_bounding_cost, start_cost
                                                     )
     #need a second expression for units that do not need a commitment (p_min=0 and no b_on)
     @assert Networks.needs_commitment(gen)
@@ -449,15 +477,17 @@ function add_tsobilevel_non_started_impositions_cost!(objective_expr::AffExpr,
     gen_id = Networks.get_id(gen)
 
     p_max = Networks.get_p_max(gen)
-    # p_min = Networks.get_p_min(gen)
+    p_min = Networks.get_p_min(gen)
+
+    b_on_var = tso_pilotable_model.b_on[gen_id, ts, s]
+    add_to_expression!(objective_expr, start_cost * b_on_var)
 
     #need to cost reducing pmax otherwise TSO may always limit pmax when starting a unit
     pmax_var = tso_pilotable_model.p_imposition_max[gen_id, ts, s]
-    b_on_var = tso_pilotable_model.b_on[gen_id, ts, s]
     add_to_expression!(objective_expr, pilotable_bounding_cost * (p_max*b_on_var - pmax_var) )
 
     pmin_var = tso_pilotable_model.p_imposition_min[gen_id, ts, s]
-    add_to_expression!(objective_expr, pilotable_bounding_cost * pmin_var)
+    add_to_expression!(objective_expr, pilotable_bounding_cost * (pmin_var - p_min*b_on_var))
     # add_to_expression!(objective_expr, pilotable_bounding_cost * p_min * b_on_var)
 
     return objective_expr
