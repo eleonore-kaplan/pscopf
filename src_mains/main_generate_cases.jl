@@ -7,6 +7,7 @@ Parameters:
                 (not the pscopf_ files but branches.txt and buses.txt)
 """
 
+using Random
 using Dates
 using Printf
 using StatsBase
@@ -122,7 +123,7 @@ function generate_init_state(initial_network, output_folder)
     return gen_init
 end
 
-function generate_base_uncertainties(network::PSCOPF.Network,
+function generate_base_consumptions(network::PSCOPF.Network,
                                     ech::DateTime, ts::DateTime, base_s::String,
                                     conso_ratio::Float64)::PSCOPF.Uncertainties
     @assert ( 0 < conso_ratio <= 1. )
@@ -137,6 +138,7 @@ function generate_base_uncertainties(network::PSCOPF.Network,
     buses_ids = PSCOPF.get_id.(PSCOPF.get_buses(network))
     bus_conso_ratios = rand(Dirichlet(nb_buses, 1.0))
     distribution = Dict(zip(buses_ids, bus_conso_ratios))
+
     for (bus_id, bus_conso_ratio) in distribution
         conso_l = bus_conso_ratio * total_consumptio
         PSCOPF.add_uncertainty!(uncertainties, ech, bus_id, ts, base_s, conso_l)
@@ -172,7 +174,7 @@ function update_network_limits!(network::PSCOPF.Network, flows::SortedDict{Tuple
 end
 
 
-function generate_uncertainties(network, base_uncertainties, ts, base_s, ECH, nb_scenarios)
+function generate_uncertainties(network, base_values::PSCOPF.UncertaintiesAtEch, ts, base_s, ECH, nb_scenarios, prediction_error)
     TS = PSCOPF.create_target_timepoints(ts)
     uncertainties_distributions = SortedDict{String, PSCOPF.UncertaintyErrorNDistribution}()
     for bus in PSCOPF.get_buses(network)
@@ -180,12 +182,12 @@ function generate_uncertainties(network, base_uncertainties, ts, base_s, ECH, nb
         uncertainties_distributions[bus_id] = PSCOPF.UncertaintyErrorNDistribution(
                                                             bus_id,
                                                             0., 5000,
-                                                            PSCOPF.get_uncertainties(base_uncertainties, bus_id, ts, base_s),
-                                                            0.01,
+                                                            PSCOPF.get_uncertainties(base_values, bus_id, ts, base_s),
+                                                            prediction_error,
                                                             )
     end
 
-    return PSCOPF.generate_uncertainties(generated_network,
+    return PSCOPF.generate_uncertainties(network,
                                         TS, ECH,
                                         uncertainties_distributions,
                                         nb_scenarios)
@@ -194,11 +196,11 @@ end
 ###############################################
 # INPUT & PARAMS
 ###############################################
+Random.seed!(0)
 
 input_path = ( length(ARGS) > 0 ? ARGS[1] :
-                    joinpath(@__DIR__, "..", "data", "ptdf", "3buses_3branches") )
-output_folder = joinpath(@__DIR__, "..", "data", "usecase")
-
+                    joinpath(@__DIR__, "..", "data_matpower", "case5") )
+output_folder = joinpath(@__DIR__, "..", "data", "case5")
 
 # PTDF
 #######
@@ -220,9 +222,7 @@ nb_generators_probabilities = [.35, .3, .1, .05] #no_generator_proba : 0.2
 
 # Base Uncertainties
 #####################
-ts = DateTime("2015-01-01T11:00:00")
-ech = DateTime("2015-01-01T07:00:00")
-conso_to_unit_capa_ratio = 0.7 #consumption will represent 70% of the units' max capacities
+limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning will represent 70% of the units' max capacities (distributed randomly)
 
 
 # Limits
@@ -231,64 +231,89 @@ free_flow_to_limit_ratio = 0.7
 
 # Uncertainties
 ################
-ECH = [ts-Hour(4), ts-Hour(2), ts-Hour(1), ts-Minute(30), ts-Minute(15)]
+ts1 = DateTime("2015-01-01T11:00:00")
+ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15)]
 nb_scenarios = 3
+prediction_error = 0.01
 
 
-###############################################
-# COMPUTE PTDF for N and N-1
-###############################################
-ptdf_network = PTDF.read_network(input_path)
-PTDF.compute_and_write_all(ptdf_network, ref_bus_num, distributed, output_folder)
+function main_instance_generate(input_path,
+            ref_bus_num, distributed,
+            default_limit, nb_generators_probabilities, pilotables_templates,
+            limits_conso_to_unit_capa_ratio,
+            free_flow_to_limit_ratio,
+            ECH, ts, nb_scenarios, prediction_error,
+            output_folder)
+
+    ech = ECH[1]
+
+    ###############################################
+    # COMPUTE PTDF for N and N-1
+    ###############################################
+    ptdf_network = PTDF.read_network(input_path)
+    time_ptdf = @elapsed PTDF.compute_and_write_all(ptdf_network, ref_bus_num, distributed, output_folder)
 
 
-###############################################
-# Generate Initial Network
-###############################################
-initial_network = generate_initial_network(ptdf_network,
-                                        output_folder,
-                                        default_limit,
-                                        nb_generators_probabilities, pilotables_templates)
-gen_init = generate_init_state(initial_network, output_folder)
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), initial_network)
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), gen_init)
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), gen_init)
+    ###############################################
+    # Generate Initial Network
+    ###############################################
+    initial_network = generate_initial_network(ptdf_network,
+                                            output_folder,
+                                            default_limit,
+                                            nb_generators_probabilities, pilotables_templates)
+    gen_init = generate_init_state(initial_network, output_folder)
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), initial_network)
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), gen_init)
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), gen_init)
 
 
-###############################################
-# Generate Base Uncertainties
-###############################################
-base_uncertainties = generate_base_uncertainties(initial_network, ech, ts, "BASE_S", conso_to_unit_capa_ratio)
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), base_uncertainties)
+    ###############################################
+    # Generate Base Uncertainties for limits
+    ###############################################
+    base_consumptions = generate_base_consumptions(initial_network, ech, ts, "BASE_S", limits_conso_to_unit_capa_ratio)
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "initial_network"), base_consumptions)
 
 
-###############################################
-# Compute Base Flows
-###############################################
-free_flows = compute_free_flows(initial_network, ech, ts, gen_init, base_uncertainties)
+    ###############################################
+    # Compute Base Flows
+    ###############################################
+    time_free_flows = @elapsed free_flows = compute_free_flows(initial_network, ech, ts, gen_init, base_consumptions)
 
 
-###############################################
-# Generate Network : update branch limits
-###############################################
-update_network_limits!(initial_network, free_flows, free_flow_to_limit_ratio)
-generated_network = initial_network
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), generated_network)
+    ###############################################
+    # Generate Network : update branch limits
+    ###############################################
+    update_network_limits!(initial_network, free_flows, free_flow_to_limit_ratio)
+    generated_network = initial_network
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), generated_network)
 
 
-###############################################
-# Generate Uncertainties
-###############################################
-uncertainties = generate_uncertainties(generated_network, base_uncertainties[ech], ts, "BASE_S", ECH, nb_scenarios)
-PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), uncertainties)
+    ###############################################
+    # Generate Uncertainties
+    ###############################################
+    uncertainties = generate_uncertainties(generated_network, base_consumptions[ech], ts, "BASE_S", ECH, nb_scenarios, prediction_error)
+    PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), uncertainties)
 
+    return (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows)
+end
+
+time_generation = @elapsed (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows) =
+                            main_instance_generate(input_path,
+                                ref_bus_num, distributed,
+                                default_limit, nb_generators_probabilities, pilotables_templates,
+                                limits_conso_to_unit_capa_ratio,
+                                free_flow_to_limit_ratio,
+                                ECH, ts1, nb_scenarios, prediction_error,
+                                output_folder)
+
+print("\n"^10)
 
 ###############################################
 # Solve usecase : mode 1
 ###############################################
 output_mode_1 = joinpath(output_folder, "mode1")
 mode_1 = PSCOPF.PSCOPF_MODE_1
-TS = PSCOPF.create_target_timepoints(ts)
+TS = PSCOPF.create_target_timepoints(ts1)
 sequence = PSCOPF.generate_sequence(generated_network, TS, ECH, mode_1)
 
 PSCOPF.rm_non_prefixed(output_mode_1, "pscopf_")
@@ -297,14 +322,16 @@ exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_1,
                                     uncertainties, nothing,
                                     output_mode_1)
 
-PSCOPF.run!(exec_context, sequence)
+time_mode_1 = @elapsed PSCOPF.run!(exec_context, sequence)
+
+print("\n"^10)
 
 ###############################################
 # Solve usecase : mode 2
 ###############################################
 output_mode_2 = joinpath(output_folder, "mode2")
 mode_2 = PSCOPF.PSCOPF_MODE_2
-TS = PSCOPF.create_target_timepoints(ts)
+TS = PSCOPF.create_target_timepoints(ts1)
 sequence = PSCOPF.generate_sequence(generated_network, TS, ECH, mode_2)
 
 PSCOPF.rm_non_prefixed(output_mode_2, "pscopf_")
@@ -313,4 +340,11 @@ exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_2,
                                     uncertainties, nothing,
                                     output_mode_2)
 
-PSCOPF.run!(exec_context, sequence)
+time_mode_2 = @elapsed PSCOPF.run!(exec_context, sequence)
+
+
+println("Computing all ptdfs took:", time_ptdf)
+println("Computing free flows took :", time_free_flows)
+println("Generating the whole network instance took :", time_generation)
+println("Mode 1 took :", time_mode_1)
+println("Mode 2 took :", time_mode_2)

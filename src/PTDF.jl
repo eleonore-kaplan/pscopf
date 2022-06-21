@@ -269,6 +269,7 @@ function write_PTDF(file_path::String,
                     concat::Bool=false)
     n = length(network.bus_to_i);
     m = length(network.branch_to_i);
+    mkpath(dirname(file_path))
     open(file_path, (concat) ? "a" : "w") do file
         if !concat
             ref_name =  distributed ? "\"distributed\"" : @sprintf("\"%s\"", network.buses[ref_bus].name)
