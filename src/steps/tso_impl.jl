@@ -6,7 +6,6 @@ using DataStructures
 using Printf
 using Parameters
 
-include("penalty_values.jl")
 
 """
 REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO schedule as a reference.

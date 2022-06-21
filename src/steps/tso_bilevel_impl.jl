@@ -6,7 +6,6 @@ using DataStructures
 using Printf
 using Parameters
 
-include("penalty_values.jl")
 
 """
 REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilotables state/levels needed

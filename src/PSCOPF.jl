@@ -22,6 +22,7 @@ module PSCOPF
 
     include("checkers.jl")
 
+    include("steps/penalty_values.jl")
     include("steps/common.jl")
     include("steps/defs.jl")
     include("steps/helpers.jl")
