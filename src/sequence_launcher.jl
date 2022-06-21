@@ -97,6 +97,10 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                 get_target_timepoints(context_p),
                 context_p)
 
+    if !isnothing(result) && !(get_status(result) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
+        error("Step failed : No feasible solutions were found!")
+    end
+
     if affects_market_schedule(step)
         @debug "update market schedule based on optimization results"
         # old_market_schedule = deepcopy(get_market_schedule(context_p))
