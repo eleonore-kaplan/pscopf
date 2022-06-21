@@ -148,13 +148,13 @@ function generate_base_consumptions(network::PSCOPF.Network,
 end
 
 
-function compute_free_flows(network::PSCOPF.Network, ech, ts, gen_init, uncertainties)
+function compute_free_flows(network::PSCOPF.Network, ech, ts, gen_init, uncertainties, output_folder)
     custom_mode = PSCOPF.ManagementMode("custom_mode", Dates.Minute(60))
     tso = PSCOPF.TSOOutFO(PSCOPF.TSOConfigs(CONSIDER_N_1_CSTRS=true))
     initial_context = PSCOPF.PSCOPFContext(network, [ts], custom_mode,
                                     gen_init,
                                     uncertainties, nothing,
-                                    "init_limits")
+                                    output_folder)
     result, _ = PSCOPF.run_step!(initial_context, tso, ech, nothing)
 
     free_flows = SortedDict{Tuple{String,String},Float64}()
@@ -193,55 +193,19 @@ function generate_uncertainties(network, base_values::PSCOPF.UncertaintiesAtEch,
                                         nb_scenarios)
 end
 
-###############################################
-# INPUT & PARAMS
-###############################################
-Random.seed!(0)
 
-input_path = ( length(ARGS) > 0 ? ARGS[1] :
-                    joinpath(@__DIR__, "..", "data_matpower", "case5") )
-output_folder = joinpath(@__DIR__, "..", "data", "case5")
-
-# PTDF
-#######
-ref_bus_num = 1
-distributed = true
-
-# Initial Network
-##################
-default_limit = 1e5
-pilotables_templates = [
-    PilotableTemplate("_0h",  0., 500.,     0., 30., Second(Minute(15)), Second(Minute(15)))
-    PilotableTemplate("_1h", 50., 200., 25000., 25.,    Second(Hour(1)), Second(Minute(15)))
-    PilotableTemplate("_2h", 50., 300., 10000., 20.,    Second(Hour(2)), Second(Minute(15)))
-    PilotableTemplate("_4h", 50., 600., 15000., 15.,    Second(Hour(4)), Second(Minute(15)))
-]
-nb_generators_probabilities = [.35, .3, .1, .05] #no_generator_proba : 0.2
-@assert (length(nb_generators_probabilities) == length(pilotables_templates))
-
-
-# Base Uncertainties
-#####################
-limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning will represent 70% of the units' max capacities (distributed randomly)
-
-
-# Limits
-#########
-free_flow_to_limit_ratio = 0.7
-
-# Uncertainties
-################
-ts1 = DateTime("2015-01-01T11:00:00")
-ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15)]
-nb_scenarios = 3
-prediction_error = 0.01
-
+function press_to_continue()
+    println("\n"^3)
+    println("press enter to continue")
+    readline()
+    println("\n"^3)
+end
 
 function main_instance_generate(input_path,
             ref_bus_num, distributed,
             default_limit, nb_generators_probabilities, pilotables_templates,
             limits_conso_to_unit_capa_ratio,
-            free_flow_to_limit_ratio,
+            limit_to_free_flow_ratio,
             ECH, ts, nb_scenarios, prediction_error,
             output_folder)
 
@@ -277,13 +241,14 @@ function main_instance_generate(input_path,
     ###############################################
     # Compute Base Flows
     ###############################################
-    time_free_flows = @elapsed free_flows = compute_free_flows(initial_network, ech, ts, gen_init, base_consumptions)
+    time_free_flows = @elapsed free_flows = compute_free_flows(initial_network, ech, ts, gen_init, base_consumptions,
+                                                            joinpath(output_folder, "init_limits"))
 
 
     ###############################################
     # Generate Network : update branch limits
     ###############################################
-    update_network_limits!(initial_network, free_flows, free_flow_to_limit_ratio)
+    update_network_limits!(initial_network, free_flows, limit_to_free_flow_ratio)
     generated_network = initial_network
     PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), generated_network)
 
@@ -297,16 +262,66 @@ function main_instance_generate(input_path,
     return (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows)
 end
 
+###############################################
+# INPUT & PARAMS
+###############################################
+Random.seed!(0)
+
+input_path = ( length(ARGS) > 0 ? ARGS[1] :
+                    joinpath(@__DIR__, "..", "data_matpower", "case5") )
+output_folder = joinpath(@__DIR__, "..", "data", "case5")
+
+# PTDF
+#######
+ref_bus_num = 1
+distributed = true
+
+# Initial Network
+##################
+default_limit = 1e5
+pilotables_templates = [
+    PilotableTemplate("_0h",   0., 500.,     0., 30.,  Second(Minute(15)), Second(Minute(15)))
+    PilotableTemplate("_.5h", 50., 200., 30000., 27.,  Second(Minute(30)), Second(Minute(15)))
+    PilotableTemplate("_1h",  50., 200., 25000., 25.,  Second(Hour(1)),    Second(Minute(15)))
+    PilotableTemplate("_2h",  50., 300., 10000., 20.,  Second(Hour(2)),    Second(Minute(15)))
+    PilotableTemplate("_4h",  50., 600., 15000., 15.,  Second(Hour(4)),    Second(Minute(15)))
+]
+nb_generators_probabilities = [.25, .2, .25, .1, .05] #no_generator_proba : 0.15
+@assert (length(nb_generators_probabilities) == length(pilotables_templates))
+
+
+# Base Uncertainties
+#####################
+limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning will represent 70% of the units' max capacities (distributed randomly)
+
+
+# Limits
+#########
+limit_to_free_flow_ratio = 1.2
+
+# Uncertainties
+################
+ts1 = DateTime("2015-01-01T11:00:00")
+ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15)]
+nb_scenarios = 3
+prediction_error = 0.01
+
+
+#################################################################################################################
+# Launch
+#################################################################################################################
+
 time_generation = @elapsed (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows) =
                             main_instance_generate(input_path,
                                 ref_bus_num, distributed,
                                 default_limit, nb_generators_probabilities, pilotables_templates,
                                 limits_conso_to_unit_capa_ratio,
-                                free_flow_to_limit_ratio,
+                                limit_to_free_flow_ratio,
                                 ECH, ts1, nb_scenarios, prediction_error,
                                 output_folder)
 
-print("\n"^10)
+press_to_continue()
+
 
 ###############################################
 # Solve usecase : mode 1
@@ -321,10 +336,16 @@ exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_1,
                                     gen_init,
                                     uncertainties, nothing,
                                     output_mode_1)
+time_mode_1 = @elapsed begin
+    try
+        PSCOPF.run!(exec_context, sequence)
+    catch e
+        println(e.msg)
+    end
+end
 
-time_mode_1 = @elapsed PSCOPF.run!(exec_context, sequence)
+press_to_continue()
 
-print("\n"^10)
 
 ###############################################
 # Solve usecase : mode 2
@@ -339,8 +360,13 @@ exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_2,
                                     gen_init,
                                     uncertainties, nothing,
                                     output_mode_2)
-
-time_mode_2 = @elapsed PSCOPF.run!(exec_context, sequence)
+time_mode_2 = @elapsed begin
+    try
+        PSCOPF.run!(exec_context, sequence)
+    catch e
+        println(e.msg)
+    end
+end
 
 
 println("Computing all ptdfs took:", time_ptdf)
