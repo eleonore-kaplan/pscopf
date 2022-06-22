@@ -166,19 +166,16 @@ function create_objectives!(model_container::TSOModel,
     return model_container
 end
 
-
-function tso_out_fo(network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    generators_initial_state::SortedDict{String,GeneratorState},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch,
-                    firmness::Firmness,
-                    preceding_market_schedule::Schedule,
-                    preceding_tso_schedule::Schedule,
-                    gratis_starts::Set{Tuple{String,Dates.DateTime}},
-                    configs::TSOConfigs
-                    )
-
+function create_tso_model(network::Networks.Network,
+                        target_timepoints::Vector{Dates.DateTime},
+                        generators_initial_state::SortedDict{String,GeneratorState},
+                        scenarios::Vector{String},
+                        uncertainties_at_ech::UncertaintiesAtEch,
+                        firmness::Firmness,
+                        preceding_market_schedule::Schedule,
+                        preceding_tso_schedule::Schedule,
+                        gratis_starts::Set{Tuple{String,Dates.DateTime}},
+                        configs::TSOConfigs)
     # TODO : check coherence between : preceding_reference_schedule and TSOActions.impositions cause we do not consider TSOActions
     if is_market(configs.REF_SCHEDULE_TYPE)
         reference_schedule = preceding_market_schedule
@@ -251,10 +248,31 @@ function tso_out_fo(network::Networks.Network,
                         gratis_starts,
                         configs.loss_of_load_penalty, configs.limitation_penalty)
 
-    tso_solve!(model_container_l,
-            solve_2steps_deltas!, configs,
-            uncertainties_at_ech, network,
-            false)
+    return model_container_l
+end
+
+function tso_out_fo(network::Networks.Network,
+                    target_timepoints::Vector{Dates.DateTime},
+                    generators_initial_state::SortedDict{String,GeneratorState},
+                    scenarios::Vector{String},
+                    uncertainties_at_ech::UncertaintiesAtEch,
+                    firmness::Firmness,
+                    preceding_market_schedule::Schedule,
+                    preceding_tso_schedule::Schedule,
+                    gratis_starts::Set{Tuple{String,Dates.DateTime}},
+                    configs::TSOConfigs
+                    )
+
+    @timeit TIMER_TRACKS "tso_modeling" model_container_l = create_tso_model(network, target_timepoints, generators_initial_state,
+                                                                            scenarios, uncertainties_at_ech, firmness,
+                                                                            preceding_market_schedule, preceding_tso_schedule,
+                                                                            gratis_starts,
+                                                                            configs)
+
+    @timeit TIMER_TRACKS "tso_solve" tso_solve!(model_container_l,
+                                            solve_2steps_deltas!, configs,
+                                            uncertainties_at_ech, network,
+                                            false)
     log_flows(model_container_l.flows, configs.out_path, configs.problem_name)
 
     return model_container_l

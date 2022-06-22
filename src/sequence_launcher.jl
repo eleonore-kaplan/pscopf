@@ -93,11 +93,13 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
     firmness = compute_firmness(step, ech, next_ech,
                             get_target_timepoints(context_p), context_p)
     trace_firmness(firmness)
-    result = run(step, ech, firmness,
-                get_target_timepoints(context_p),
-                context_p)
+    @timeit TIMER_TRACKS "run_model" result = run(step, ech, firmness,
+                                                get_target_timepoints(context_p),
+                                                context_p)
+
 
     if affects_market_schedule(step)
+    @timeit TIMER_TRACKS "update_schedules" begin
         @debug "update market schedule based on optimization results"
         # old_market_schedule = deepcopy(get_market_schedule(context_p))
         update_market_schedule!(context_p, ech, result, firmness, step)
@@ -111,8 +113,10 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         update_market_flows!(context_p)
         trace_flows(get_market_flows(context_p), get_network(context_p))
     end
+    end
 
     if affects_tso_schedule(step)
+    @timeit TIMER_TRACKS "update_schedules" begin
         @debug "update TSO schedule based on optimization results"
         # old_tso_schedule = deepcopy(get_tso_schedule(context_p))
         update_tso_schedule!(context_p, ech, result, firmness, step)
@@ -126,12 +130,15 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         update_tso_flows!(context_p)
         trace_flows(get_tso_flows(context_p), get_network(context_p))
     end
+    end
 
     if affects_tso_actions(step)
+    @timeit TIMER_TRACKS "update_tso_actions" begin
         @debug "update TSO actions based on optimization results"
         update_tso_actions!(context_p,
                             ech, result, firmness, step)
         trace_tso_actions(get_tso_actions(context_p))
+    end
     end
     #TODO check coherence between tso schedule and actions
 

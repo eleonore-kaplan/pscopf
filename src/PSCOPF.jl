@@ -1,4 +1,7 @@
 module PSCOPF
+    using TimerOutputs
+    const TIMER_TRACKS = TimerOutput()
+
     include("configs.jl")
     include("utils.jl")
     include("abstracts.jl")

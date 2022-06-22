@@ -120,6 +120,28 @@ function energy_market(network::Networks.Network,
     @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen)
                 for gen in Networks.get_generators(network))
 
+    @timeit TIMER_TRACKS "market_modeling" model_container_l = create_market_model(network,
+                                                                                target_timepoints, generators_initial_state,
+                                                                                scenarios, uncertainties_at_ech, firmness,
+                                                                                preceding_market_schedule, preceding_tso_schedule,
+                                                                                tso_actions, gratis_starts, configs)
+
+    @timeit TIMER_TRACKS "market_solve" solve!(model_container_l, configs.problem_name, configs.out_path)
+
+    return model_container_l
+end
+
+function create_market_model(network::Networks.Network,
+                            target_timepoints::Vector{Dates.DateTime},
+                            generators_initial_state::SortedDict{String,GeneratorState},
+                            scenarios::Vector{String},
+                            uncertainties_at_ech::UncertaintiesAtEch,
+                            firmness::Firmness,
+                            preceding_market_schedule::Schedule,
+                            preceding_tso_schedule::Schedule,
+                            tso_actions::TSOActions,
+                            gratis_starts::Set{Tuple{String,Dates.DateTime}},
+                            configs::EnergyMarketConfigs)
     if is_market(configs.REF_SCHEDULE_TYPE)
         reference_schedule = preceding_market_schedule
     elseif is_tso(configs.REF_SCHEDULE_TYPE)
@@ -187,8 +209,6 @@ function energy_market(network::Networks.Network,
 
 
     add_objective!(model_container_l, network, gratis_starts, configs.loss_of_load_penalty)
-
-    solve!(model_container_l, configs.problem_name, configs.out_path)
 
     return model_container_l
 end

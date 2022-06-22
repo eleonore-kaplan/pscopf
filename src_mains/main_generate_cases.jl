@@ -14,6 +14,7 @@ using StatsBase
 using Distributions
 using DataStructures
 using JuMP
+using TimerOutputs
 
 using PSCOPF
 
@@ -195,10 +196,12 @@ end
 
 
 function press_to_continue()
+    disable_timer!(PSCOPF.TIMER_TRACKS)
     println("\n"^3)
     println("press enter to continue")
     readline()
     println("\n"^3)
+    enable_timer!(PSCOPF.TIMER_TRACKS)
 end
 
 function main_instance_generate(input_path,
@@ -374,3 +377,5 @@ println("Computing free flows took :", time_free_flows)
 println("Generating the whole network instance took :", time_generation)
 println("Mode 1 took :", time_mode_1)
 println("Mode 2 took :", time_mode_2)
+
+println(PSCOPF.TIMER_TRACKS)

@@ -922,23 +922,17 @@ end
 ##########################################################
 #        TSOBilevel
 ##########################################################
-function tso_bilevel(network::Networks.Network,
-                    target_timepoints::Vector{Dates.DateTime},
-                    generators_initial_state::SortedDict{String,GeneratorState},
-                    scenarios::Vector{String},
-                    uncertainties_at_ech::UncertaintiesAtEch,
-                    firmness::Firmness,
-                    preceding_market_schedule::Schedule,
-                    preceding_tso_schedule::Schedule,
-                    # gratis_starts::Set{Tuple{String,Dates.DateTime}},
-                    configs::TSOBilevelConfigs
-                    )
 
-    @assert(configs.big_m > configs.MARKET_LOL_PENALTY)
-    @assert(configs.big_m > configs.MARKET_CAPPING_COST)
-    @assert(all( configs.big_m > Networks.get_prop_cost(gen)
-                for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE) ))
 
+function create_tso_bilevel_model(network::Networks.Network,
+                                target_timepoints::Vector{Dates.DateTime},
+                                generators_initial_state::SortedDict{String,GeneratorState},
+                                scenarios::Vector{String},
+                                uncertainties_at_ech::UncertaintiesAtEch,
+                                firmness::Firmness,
+                                preceding_market_schedule::Schedule,
+                                preceding_tso_schedule::Schedule,
+                                configs::TSOBilevelConfigs)
     if is_market(configs.REF_SCHEDULE_TYPE_IN_TSO)
         reference_schedule = preceding_market_schedule
     elseif is_tso(configs.REF_SCHEDULE_TYPE_IN_TSO)
@@ -979,10 +973,36 @@ function tso_bilevel(network::Networks.Network,
                         configs.TSO_LIMIT_PENALTY,
                         configs.TSO_PILOTABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)
 
-    tso_solve!(bimodel_container_l,
-            launch_solve!, configs,
-            uncertainties_at_ech, network,
-            false)
+    return bimodel_container_l
+end
+
+function tso_bilevel(network::Networks.Network,
+                    target_timepoints::Vector{Dates.DateTime},
+                    generators_initial_state::SortedDict{String,GeneratorState},
+                    scenarios::Vector{String},
+                    uncertainties_at_ech::UncertaintiesAtEch,
+                    firmness::Firmness,
+                    preceding_market_schedule::Schedule,
+                    preceding_tso_schedule::Schedule,
+                    # gratis_starts::Set{Tuple{String,Dates.DateTime}},
+                    configs::TSOBilevelConfigs
+                    )
+
+    @assert(configs.big_m > configs.MARKET_LOL_PENALTY)
+    @assert(configs.big_m > configs.MARKET_CAPPING_COST)
+    @assert(all( configs.big_m > Networks.get_prop_cost(gen)
+                for gen in Networks.get_generators_of_type(network, Networks.PILOTABLE) ))
+
+    @timeit TIMER_TRACKS "tsobilevel_modeling" bimodel_container_l = create_tso_bilevel_model(network,
+                                                                        target_timepoints, generators_initial_state,
+                                                                        scenarios, uncertainties_at_ech, firmness,
+                                                                        preceding_market_schedule, preceding_tso_schedule,
+                                                                        configs)
+
+    @timeit TIMER_TRACKS "tsobilevel_solve" tso_solve!(bimodel_container_l,
+                                                    launch_solve!, configs,
+                                                    uncertainties_at_ech, network,
+                                                    false)
 
     return bimodel_container_l
 end
