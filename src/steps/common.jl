@@ -1259,7 +1259,7 @@ function add_rso_constraints!(model_container::AbstractModelContainer,
 end
 
 function add_rso_constraint!(model::AbstractModel,
-                             rso_constraints::SortedDict{Tuple{String,Dates.DateTime,String,String}, ConstraintRef},
+                             rso_constraints::SortedDict{Tuple{String,Dates.DateTime,String,String}, Tuple{ConstraintRef,ConstraintRef}},
                             flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr},
                             branch::Networks.Branch, ts::DateTime, s::String, ptdf_case::String;
                             prefix::String="")
@@ -1268,8 +1268,10 @@ function add_rso_constraint!(model::AbstractModel,
     flow_limit_l = Networks.safeget_limit(branch, ptdf_case)
     flow_expr_l = flows[branch_id, ts, s, ptdf_case]
 
-    c_name =  @sprintf("%sRSO[%s,%s,%s,%s]", prefix, branch_id, ts, s, ptdf_case)
-    rso_constraints[branch_id, ts, s, ptdf_case] = @constraint(model, -flow_limit_l <= flow_expr_l <= flow_limit_l, base_name=c_name)
+    c_name_lb =  @sprintf("%sRSO[%s,%s,%s,%s]_lb", prefix, branch_id, ts, s, ptdf_case)
+    c_name_ub =  @sprintf("%sRSO[%s,%s,%s,%s]_ub", prefix, branch_id, ts, s, ptdf_case)
+    rso_constraints[branch_id, ts, s, ptdf_case] = (@constraint(model, -flow_limit_l <= flow_expr_l , base_name=c_name_lb),
+                                                    @constraint(model, flow_expr_l <= flow_limit_l , base_name=c_name_ub))
 end
 
 # Helpers

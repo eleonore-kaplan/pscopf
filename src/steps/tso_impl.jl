@@ -78,8 +78,8 @@ end
         Vector{Tuple{String,DateTime,String,String}}()
     flows::SortedDict{Tuple{String,DateTime,String,String},AffExpr} =
         SortedDict{Tuple{String,DateTime,String,String},AffExpr}()
-    rso_constraints::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
-        SortedDict{Tuple{String,DateTime,String,String},ConstraintRef}()
+    rso_constraints::SortedDict{Tuple{String,DateTime,String,String},Tuple{ConstraintRef,ConstraintRef}} =
+        SortedDict{Tuple{String,DateTime,String,String},Tuple{ConstraintRef,ConstraintRef}}()
 end
 
 function has_positive_slack(model_container::TSOModel)::Bool
