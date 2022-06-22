@@ -7,7 +7,7 @@ using Parameters
 
 
 @with_kw mutable struct RSOAssessmentConfigs
-    BIG_M = big_m_value #max supposed overflow
+    BIG_M = get_config("big_m_value") #max supposed overflow
 
     out_path = nothing
     problem_name = "RSOAssessment"

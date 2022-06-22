@@ -157,8 +157,11 @@ function solve!(model::AbstractModel,
         log_file_l = devnull
     end
 
-    set_time_limit_sec(model, PSCOPF_TIME_LIMIT_IN_SECONDS)
-    if PSCOPF_REDIRECT_LOG
+    time_limit_l = get_config("PSCOPF_TIME_LIMIT_IN_SECONDS")
+    if !isnothing(time_limit_l)
+        set_time_limit_sec(model, time_limit_l)
+    end
+    if get_config("PSCOPF_REDIRECT_LOG")
         redirect_to_file(log_file_l) do
             optimize!(model)
         end

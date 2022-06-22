@@ -14,8 +14,8 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
 """
 @with_kw mutable struct TSOConfigs
     CONSIDER_N_1_CSTRS::Bool = false
-    loss_of_load_penalty = tso_loss_of_load_penalty_value
-    limitation_penalty = tso_limit_penalty_value
+    loss_of_load_penalty = get_config("tso_loss_of_load_penalty_value")
+    limitation_penalty = get_config("tso_limit_penalty_value")
     out_path = nothing
     problem_name = "TSO"
     REF_SCHEDULE_TYPE::Union{Market,TSO} = TSO();
