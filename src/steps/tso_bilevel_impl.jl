@@ -11,7 +11,7 @@ using Parameters
 REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilotables state/levels needed
                             for sequencing constraints and TSO objective function.
 """
-@with_kw mutable struct TSOBilevelConfigs
+@with_kw mutable struct TSOBilevelConfigs <: AbstractRunnableConfigs
     CONSIDER_DELTAS::Bool = true
     CONSIDER_N_1_CSTRS::Bool = false
     TSO_LIMIT_PENALTY::Float64 = get_config("tso_limit_penalty_value")
@@ -131,9 +131,11 @@ end
     lol_model::TSOBilevelTSOLoLModel = TSOBilevelTSOLoLModel()
     objective_model::TSOBilevelTSOObjectiveModel = TSOBilevelTSOObjectiveModel()
     #branch,ts,s,ptdf_case
+    rso_combinations::Vector{Tuple{String,DateTime,String,String}} =
+        Vector{Tuple{String,DateTime,String,String}}()
     flows::SortedDict{Tuple{String,DateTime,String,String},AffExpr} =
         SortedDict{Tuple{String,DateTime,String,String},AffExpr}()
-    rso_constraint::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
+    rso_constraints::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
         SortedDict{Tuple{String,DateTime,String,String},ConstraintRef}()
 end
 @with_kw struct TSOBilevelMarketModelContainer <: AbstractModelContainer
@@ -185,6 +187,15 @@ function BilevelModelContainer{TSOBilevelTSOModelContainer,TSOBilevelMarketModel
     return BilevelModelContainer(bilevel_model, upper, lower, kkt_model)
 end
 
+function get_p_injected(model_container::TSOBilevelModel, type::Networks.GeneratorType)
+    if type == Networks.LIMITABLE
+        return get_p_injected(model_container.upper, type) #TSO decides on Limitables
+    elseif type == Networks.PILOTABLE
+        return get_p_injected(model_container.lower, type) #Market decides on Pilotables
+    end
+    return nothing
+end
+
 """
 Computes the actual capping in the Limitable model
 
@@ -215,6 +226,10 @@ function sum_lol(lol_model::TSOBilevelTSOLoLModel, ts, s, network::Networks.Netw
     return sum_l
 end
 
+function get_local_lol(model_container::TSOBilevelModel)
+    return get_local_lol(model_container.upper)
+end
+
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
     return has_positive_value(model_container.lower.lol_model.p_global_loss_of_load) #If TSO cut => market did too
 end
@@ -230,6 +245,15 @@ function get_lower_obj_expr(bilevel_model::TSOBilevelModel)
     return bilevel_model.lower.objective_model.full_obj
 end
 
+function get_rso_combinations(model_container::TSOBilevelModel)
+    return get_rso_combinations(model_container.upper)
+end
+function get_flows(model_container::TSOBilevelModel)
+    return get_flows(model_container.upper)
+end
+function get_rso_constraints(model_container::TSOBilevelModel)
+    return get_rso_constraints(model_container.upper)
+end
 
 ##########################################################
 #        upper problem : TSO functions : TSOBilevelTSOModelContainer
@@ -328,20 +352,10 @@ function add_tso_constraints!(bimodel_container::TSOBilevelModel,
                             buses_ids_l, target_timepoints, scenarios,
                             cstr_prefix_name="tso_distribute_lol")
 
-    add_rso_flows_exprs(tso_model_container.flows,
-                market_model_container.pilotable_model,
-                tso_model_container.limitable_model,
-                tso_model_container.lol_model,
-                all_combinations(network, target_timepoints, scenarios),
-                uncertainties_at_ech, network)
-    combinations = (configs.CONSIDER_N_1_CSTRS) ? all_combinations(network, target_timepoints, scenarios) :
-                                                    all_n_combinations(network, target_timepoints, scenarios)
-    rso_constraints!(bimodel_container.model,
-                    tso_model_container.rso_constraint,
-                    tso_model_container.flows,
-                    combinations,
-                    network,
-                    prefix="tso")
+    #just adds the combinations to consider not the constraints
+    add_rso_combinations!(get_rso_combinations(bimodel_container),
+                        configs.CONSIDER_N_1_CSTRS,
+                        network, target_timepoints, scenarios)
 
     return bimodel_container
 end
@@ -965,20 +979,15 @@ function tso_bilevel(network::Networks.Network,
                         configs.TSO_LIMIT_PENALTY,
                         configs.TSO_PILOTABLE_BOUNDING_COST, configs.USE_UNITS_PROP_COST_AS_TSO_BOUNDING_COST)
 
-    launch_solve!(bimodel_container_l, configs)
+    tso_solve!(bimodel_container_l,
+            launch_solve!, configs,
+            uncertainties_at_ech, network,
+            false)
 
     return bimodel_container_l
 end
 
 function launch_solve!(bimodel_container::TSOBilevelModel, configs::TSOBilevelConfigs)
-    # first_iter = true
-    # while(!isempty(to_add) || first_iter)
-    #     first_iter = false
-    #     solve!(bimodel_container, configs.problem_name, configs.out_path)
-
-    #     to_add = verify_rso()
-    #     add_constraints(to_add)
-    # end
 
     #the upper problem's objective model holds the two objective expressions and the deltas expression
     if configs.CONSIDER_DELTAS

@@ -20,6 +20,7 @@ Such structure might need to overload the following functions :
 - `update_tso_actions!(context::AbstractContext, ech, result, firmness, runnable::AbstractRunnable)`
 """
 abstract type  AbstractRunnable end
+abstract type  AbstractRunnableConfigs end
 """
 Determines the firmnes of commitment and powerlevel decisions for each timestep
 """

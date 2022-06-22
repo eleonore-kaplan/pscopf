@@ -12,7 +12,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                     The reference schedule is used to get decided commitment and production levels if
                       tso actions are missing.
 """
-@with_kw mutable struct TSOConfigs
+@with_kw mutable struct TSOConfigs <: AbstractRunnableConfigs
     CONSIDER_N_1_CSTRS::Bool = false
     loss_of_load_penalty = get_config("tso_loss_of_load_penalty_value")
     limitation_penalty = get_config("tso_limit_penalty_value")
@@ -74,9 +74,11 @@ end
     eod_constraint::SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef} =
         SortedDict{Tuple{Dates.DateTime,String}, ConstraintRef}()
     #branch,ts,s,ptdf_case
+    rso_combinations::Vector{Tuple{String,DateTime,String,String}} =
+        Vector{Tuple{String,DateTime,String,String}}()
     flows::SortedDict{Tuple{String,DateTime,String,String},AffExpr} =
         SortedDict{Tuple{String,DateTime,String,String},AffExpr}()
-    rso_constraint::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
+    rso_constraints::SortedDict{Tuple{String,DateTime,String,String},ConstraintRef} =
         SortedDict{Tuple{String,DateTime,String,String},ConstraintRef}()
 end
 
@@ -239,28 +241,20 @@ function tso_out_fo(network::Networks.Network,
                     )
 
     # RSO
-    add_rso_flows_exprs(model_container_l.flows,
-                model_container_l.pilotable_model,
-                model_container_l.limitable_model,
-                model_container_l.lol_model,
-                all_combinations(network, target_timepoints, scenarios),
-                uncertainties_at_ech, network)
-    combinations = (configs.CONSIDER_N_1_CSTRS) ? all_combinations(network, target_timepoints, scenarios) :
-                                                    all_n_combinations(network, target_timepoints, scenarios)
-    rso_constraints!(model_container_l.model,
-                    model_container_l.rso_constraint,
-                    model_container_l.flows,
-                    combinations,
-                    network,
-                    prefix="tso")
+    #just adds the combinations to consider not the constraints
+    add_rso_combinations!(get_rso_combinations(model_container_l),
+                        configs.CONSIDER_N_1_CSTRS,
+                        network, target_timepoints, scenarios)
 
     create_objectives!(model_container_l,
                         network, uncertainties_at_ech,
                         gratis_starts,
                         configs.loss_of_load_penalty, configs.limitation_penalty)
 
-
-    solve_2steps_deltas!(model_container_l, configs)
+    tso_solve!(model_container_l,
+            solve_2steps_deltas!, configs,
+            uncertainties_at_ech, network,
+            false)
     log_flows(model_container_l.flows, configs.out_path, configs.problem_name)
 
     return model_container_l

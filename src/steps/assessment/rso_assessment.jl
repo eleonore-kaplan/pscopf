@@ -6,7 +6,7 @@ using Printf
 using Parameters
 
 
-@with_kw mutable struct RSOAssessmentConfigs
+@with_kw mutable struct RSOAssessmentConfigs <: AbstractRunnableConfigs
     BIG_M = get_config("big_m_value") #max supposed overflow
 
     out_path = nothing

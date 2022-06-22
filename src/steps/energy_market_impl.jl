@@ -12,7 +12,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                     The reference schedule is used to get decided commitment and production levels if
                       tso actions are missing.
 """
-@with_kw mutable struct EnergyMarketConfigs
+@with_kw mutable struct EnergyMarketConfigs <: AbstractRunnableConfigs
     loss_of_load_penalty = get_config("market_loss_of_load_penalty_value")
     out_path = nothing
     problem_name = "EnergyMarket"

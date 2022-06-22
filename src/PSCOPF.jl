@@ -23,6 +23,7 @@ module PSCOPF
     include("checkers.jl")
 
     include("steps/common.jl")
+    include("steps/solve.jl")
     include("steps/defs.jl")
     include("steps/helpers.jl")
     include("steps/energy_market_impl.jl")
