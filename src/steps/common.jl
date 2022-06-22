@@ -1294,9 +1294,15 @@ function all_combinations(network, target_timepoints, scenarios)
             ]
 end
 
-function log_flows(flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr},out_folder,filename)
+"""
+# Note
+    The number of active constraints is not exact since, in a MIP context,
+     some constraints that have non-negative slack might be influential/active
+"""
+function log_flows(model_container,out_folder,filename)
+    flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr} = get_flows(model_container)
     if !isnothing(out_folder)
-        @info @sprintf("%20s %20s %20s %20s %s",
+        @debug @sprintf("%20s %20s %20s %20s %s",
                     "branch_id", "ts", "s", "ptdf_case", "flow")
         log_file_l = joinpath(out_folder, filename*"_flows.log")
         open(log_file_l, "w") do file_l
@@ -1304,10 +1310,20 @@ function log_flows(flows::SortedDict{Tuple{String,Dates.DateTime,String,String},
                 line_l = @sprintf("%20s %20s %20s %20s %s",
                                     branch_id, ts, s, ptdf_case, value(flow_expr))
                 write(file_l, line_l)
-                @info line_l
+                @debug line_l
             end
         end
     end
+
+    nb_potential_cstrs = length(get_rso_combinations(model_container)) # lb <= flow <= ub counts as one constraint
+    nb_active_cstrs = 0
+    for (_, (cstr_lb,cstr_ub)) in get_rso_constraints(model_container)
+        if !has_slack(cstr_lb) || !has_slack(cstr_ub)
+            nb_active_cstrs += 1
+        end
+    end
+    msg_l = @sprintf("%d/%d RSO constraints are active!", nb_active_cstrs, nb_potential_cstrs)
+    @info msg_l
 end
 
 function sort_by_cut_branch(flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr})
@@ -1556,5 +1572,10 @@ function compute_lb(expr::AffExpr, default_lb=nothing)
     end
 
     return expr_ub
+end
+
+function has_slack(cstr::ConstraintRef, eps=1e-09)
+    has_slack_l = (normalized_rhs(cstr) - value(cstr)) >= eps
+    return has_slack_l
 end
 

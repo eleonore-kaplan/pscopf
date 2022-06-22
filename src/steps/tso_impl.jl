@@ -273,7 +273,7 @@ function tso_out_fo(network::Networks.Network,
                                             solve_2steps_deltas!, configs,
                                             uncertainties_at_ech, network,
                                             false)
-    log_flows(model_container_l.flows, configs.out_path, configs.problem_name)
+    log_flows(model_container_l, configs.out_path, configs.problem_name)
 
     return model_container_l
 end

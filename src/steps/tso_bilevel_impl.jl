@@ -1018,5 +1018,5 @@ function launch_solve!(bimodel_container::TSOBilevelModel, configs::TSOBilevelCo
         solve!(bimodel_container, configs.problem_name, configs.out_path)
     end
     @info("Lower Objective Value : $(value(bimodel_container.lower.objective_model.full_obj))")
-    log_flows(bimodel_container.upper.flows, configs.out_path, configs.problem_name)
+    log_flows(bimodel_container.upper, configs.out_path, configs.problem_name)
 end
