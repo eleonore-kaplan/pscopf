@@ -97,10 +97,6 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
                 get_target_timepoints(context_p),
                 context_p)
 
-    if !isnothing(result) && !(get_status(result) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
-        error("Step failed : No feasible solutions were found!")
-    end
-
     if affects_market_schedule(step)
         @debug "update market schedule based on optimization results"
         # old_market_schedule = deepcopy(get_market_schedule(context_p))
@@ -162,7 +158,13 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
         println("-"^50)
         for step in steps_at_ech
             next_ech = get_next_ech(sequence_p, steps_index, step)
-            run_step!(context_p, step, ech, next_ech)
+            solved_model_container,_ = run_step!(context_p, step, ech, next_ech)
+
+            # if !isnothing(solved_model_container) && !(get_status(solved_model_container) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
+            #     msg_l = @sprintf("Step %s failed : No feasible solutions were found!", step)
+            #     error(msg_l)
+            # end
+
         end
     end
 end
