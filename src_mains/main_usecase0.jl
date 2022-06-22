@@ -58,13 +58,12 @@ TS = PSCOPF.create_target_timepoints(ts1) #T: 11h, 11h15, 11h30, 11h45
 # Personalised sequence
 
 sequence1 = PSCOPF.Sequence(Dict([
-    ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOInFO()],
+    ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
 ]))
 
 sequence2 = PSCOPF.Sequence(Dict([
-        ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
-        #ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket()],
-        #ts1 - Dates.Minute(15)  => [PSCOPF.BalanceMarket()],
+        ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel()],
+        ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket()],
     ]))
 
 PSCOPF.rm_non_prefixed(output_path, "pscopf_")
