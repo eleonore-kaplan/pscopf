@@ -10,6 +10,8 @@ const DEFAULT_CONFIGS = (
     tso_pilotable_bounding_cost = 1.,
     market_capping_cost = 1.,
 
+    CONSIDER_N_1 = true,
+
     PSCOPF_TIME_LIMIT_IN_SECONDS = nothing,
     PSCOPF_REDIRECT_LOG = false,
 )

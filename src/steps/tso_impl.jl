@@ -13,7 +13,7 @@ REF_SCHEDULE_TYPE : Indicates wether to consider the preceding market or TSO sch
                       tso actions are missing.
 """
 @with_kw mutable struct TSOConfigs <: AbstractRunnableConfigs
-    CONSIDER_N_1_CSTRS::Bool = false
+    CONSIDER_N_1_CSTRS::Bool = get_config("CONSIDER_N_1")
     loss_of_load_penalty = get_config("tso_loss_of_load_penalty_value")
     limitation_penalty = get_config("tso_limit_penalty_value")
     out_path = nothing

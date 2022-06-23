@@ -13,7 +13,7 @@ REF_SCHEDULE_TYPE_IN_TSO : Indicates which schedule to use as reference for pilo
 """
 @with_kw mutable struct TSOBilevelConfigs <: AbstractRunnableConfigs
     CONSIDER_DELTAS::Bool = true
-    CONSIDER_N_1_CSTRS::Bool = false
+    CONSIDER_N_1_CSTRS::Bool = get_config("CONSIDER_N_1")
     TSO_LIMIT_PENALTY::Float64 = get_config("tso_limit_penalty_value")
     TSO_LOL_PENALTY::Float64 = get_config("tso_loss_of_load_penalty_value")
     TSO_CAPPING_COST::Float64 = get_config("tso_capping_cost")
