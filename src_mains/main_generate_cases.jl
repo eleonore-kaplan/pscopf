@@ -218,7 +218,7 @@ function main_instance_generate(input_path,
     # COMPUTE PTDF for N and N-1
     ###############################################
     ptdf_network = PTDF.read_network(input_path)
-    time_ptdf = @elapsed PTDF.compute_and_write_all(ptdf_network, ref_bus_num, distributed, 1e-6, output_folder)
+    time_ptdf = @elapsed PTDF.compute_and_write_n_non_bridges(ptdf_network, ref_bus_num, distributed, 1e-6, input_path, output_folder)
 
 
     ###############################################
@@ -283,7 +283,7 @@ distributed = true
 ##################
 default_limit = 1e5
 pilotables_templates = [
-    PilotableTemplate("_0h",   0., 500.,     0., 30.,  Second(Minute(15)), Second(Minute(15)))
+    PilotableTemplate("_15m",   0., 500.,     0., 30.,  Second(Minute(15)), Second(Minute(15)))
     PilotableTemplate("_.5h", 50., 200., 30000., 27.,  Second(Minute(30)), Second(Minute(15)))
     PilotableTemplate("_1h",  50., 200., 25000., 25.,  Second(Hour(1)),    Second(Minute(15)))
     PilotableTemplate("_2h",  50., 300., 10000., 20.,  Second(Hour(2)),    Second(Minute(15)))
@@ -300,12 +300,12 @@ limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning 
 
 # Limits
 #########
-limit_to_free_flow_ratio = 1.2
+limit_to_free_flow_ratio = 1.3
 
 # Uncertainties
 ################
 ts1 = DateTime("2015-01-01T11:00:00")
-ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15)]
+ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15), ts1]
 nb_scenarios = 3
 prediction_error = 0.01
 
@@ -325,6 +325,12 @@ time_generation = @elapsed (generated_network, gen_init, uncertainties), (time_p
 
 press_to_continue()
 
+
+# time_ptdf = time_free_flows = time_generation = 0
+# instance_path = joinpath(output_folder, "instance")
+# generated_network = PSCOPF.Data.pscopfdata2network(instance_path)
+# uncertainties = PSCOPF.PSCOPFio.read_uncertainties(instance_path)
+# gen_init = PSCOPF.PSCOPFio.read_initial_state(instance_path)
 
 ###############################################
 # Solve usecase : mode 1
@@ -379,3 +385,18 @@ println("Mode 1 took :", time_mode_1)
 println("Mode 2 took :", time_mode_2)
 
 println(PSCOPF.TIMER_TRACKS)
+
+logfile = joinpath(@__DIR__, "..", "timingsRSO.log")
+open(logfile, "a") do file_l
+    write(file_l, "-"^60 * "\n")
+    write(file_l, @sprintf("usecase : %s\n", output_folder))
+    write(file_l, "dynamic? : FALSE\n")
+    write(file_l, @sprintf("n-1? : %s\n", PSCOPF.get_config("CONSIDER_N_1")))
+    write(file_l, @sprintf("nb rso constraints : %d\n", PSCOPF.nb_rso_constraint(exec_context)))
+    write(file_l, @sprintf("Computing all ptdfs took: %s\n", time_ptdf))
+    write(file_l, @sprintf("Computing free flows took : %s\n", time_free_flows))
+    write(file_l, @sprintf("Generating the whole network instance took : %s\n", time_generation))
+    write(file_l, @sprintf("Mode 1 took : %s\n", time_mode_1))
+    write(file_l, @sprintf("Mode 2 took : %s\n", time_mode_2))
+    write(file_l, @sprintf("TIMES:\n%s\n", PSCOPF.TIMER_TRACKS))
+end

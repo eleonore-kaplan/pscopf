@@ -1302,12 +1302,12 @@ end
 function log_flows(model_container,out_folder,filename)
     flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr} = get_flows(model_container)
     if !isnothing(out_folder)
-        @debug @sprintf("%20s %20s %20s %20s %s",
-                    "branch_id", "ts", "s", "ptdf_case", "flow")
+        @debug @sprintf("branch_id  %15s  s  ptdf_case  flow", "ts")
         log_file_l = joinpath(out_folder, filename*"_flows.log")
         open(log_file_l, "w") do file_l
+            write(file_l, "branch_id, ts, s, ptdf_case, flow_value\n")
             for ((branch_id, ts, s, ptdf_case), flow_expr) in sort_by_cut_branch(flows)
-                line_l = @sprintf("%20s %20s %20s %20s %s",
+                line_l = @sprintf("%s %s %s %s %s\n",
                                     branch_id, ts, s, ptdf_case, value(flow_expr))
                 write(file_l, line_l)
                 @debug line_l
@@ -1322,7 +1322,7 @@ function log_flows(model_container,out_folder,filename)
             nb_active_cstrs += 1
         end
     end
-    msg_l = @sprintf("%d/%d RSO constraints are active!", nb_active_cstrs, nb_potential_cstrs)
+    msg_l = @sprintf("at least %d/%d RSO constraints are active!", nb_active_cstrs, nb_potential_cstrs)
     @info msg_l
 end
 
