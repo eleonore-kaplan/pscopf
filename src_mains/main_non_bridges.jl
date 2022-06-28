@@ -99,7 +99,7 @@ function compute_non_bridges(input_path::String)
 
     graph = network2graph(network)
 
-    output_path = joinpath(input_path, "pscopf_non_bridges.txt")
+    output_path = joinpath(input_path, "non_bridges.txt")
     write_non_bridges(graph, output_path)
 end
 
@@ -108,15 +108,19 @@ end
 # MAIN
 #########################
 function main(dir_names)
-    for input_path in dir_names
-        @info input_path
-        compute_non_bridges(joinpath(@__DIR__, "..", "data_matpower", input_path));
+    for input_dirname in dir_names
+        @info input_dirname
+        input_path = joinpath(@__DIR__, "..", "data_matpower", input_dirname)
+        compute_non_bridges(input_path);
     end
 end
 
 
-#MATPOWER_NETWORKS = ["case14"]
+# MATPOWER_NETWORKS = ["case14"]
 main(MATPOWER_NETWORKS)
+
+# input_path = joinpath(@__DIR__, "..", "data", "ptdf", "3buses_3branches")
+# compute_non_bridges(input_path);
 
 
 

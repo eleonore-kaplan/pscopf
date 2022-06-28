@@ -12,13 +12,14 @@ include("utils.jl")
 BASECASE = "BASECASE"
 
 mutable struct Bus
-    id::Int
+    id::Int #bus.num
     name::String
 end
 
 mutable struct Branch
-    from::Int
-    to::Int
+    id::Int # num branch
+    from::Int # i of origin bus
+    to::Int # i of destination bus
     r::Float64
     x::Float64
     name::String
@@ -29,11 +30,13 @@ function get_b(branch::Branch)
 end
 
 @with_kw mutable struct Network
-    bus_to_i::Dict{Int,Int} = Dict{Int,Int}()
-    branch_to_i::Dict{Int,Int} = Dict{Int,Int}()
+    bus_to_i::Dict{Int,Int} = Dict{Int,Int}() #bus.id (ie num) to i
+    branch_to_i::Dict{Int,Int} = Dict{Int,Int}() #branch num to i
 
-    branches::Dict{Int,Branch} = Dict{Int,Branch}()
-    buses::Dict{Int,Bus} = Dict{Int,Bus}()
+    branchname_to_i::Dict{String,Int} = Dict{String,Int}() #branch name to i
+
+    branches::Dict{Int,Branch} = Dict{Int,Branch}() #i to branch
+    buses::Dict{Int,Bus} = Dict{Int,Bus}() #i to bus
     CC0::Dict{Int,Int} = Dict{Int,Int}()
 end
 
@@ -45,7 +48,7 @@ function read_network(dir_path)
     return network
 end
 
-function get_or_add!(d::Dict{Int,Int}, i::Int)
+function get_or_add!(d::Dict{T,Int}, i::T) where T
     if ! haskey(d, i)
         next_id = length(d) + 1;
         d[i] = next_id;
@@ -85,7 +88,7 @@ end
 function reduced_network(network::Network, i_branch_to_cut::Int)
     # if a new CC is generated even the EOD constraint is no longer global,
     #the two induced networks function independantly
-    @warn("TODO : verify that the network is still connected and no new CC was generated!")
+    @warn("PTDF does not verify that the network is still connected and that no new CC was generated!")
     network_l = deepcopy(network)
 
     return cut_branch!(network_l, i_branch_to_cut)
@@ -112,7 +115,8 @@ function read_branches!(network::Network, dir_path)
                     iex = get_or_add!(network.bus_to_i, num_ex);
                     r = parse(Float64, buffer[5]);
                     x = parse(Float64, buffer[6]);
-                    push!(network.branches, id => Branch(ior, iex, r, x, name));
+                    push!(network.branches, id => Branch(id, ior, iex, r, x, name));
+                    network.branchname_to_i[name] = id
                 end
             end
         end
@@ -301,17 +305,15 @@ function compute_ptdf(network, ref_bus::Int, EPS_DIAG::Float64)
 end
 
 
-function compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir=".", i_cut_branch_p=nothing;
+function compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir=".", i_cut_branch_p=nothing;
                             concat::Bool=false)
     if isnothing(i_cut_branch_p)
         network_l = network_p
-        name = ""
     else
         cut_branch_l, network_l = PTDF.reduced_network(network_p, i_cut_branch_p)
-        name = "_n1_"*cut_branch_l.name
     end
 
-    ptdf_l = PTDF.compute_ptdf(network_l, ref_bus_num_p)
+    ptdf_l = PTDF.compute_ptdf(network_l, ref_bus_num_p, eps_diag_p)
     if distributed_p
         ptdf_l = PTDF.distribute_slack(ptdf_l);
         # coeffs = Dict([ "poste_1_0" => .2,
@@ -326,12 +328,52 @@ function compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir=".", 
                     concat=concat)
 end
 
-function compute_and_write_all(network_p, ref_bus_num_p, distributed_p, outdir=".")
-    compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir, nothing, concat=false)
+function compute_and_write_all(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir=".")
+    compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir, nothing, concat=false)
     for (i_cut_branch,_) in network_p.branch_to_i
-        compute_and_write(network_p, ref_bus_num_p, distributed_p, outdir,
+        compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir,
                             i_cut_branch, concat=true)
     end
+end
+
+function read_non_bridges(dir_path)
+    non_bridges = Vector{String}()
+    open(joinpath(dir_path, "non_bridges.txt"), "r") do file
+        for ln in eachline(file)
+            # don't read commentted line
+            if ln[1] != '#'
+                buffer = split_with_space(ln);
+                name = buffer[1];
+                push!(non_bridges, name)
+            end
+        end
+    end
+
+    return non_bridges
+end
+
+function compute_and_write(network_p::Network, ref_bus_num_p::Int, distributed_p::Bool, eps_diag_p::Float64,
+                        non_bridges::Vector{String},
+                        outdir=".")
+    compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir, nothing, concat=false)
+    for non_bridge_name in non_bridges
+        i_cut_branch = network_p.branchname_to_i[non_bridge_name]
+        compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, outdir,
+                            i_cut_branch, concat=true)
+    end
+end
+
+
+"""
+    Computes PTDF matrices for N (ie BASECASE)
+        and for N-1 cases provided by the non-bridges in the file non_bridges.txt of `input_dir`
+        The non_bridges.txt file should contain the names of the branches to be cut to compute N-1 cases.
+"""
+function compute_and_write_n_non_bridges(network_p::Network, ref_bus_num_p::Int, distributed_p::Bool, eps_diag_p::Float64,
+                                        input_dir::String,
+                                        outdir=".")
+    non_bridges::Vector{String} = read_non_bridges(input_dir)
+    compute_and_write(network_p, ref_bus_num_p, distributed_p, eps_diag_p, non_bridges, outdir)
 end
 
 export compute_and_write_all, compute_and_write
