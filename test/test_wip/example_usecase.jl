@@ -62,24 +62,24 @@ using DataStructures
         #Generators - Limitables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1", PSCOPF.Networks.LIMITABLE,
                                                 0., 200.,
-                                                0., 10.,
+                                                0., 1.,
                                                 Dates.Second(15*60), Dates.Second(15*60)) #dmo, dp : always 0. ?
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "wind_2", PSCOPF.Networks.LIMITABLE,
                                                 0., 200.,
-                                                0., 11.,
+                                                0., 2.,
                                                 Dates.Second(15*60), Dates.Second(15*60))
         #Generators - Pilotables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1", PSCOPF.Networks.PILOTABLE,
                                                 150., 600., #pmin, pmax
-                                                45000., 30., #start_cost, prop_cost
+                                                450., 10., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "tac_1", PSCOPF.Networks.PILOTABLE,
                                                 10., 300.,
-                                                12000., 100.,
+                                                120., 20.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "ccg_2", PSCOPF.Networks.PILOTABLE,
                                                 100., 600., #pmin, pmax
-                                                50000., 20., #start_cost, prop_cost
+                                                500., 20., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
 
         uncertainties = PSCOPF.Uncertainties()
@@ -179,22 +179,21 @@ using DataStructures
         #Limitables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "wind_1_0", PSCOPF.Networks.LIMITABLE,
                                                 0., 0., #pmin, pmax : Not concerned ? min is always 0, max is the limitation
-                                                0., 10., #start_cost, prop_cost : start cost is always 0 ?
+                                                0., 1., #start_cost, prop_cost : start cost is always 0 ?
                                                 Dates.Second(0), Dates.Second(0)) #dmo, dp : always 0. ?
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "wind_2_0", PSCOPF.Networks.LIMITABLE,
                                                 0., 0.,
-                                                0., 11.,
+                                                0., 2.,
                                                 Dates.Second(0), Dates.Second(0))
         #Pilotables
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "ccg_1_0", PSCOPF.Networks.PILOTABLE,
                                                 10., 200., #pmin, pmax
-                                                45000., 30., #start_cost, prop_cost
+                                                450., 10., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
         PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "tac_2_0", PSCOPF.Networks.PILOTABLE,
                                                 10., 200.,
-                                                12000., 120.,
+                                                120., 20.,
                                                 Dates.Second(30*60), Dates.Second(15*60))
-
         # initial generators state
         generators_init_state = SortedDict(
                         "ccg_1_0" => PSCOPF.ON,
