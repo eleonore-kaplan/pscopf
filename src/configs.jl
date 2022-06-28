@@ -13,7 +13,7 @@ const DEFAULT_CONFIGS = (
     CONSIDER_N_1 = true,
 
     PSCOPF_TIME_LIMIT_IN_SECONDS = nothing,
-    PSCOPF_REDIRECT_LOG = false,
+    PSCOPF_REDIRECT_LOG = true,
 )
 
 Dict{String,Any}(nt_p::NamedTuple) = Dict( string(k)=>v for (k,v) in pairs(nt_p))

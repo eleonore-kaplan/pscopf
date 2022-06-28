@@ -218,7 +218,7 @@ function main_instance_generate(input_path,
     # COMPUTE PTDF for N and N-1
     ###############################################
     ptdf_network = PTDF.read_network(input_path)
-    time_ptdf = @elapsed PTDF.compute_and_write_all(ptdf_network, ref_bus_num, distributed, output_folder)
+    time_ptdf = @elapsed PTDF.compute_and_write_all(ptdf_network, ref_bus_num, distributed, 1e-6, output_folder)
 
 
     ###############################################

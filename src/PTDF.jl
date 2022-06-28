@@ -126,8 +126,8 @@ end
 
 function get_i_for_bus(network_p::Network, bus_name_p::String)
     bus_id_l = first(filter( x -> x[2].name == bus_name_p , network_p.buses))[2].id
-    println(bus_name_p, " ; id ", bus_id_l, " ; i ", network_p.bus_to_i[bus_id_l])
-    println("BUSES:\n", network_p.buses)
+    @debug @sprintf("name:%s  id:%s  i:%s", bus_name_p, bus_id_l, network_p.bus_to_i[bus_id_l])
+    @debug @sprintf("BUSES: %s", network_p.buses)
     return network_p.bus_to_i[bus_id_l]
     #or for now, return first(filter( x -> x[2].name == bus_name_l , network.buses))[1]
 end
@@ -158,7 +158,7 @@ function get_B(network::Network, DIAG_EPS::Float64, dense::Bool)
         push!(Bval, kvp[2]);
     end
     n = length(network.bus_to_i);
-    println("n = ", n)
+    @debug @sprintf("n = %d", n)
     B = sparse(Brow, Bcol, Bval, n, n);
     if dense
         Bdense = Matrix(B);
@@ -183,7 +183,7 @@ function write_B(file_path_p, B::Matrix, network_p::Network)
 end
 
 function get_B_inv(Bdense::Matrix, ref_bus::Int64)
-    println("ref_bus is ", ref_bus)
+    @debug @sprintf("ref_bus is %d", ref_bus)
     n = size(Bdense)[1]
     Bdense2 = Bdense
     Bdense2[ref_bus, 1:n] .= 0
@@ -197,8 +197,8 @@ end
 function get_PTDF(network::Network, binv::Matrix, ref_bus::Int)
     n = length(network.bus_to_i);
     m = length(network.branch_to_i);
-    println("n ", n)
-    println("m ", m)
+    @debug @sprintf("n = %d", n)
+    @debug @sprintf("m = %d", m)
     PTDF = zeros(Float64, m, n);
     for kvp in collect(network.branches)
         b = get_b(kvp[2]);
