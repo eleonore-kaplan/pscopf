@@ -66,4 +66,7 @@ function affects_tso_actions(runnable::AbstractTSO) return true end
 abstract type  AbstractMarket <: AbstractRunnable  end
 function affects_market_schedule(runnable::AbstractMarket) return true end
 
+abstract type  AbstractAssessment <: AbstractRunnable end
+# needs to take decisions => updates a planning/schedule
+
 abstract type DeciderType end

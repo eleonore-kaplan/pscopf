@@ -337,6 +337,7 @@ end
 function check(context)
     #TODO replace & with &&
     check_fo_compatibility(get_network(context), get_fo_length(get_management_mode(context)))
+    check_uncertainties_contains_ech(get_uncertainties(context), get_horizon_timepoints(context))
     return (
         check(get_network(context))
         & check_dmo_compatibility(get_network(context), get_horizon_timepoints(context)[1], get_target_timepoints(context)[1])
@@ -344,7 +345,6 @@ function check(context)
         & check_initial_state(get_generators_initial_state(context), get_network(context))
         & check_target_timepoints(get_target_timepoints(context))
         & check_uncertainties_contain_ts(get_uncertainties(context), get_target_timepoints(context))
-        & check_uncertainties_contains_ech(get_uncertainties(context), get_horizon_timepoints(context))
     )
 end
 

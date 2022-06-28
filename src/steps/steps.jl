@@ -60,7 +60,7 @@ end
 ####       Utils
 ################################################################################
 
-struct Assessment <: AbstractRunnable
+struct Assessment <: AbstractAssessment
 end
 function run(runnable::Assessment, ech::Dates.DateTime, firmness, TS::Vector{Dates.DateTime}, context::AbstractContext)
     return #result

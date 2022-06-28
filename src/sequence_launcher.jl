@@ -167,10 +167,10 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
             next_ech = get_next_ech(sequence_p, steps_index, step)
             solved_model_container,_ = run_step!(context_p, step, ech, next_ech)
 
-            # if !isnothing(solved_model_container) && !(get_status(solved_model_container) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
-            #     msg_l = @sprintf("Step %s failed : No feasible solutions were found!", step)
-            #     error(msg_l)
-            # end
+            if !isnothing(solved_model_container) && !(get_status(solved_model_container) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
+                msg_l = @sprintf("Step %s failed : No feasible solutions were found!", step)
+                error(msg_l)
+            end
 
         end
     end
@@ -186,10 +186,11 @@ function get_next_ech(sequence::Sequence, index::Int, decider_step::AbstractRunn
         return nothing
     end
 
-    for ech_l in get_horizon_timepoints(sequence)[index+1:end]
-        for step_l in get_steps(sequence, ech_l)
-            if DeciderType(step_l) == DeciderType(decider_step)
-                return ech_l
+    for future_ech_l in get_horizon_timepoints(sequence)[index+1:end]
+        for future_step_l in get_steps(sequence, future_ech_l)
+            if ( DeciderType(future_step_l) == DeciderType(decider_step)
+                || DeciderType(future_step_l) == Assess() )
+                return future_ech_l
             end
         end
     end

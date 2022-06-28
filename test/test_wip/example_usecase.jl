@@ -43,11 +43,11 @@ using DataStructures
                                |                      |
 
     =#
-    @testset "example_small_usecase" begin
+    @testset "example_small_usecase_with_reserves_units" begin
         out_path = joinpath(@__DIR__, "..", "..", "default_out", "example_small_usecase")
         rm(out_path, recursive=true, force=true)
 
-        ECH = [DateTime("2015-01-01T07:00:00"), DateTime("2015-01-01T07:30:00"),DateTime("2015-01-01T10:00:00")]
+        ECH = [DateTime("2015-01-01T07:00:00"), DateTime("2015-01-01T07:30:00"),DateTime("2015-01-01T10:00:00"),DateTime("2015-01-01T11:00:00")]
         TS = [DateTime("2015-01-01T11:00:00"), DateTime("2015-01-01T11:30:00")]
 
         network = PSCOPF.Networks.Network()
@@ -81,6 +81,14 @@ using DataStructures
                                                 100., 600., #pmin, pmax
                                                 500., 20., #start_cost, prop_cost
                                                 Dates.Second(4*3600), Dates.Second(15*60)) #dmo, dp
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_1", "reserve_1", PSCOPF.Networks.PILOTABLE,
+                                                0., 600., #pmin, pmax
+                                                0., 500., #start_cost, prop_cost
+                                                Dates.Second(0*3600), Dates.Second(0*60)) #dmo, dp
+        PSCOPF.Networks.add_new_generator_to_bus!(network, "bus_2", "reserve_2", PSCOPF.Networks.PILOTABLE,
+                                                0., 600., #pmin, pmax
+                                                0., 500., #start_cost, prop_cost
+                                                Dates.Second(0*3600), Dates.Second(0*60)) #dmo, dp
 
         uncertainties = PSCOPF.Uncertainties()
         PSCOPF.add_uncertainty!(uncertainties, ECH[1], "bus_1", TS[1], "S1", 610.)
