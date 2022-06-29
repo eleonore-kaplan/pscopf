@@ -283,11 +283,11 @@ distributed = true
 ##################
 default_limit = 1e5
 pilotables_templates = [
-    PilotableTemplate("_15m",   0., 500.,     0., 30.,  Second(Minute(15)), Second(Minute(15)))
-    PilotableTemplate("_.5h", 50., 200., 30000., 27.,  Second(Minute(30)), Second(Minute(15)))
-    PilotableTemplate("_1h",  50., 200., 25000., 25.,  Second(Hour(1)),    Second(Minute(15)))
-    PilotableTemplate("_2h",  50., 300., 10000., 20.,  Second(Hour(2)),    Second(Minute(15)))
-    PilotableTemplate("_4h",  50., 600., 15000., 15.,  Second(Hour(4)),    Second(Minute(15)))
+    PilotableTemplate("_15m",   0., 500.,    0., 30.,  Second(Minute(15)), Second(Minute(15)))
+    PilotableTemplate("_.5h",  50., 200.,  300., 27.,  Second(Minute(30)), Second(Minute(15)))
+    PilotableTemplate("_1h",   50., 200.,  250., 25.,  Second(Hour(1)),    Second(Minute(15)))
+    PilotableTemplate("_2h",   50., 300.,  100., 20.,  Second(Hour(2)),    Second(Minute(15)))
+    PilotableTemplate("_4h",   50., 600.,  150., 15.,  Second(Hour(4)),    Second(Minute(15)))
 ]
 nb_generators_probabilities = [.25, .2, .25, .1, .05] #no_generator_proba : 0.15
 @assert (length(nb_generators_probabilities) == length(pilotables_templates))
