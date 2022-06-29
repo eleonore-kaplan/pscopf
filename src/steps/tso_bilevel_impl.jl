@@ -230,6 +230,15 @@ function get_local_lol(model_container::TSOBilevelModel)
     return get_local_lol(model_container.upper)
 end
 
+function get_global_lol(model_container::TSOBilevelModel)
+    return get_global_lol(model_container.lower)
+end
+
+function has_global_lol(model_container::TSOBilevelModel)
+    #The reference global_lol is in the market model (The TSO only sets a LB for the lower problem)
+    return has_global_lol(model_container.lower)
+end
+
 function has_positive_slack(model_container::TSOBilevelModel)::Bool
     return has_positive_value(model_container.lower.lol_model.p_global_loss_of_load) #If TSO cut => market did too
 end

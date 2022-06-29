@@ -87,17 +87,14 @@ function get_status(model_container_p::AbstractModelContainer)::PSCOPFStatus
     if solver_status_l == MOI.OPTIMIZE_NOT_CALLED
         return pscopf_UNSOLVED
     elseif solver_status_l == MOI.INFEASIBLE
-        @error "model status is infeasible!"
         return pscopf_INFEASIBLE
     elseif solver_status_l == MOI.OPTIMAL
         if has_positive_slack(model_container_p)
-            @warn "model solved optimally but slack variables were used!"
             return pscopf_HAS_SLACK
         else
             return pscopf_OPTIMAL
         end
     else
-        @warn "solver termination status was not optimal : $(solver_status_l)"
         return pscopf_FEASIBLE
     end
 end
@@ -177,15 +174,30 @@ function solve!(model_container::AbstractModelContainer, problem_name, out_path)
 
     @info problem_name
     solve!(model_l, problem_name, out_path)
-    @info "pscopf model status: $(get_status(model_container))"
+
+    solve_pscopf_status = get_status(model_container)
+    @info "pscopf model status: $(solve_pscopf_status)"
     @info "Termination status : $(termination_status(model_l))"
     @info "Objective value : $(objective_value(model_l))"
+    if solve_pscopf_status == pscopf_UNSOLVED
+        @error "Model not solved!"
+    elseif solve_pscopf_status == pscopf_INFEASIBLE
+        @error "model status is infeasible!"
+    elseif solve_pscopf_status == pscopf_HAS_SLACK
+        @warn "model solved optimally but slack variables were used!"
+        total_lol_l = total_lol(model_container)
+        @info "LoL = $(total_lol_l)"
+    end
 
     return model_container
 end
 
 function has_positive_slack(model_container)::Bool
     error("unimplemented")
+end
+
+function has_global_lol(model_container::AbstractModelContainer)
+    return hasproperty(model_container.lol_model, :p_global_loss_of_load)
 end
 
 function requires_linking(firmness::DecisionFirmness, do_link::Bool=false)::Bool
@@ -967,6 +979,9 @@ end
 function get_global_lol(lol_model::AbstractLoLModel)
     return lol_model.p_global_loss_of_load
 end
+function get_global_lol(model_container::AbstractModelContainer)
+    return get_global_lol(model_container.lol_model)
+end
 
 function get_local_lol(lol_model::AbstractLoLModel)
     return lol_model.p_loss_of_load
@@ -1006,6 +1021,14 @@ function add_global_lol_vars!(model::AbstractModel, lol_model::AbstractLoLModel,
             name =  @sprintf("%sP_global_lol[%s,%s]", prefix, ts, s)
             get_global_lol(lol_model)[ts, s] = @variable(model, base_name=name, lower_bound=0.)
         end
+    end
+end
+
+function total_lol(model_container::AbstractModelContainer)
+    if has_global_lol(model_container)
+        sum( value(lol_var) for (_,lol_var) in get_global_lol(model_container) )
+    else
+        sum( value(lol_var) for (_,lol_var) in get_local_lol(model_container) )
     end
 end
 
