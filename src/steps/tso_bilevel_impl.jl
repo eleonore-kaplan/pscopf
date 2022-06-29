@@ -987,7 +987,16 @@ function tso_bilevel(network::Networks.Network,
                     # gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::TSOBilevelConfigs
                     )
-
+    @assert all(configs.TSO_LOL_PENALTY > Networks.get_prop_cost(gen)
+                for gen in Networks.get_generators(network))
+    @assert all(configs.TSO_LOL_PENALTY > Networks.get_prop_cost(gen) + Networks.get_start_cost(gen)/Networks.get_p_min(gen)
+                for gen in Networks.get_generators(network)
+                if Networks.needs_commitment(gen))
+    @assert all(configs.MARKET_LOL_PENALTY > Networks.get_prop_cost(gen)
+                for gen in Networks.get_generators(network))
+    @assert all(configs.MARKET_LOL_PENALTY > Networks.get_prop_cost(gen) + Networks.get_start_cost(gen)/Networks.get_p_min(gen)
+                for gen in Networks.get_generators(network)
+                if Networks.needs_commitment(gen))
     @assert(configs.big_m > configs.MARKET_LOL_PENALTY)
     @assert(configs.big_m > configs.MARKET_CAPPING_COST)
     @assert(all( configs.big_m > Networks.get_prop_cost(gen)

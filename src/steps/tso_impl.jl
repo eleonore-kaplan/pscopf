@@ -262,6 +262,11 @@ function tso_out_fo(network::Networks.Network,
                     gratis_starts::Set{Tuple{String,Dates.DateTime}},
                     configs::TSOConfigs
                     )
+    @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen)
+                for gen in Networks.get_generators(network))
+    @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen) + Networks.get_start_cost(gen)/Networks.get_p_min(gen)
+                for gen in Networks.get_generators(network)
+                if Networks.needs_commitment(gen))
 
     @timeit TIMER_TRACKS "tso_modeling" model_container_l = create_tso_model(network, target_timepoints, generators_initial_state,
                                                                             scenarios, uncertainties_at_ech, firmness,

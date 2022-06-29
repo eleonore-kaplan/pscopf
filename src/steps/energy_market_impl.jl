@@ -119,6 +119,9 @@ function energy_market(network::Networks.Network,
     #if not there a risk of cutting conso instead of using a generator
     @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen)
                 for gen in Networks.get_generators(network))
+    @assert all(configs.loss_of_load_penalty > Networks.get_prop_cost(gen) + Networks.get_start_cost(gen)/Networks.get_p_min(gen)
+                    for gen in Networks.get_generators(network)
+                    if Networks.needs_commitment(gen))
 
     @timeit TIMER_TRACKS "market_modeling" model_container_l = create_market_model(network,
                                                                                 target_timepoints, generators_initial_state,

@@ -201,22 +201,22 @@ using DataStructures
                                         uncertainties, nothing)
         market = PSCOPF.EnergyMarket()
         market.configs.loss_of_load_penalty = penalty
-        result = PSCOPF.run(market, ech, firmness,
+        @test_throws AssertionError ( result = PSCOPF.run(market, ech, firmness,
                     PSCOPF.get_target_timepoints(context),
-                    context)
-        PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
+                    context) )
+        # PSCOPF.update_market_schedule!(context, ech, result, firmness, market)
 
         # Desired Solution
-        @test !( PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL )
-        @test !( 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") )
-        @test !( value(result.lol_model.p_global_loss_of_load[TS[1], "S1"]) < 1e-09 )
-        @test !( value(result.objective_model.penalty) < 1e-09 )
+        # @test !( PSCOPF.get_status(result) == PSCOPF.pscopf_OPTIMAL )
+        # @test !( 25. ≈ PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") )
+        # @test !( value(result.lol_model.p_global_loss_of_load[TS[1], "S1"]) < 1e-09 )
+        # @test !( value(result.objective_model.penalty) < 1e-09 )
 
         # retrieved solution
-        @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
-        @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
-        @test 25. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
-        @test (25. * 1e3) ≈ value(result.objective_model.penalty)
+        # @test PSCOPF.get_status(result) == PSCOPF.pscopf_HAS_SLACK
+        # @test PSCOPF.get_prod_value(context.market_schedule, "prod_1_1", TS[1], "S1") < 1e-09
+        # @test 25. ≈ value(result.lol_model.p_global_loss_of_load[TS[1], "S1"])
+        # @test (25. * 1e3) ≈ value(result.objective_model.penalty)
 
     end
 

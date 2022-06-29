@@ -547,11 +547,11 @@ using DataStructures
                         |
     (pilotable) prod_1_1|          load_1
     Pmin=10, Pmax=100   |S1: 30     S1: 50
-    Csta=45k, Cprop=10  |S2: 25     S2: 165
+    Csta=450, Cprop=10  |S2: 25     S2: 165
                         |
     (pilotable) prod_1_2|
      Pmin=10, Pmax=100  |
-     Csta=80k, Cprop=15 |
+     Csta=800, Cprop=15 |
 
     We have high demand for TS2, S2
     =#
