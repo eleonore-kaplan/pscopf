@@ -38,4 +38,4 @@ end
 # INPUT & PARAMS
 #########################
 
-compute_ptdf(joinpath(@__DIR__, "..", "usecases-euro-simple", "usecase1-arret-demarrage", "data"), 2)
+compute_ptdf(joinpath(@__DIR__, "..", "usecases-euro-simple", "usecase2-tunnel-puissance", "data"), 3)

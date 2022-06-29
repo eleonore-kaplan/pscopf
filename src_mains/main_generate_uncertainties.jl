@@ -36,7 +36,7 @@ include(joinpath(root_path, "src", "PSCOPF.jl"));
 # pscopf_limits : the flow capacity of each branch
 # pscopf_ptdf : the ptdf coefficients per (branch, bus_id)
 # pscopf_init : the description of the initial state of units (just before the first interest timepoit T)
-data_path = joinpath(@__DIR__, "..", "usecases-euro-simple", "usecase0-tests", "data")
+data_path = joinpath(@__DIR__, "..", "usecases-euro-simple", "usecase2-tunnel-puissance", "data")
 
 # out_path is the path where uncertainties file will be written:
 # pscopf_uncertainties : the randomly generated nodal injections
