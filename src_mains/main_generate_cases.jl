@@ -313,6 +313,13 @@ prediction_error = 0.01
 #################################################################################################################
 # Launch
 #################################################################################################################
+logfile = PSCOPF.get_config("TEMP_GLOBAL_LOGFILE")
+open(logfile, "a") do file_l
+    write(file_l, "-"^120 * "\n")
+    write(file_l, @sprintf("generation of usecase : %s\n", output_folder))
+    write(file_l, @sprintf("n-1? : %s\n", PSCOPF.get_config("CONSIDER_N_1")))
+end
+
 
 time_generation = @elapsed (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows) =
                             main_instance_generate(input_path,
@@ -323,80 +330,17 @@ time_generation = @elapsed (generated_network, gen_init, uncertainties), (time_p
                                 ECH, ts1, nb_scenarios, prediction_error,
                                 output_folder)
 
-press_to_continue()
-
-
-# time_ptdf = time_free_flows = time_generation = 0
-# instance_path = joinpath(output_folder, "instance")
-# generated_network = PSCOPF.Data.pscopfdata2network(instance_path)
-# uncertainties = PSCOPF.PSCOPFio.read_uncertainties(instance_path)
-# gen_init = PSCOPF.PSCOPFio.read_initial_state(instance_path)
-
-###############################################
-# Solve usecase : mode 1
-###############################################
-output_mode_1 = joinpath(output_folder, "mode1")
-mode_1 = PSCOPF.PSCOPF_MODE_1
-TS = PSCOPF.create_target_timepoints(ts1)
-sequence = PSCOPF.generate_sequence(generated_network, TS, ECH, mode_1)
-
-PSCOPF.rm_non_prefixed(output_mode_1, "pscopf_")
-exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_1,
-                                    gen_init,
-                                    uncertainties, nothing,
-                                    output_mode_1)
-time_mode_1 = @elapsed begin
-    try
-        PSCOPF.run!(exec_context, sequence)
-    catch e
-        println(e.msg)
-    end
-end
-
-press_to_continue()
-
-
-###############################################
-# Solve usecase : mode 2
-###############################################
-output_mode_2 = joinpath(output_folder, "mode2")
-mode_2 = PSCOPF.PSCOPF_MODE_2
-TS = PSCOPF.create_target_timepoints(ts1)
-sequence = PSCOPF.generate_sequence(generated_network, TS, ECH, mode_2)
-
-PSCOPF.rm_non_prefixed(output_mode_2, "pscopf_")
-exec_context = PSCOPF.PSCOPFContext(generated_network, TS, mode_2,
-                                    gen_init,
-                                    uncertainties, nothing,
-                                    output_mode_2)
-time_mode_2 = @elapsed begin
-    try
-        PSCOPF.run!(exec_context, sequence)
-    catch e
-        println(e.msg)
-    end
-end
-
-
 println("Computing all ptdfs took:", time_ptdf)
 println("Computing free flows took :", time_free_flows)
 println("Generating the whole network instance took :", time_generation)
-println("Mode 1 took :", time_mode_1)
-println("Mode 2 took :", time_mode_2)
 
 println(PSCOPF.TIMER_TRACKS)
 
-logfile = joinpath(@__DIR__, "..", "timingsRSO.log")
+nb_rso_constraint = PSCOPF.nb_rso_constraint(generated_network, nb_scenarios, 4)
 open(logfile, "a") do file_l
-    write(file_l, "-"^60 * "\n")
-    write(file_l, @sprintf("usecase : %s\n", output_folder))
-    write(file_l, "dynamic? : FALSE\n")
-    write(file_l, @sprintf("n-1? : %s\n", PSCOPF.get_config("CONSIDER_N_1")))
-    write(file_l, @sprintf("nb rso constraints : %d\n", PSCOPF.nb_rso_constraint(exec_context)))
+    write(file_l, @sprintf("nb rso constraints : %d\n", nb_rso_constraint))
     write(file_l, @sprintf("Computing all ptdfs took: %s\n", time_ptdf))
     write(file_l, @sprintf("Computing free flows took : %s\n", time_free_flows))
     write(file_l, @sprintf("Generating the whole network instance took : %s\n", time_generation))
-    write(file_l, @sprintf("Mode 1 took : %s\n", time_mode_1))
-    write(file_l, @sprintf("Mode 2 took : %s\n", time_mode_2))
     write(file_l, @sprintf("TIMES:\n%s\n", PSCOPF.TIMER_TRACKS))
 end
