@@ -14,6 +14,8 @@ const DEFAULT_CONFIGS = (
 
     PSCOPF_TIME_LIMIT_IN_SECONDS = nothing,
     PSCOPF_REDIRECT_LOG = true,
+
+    TEMP_GLOBAL_LOGFILE = joinpath(@__DIR__, "..", "timingsRSO.log") # temporary file to study RSO constraints behaviour : TODO : do not use
 )
 
 Dict{String,Any}(nt_p::NamedTuple) = Dict( string(k)=>v for (k,v) in pairs(nt_p))

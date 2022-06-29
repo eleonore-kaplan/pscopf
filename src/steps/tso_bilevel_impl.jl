@@ -1021,6 +1021,7 @@ function tso_bilevel(network::Networks.Network,
                                                     launch_solve!, configs,
                                                     uncertainties_at_ech, network,
                                                     false)
+    log_flows(bimodel_container_l.upper, network, configs.out_path, configs.problem_name)
 
     return bimodel_container_l
 end
@@ -1036,5 +1037,4 @@ function launch_solve!(bimodel_container::TSOBilevelModel, configs::TSOBilevelCo
         solve!(bimodel_container, configs.problem_name, configs.out_path)
     end
     @info("Lower Objective Value : $(value(bimodel_container.lower.objective_model.full_obj))")
-    log_flows(bimodel_container.upper, configs.out_path, configs.problem_name)
 end

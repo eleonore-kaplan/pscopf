@@ -1322,16 +1322,20 @@ end
     The number of active constraints is not exact since, in a MIP context,
      some constraints that have non-negative slack might be influential/active
 """
-function log_flows(model_container,out_folder,filename)
+function log_flows(model_container,network,out_folder,filename)
     flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr} = get_flows(model_container)
     if !isnothing(out_folder)
-        @debug @sprintf("branch_id  %15s  s  ptdf_case  flow", "ts")
         log_file_l = joinpath(out_folder, filename*"_flows.log")
         open(log_file_l, "w") do file_l
-            write(file_l, "branch_id, ts, s, ptdf_case, flow_value\n")
+            line_l = @sprintf("branch_id  %15s  s  ptdf_case  flow_value flow_limit\n", "ts")
+            @debug line_l
+            write(file_l, line_l)
             for ((branch_id, ts, s, ptdf_case), flow_expr) in sort_by_cut_branch(flows)
-                line_l = @sprintf("%s %s %s %s %s\n",
-                                    branch_id, ts, s, ptdf_case, value(flow_expr))
+                flow_val = value(flow_expr)
+                flow_lim = Networks.safeget_limit(get_branch(network, branch_id), ptdf_case)
+                status = (abs(flow_val) >= flow_lim-1e-09) ? "ACTIVE" : "INACTIVE"
+                line_l = @sprintf("%s %s %s %s %s %s %s\n",
+                                branch_id, ts, s, ptdf_case, flow_val, flow_lim, status)
                 write(file_l, line_l)
                 @debug line_l
             end
@@ -1347,6 +1351,7 @@ function log_flows(model_container,out_folder,filename)
     end
     msg_l = @sprintf("at least %d/%d RSO constraints are active!", nb_active_cstrs, nb_potential_cstrs)
     @info msg_l
+    open(get_config("TEMP_GLOBAL_LOGFILE"), "a") do file_l write(file_l, msg_l*"\n") end
 end
 
 function sort_by_cut_branch(flows::SortedDict{Tuple{String,Dates.DateTime,String,String}, AffExpr})

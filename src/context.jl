@@ -156,10 +156,15 @@ function update_tso_flows!(context::PSCOPFContext)
     context.tso_flows = flows
 end
 
+
+function nb_rso_constraint(network, nb_scenarios, nb_TS)
+    nb_ptdf_cases = length(network.ptdf)
+    nb_branches = length(network.branches)
+    return nb_ptdf_cases*nb_scenarios*nb_TS*nb_branches
+end
+
 function nb_rso_constraint(context_p)::Int
-    nb_ptdf_cases = length(get_network(context_p).ptdf)
     nb_scenarios = length(get_scenarios(context_p))
     nb_TS = length(get_target_timepoints(context_p))
-    nb_branches = length(get_network(context_p).branches)
-    return nb_ptdf_cases*nb_scenarios*nb_TS*nb_branches
+    return nb_rso_constraint(get_network(context_p), nb_scenarios, nb_TS)
 end
