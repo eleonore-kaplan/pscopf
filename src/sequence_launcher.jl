@@ -93,11 +93,13 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
     firmness = compute_firmness(step, ech, next_ech,
                             get_target_timepoints(context_p), context_p)
     trace_firmness(firmness)
-    result = run(step, ech, firmness,
-                get_target_timepoints(context_p),
-                context_p)
+    @timeit TIMER_TRACKS "run_model" result = run(step, ech, firmness,
+                                                get_target_timepoints(context_p),
+                                                context_p)
+
 
     if affects_market_schedule(step)
+    @timeit TIMER_TRACKS "update_schedules" begin
         @debug "update market schedule based on optimization results"
         # old_market_schedule = deepcopy(get_market_schedule(context_p))
         update_market_schedule!(context_p, ech, result, firmness, step)
@@ -111,8 +113,10 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         update_market_flows!(context_p)
         trace_flows(get_market_flows(context_p), get_network(context_p))
     end
+    end
 
     if affects_tso_schedule(step)
+    @timeit TIMER_TRACKS "update_schedules" begin
         @debug "update TSO schedule based on optimization results"
         # old_tso_schedule = deepcopy(get_tso_schedule(context_p))
         update_tso_schedule!(context_p, ech, result, firmness, step)
@@ -126,12 +130,15 @@ function run_step!(context_p::AbstractContext, step::AbstractRunnable, ech, next
         update_tso_flows!(context_p)
         trace_flows(get_tso_flows(context_p), get_network(context_p))
     end
+    end
 
     if affects_tso_actions(step)
+    @timeit TIMER_TRACKS "update_tso_actions" begin
         @debug "update TSO actions based on optimization results"
         update_tso_actions!(context_p,
                             ech, result, firmness, step)
         trace_tso_actions(get_tso_actions(context_p))
+    end
     end
     #TODO check coherence between tso schedule and actions
 
@@ -158,7 +165,13 @@ function run!(context_p::AbstractContext, sequence_p::Sequence;
         println("-"^50)
         for step in steps_at_ech
             next_ech = get_next_ech(sequence_p, steps_index, step)
-            run_step!(context_p, step, ech, next_ech)
+            solved_model_container,_ = run_step!(context_p, step, ech, next_ech)
+
+            if !isnothing(solved_model_container) && !(get_status(solved_model_container) in [pscopf_OPTIMAL, pscopf_FEASIBLE])
+                msg_l = @sprintf("Step %s failed : No feasible solutions were found!", step)
+                error(msg_l)
+            end
+
         end
     end
 end
@@ -173,10 +186,11 @@ function get_next_ech(sequence::Sequence, index::Int, decider_step::AbstractRunn
         return nothing
     end
 
-    for ech_l in get_horizon_timepoints(sequence)[index+1:end]
-        for step_l in get_steps(sequence, ech_l)
-            if DeciderType(step_l) == DeciderType(decider_step)
-                return ech_l
+    for future_ech_l in get_horizon_timepoints(sequence)[index+1:end]
+        for future_step_l in get_steps(sequence, future_ech_l)
+            if ( DeciderType(future_step_l) == DeciderType(decider_step)
+                || DeciderType(future_step_l) == Assess() )
+                return future_ech_l
             end
         end
     end
@@ -223,8 +237,8 @@ function trace_flows(flows::SortedDict{Tuple{String, DateTime, String}, Float64}
                     network::Networks.Network)
     for ((branch_id, ts, scenario), flow_val) in flows
         branch = Networks.safeget_branch(network, branch_id)
-        limit = Networks.get_limit(branch)
-        if abs(flow_val) > limit
+        limit::Float64 = Networks.safeget_limit(branch, Networks.BASECASE)
+        if abs(flow_val) >= limit+1e-09
             @printf("Flow value %f for branch %s, at timestep %s and scenario %s exceeds branch limit (%f)\n",
                     flow_val, branch_id, ts, scenario, limit)
         end

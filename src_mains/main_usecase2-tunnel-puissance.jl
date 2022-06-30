@@ -57,10 +57,21 @@ TS = PSCOPF.create_target_timepoints(ts1) #T: 11h, 11h15, 11h30, 11h45
 
 # Personalised sequence
 
-sequence = PSCOPF.Sequence(Dict([
-    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
-    #ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket()],
-    ts1 - Dates.Minute(15)  => [PSCOPF.BalanceMarket(PSCOPF.EnergyMarketCOnfigs(REF_SCHEDULE_TYPE=PSCOPF.Market())), PSCOPF.TSOOutFO()],
+# tout est ferme
+sequence_ferme = PSCOPF.Sequence(Dict([
+    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel()],
+]))
+
+# Décisions d'impositions fermes
+sequence_impositions_ferme = PSCOPF.Sequence(Dict([
+    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_PILOTABLE_LEVEL=true))],
+    ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
+]))
+
+# tout est par scénario
+sequence_free = PSCOPF.Sequence(Dict([
+    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel()],
+    ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
 ]))
 
 
@@ -70,4 +81,4 @@ exec_context = PSCOPF.PSCOPFContext(network, TS, mode,
                                     uncertainties, nothing,
                                     output_path)
 
-PSCOPF.run!(exec_context, sequence)
+PSCOPF.run!(exec_context, sequence_impositions_ferme)
