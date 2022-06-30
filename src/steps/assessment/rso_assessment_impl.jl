@@ -272,7 +272,7 @@ function add_flow_constraints(model_container::RSOAssessmentModel, network, TS)
     model_l = model_container.model
     for branch in Networks.get_branches(network)
         branch_id = Networks.get_id(branch)
-        flow_limit_l = Networks.get_limit(branch)
+        flow_limit_l = Networks.safeget_limit(branch, Networks.BASECASE)
 
         for ts in TS
             overflow_l = model_container.overflow[ts]
@@ -303,7 +303,7 @@ end
 function add_kkt_complementarity_constraints(model_container, network, TS)
     for branch in Networks.get_branches(network)
         branch_id = Networks.get_id(branch)
-        flow_limit_l = Networks.get_limit(branch)
+        flow_limit_l = Networks.safeget_limit(branch, Networks.BASECASE)
 
         for ts in TS
             # pos_flow_limit_duals
