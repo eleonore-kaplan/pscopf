@@ -148,6 +148,24 @@ function generate_base_consumptions(network::PSCOPF.Network,
     return uncertainties
 end
 
+# uncertainties[ech][nodal_injection_name][ts][scenario_name]
+function multiply(uncertainties::PSCOPF.Uncertainties, coeff::Number)
+    result_uncertainties = PSCOPF.Uncertainties()
+    for (ech, uncertainties_at_ech) in uncertainties
+        result_uncertainties_at_ech = get!(result_uncertainties, ech, PSCOPF.UncertaintiesAtEch())
+        for (inj_name, by_ts_uncerts) in uncertainties_at_ech
+            result_by_ts_uncerts = get!(result_uncertainties_at_ech, inj_name, PSCOPF.InjectionUncertainties())
+            for (ts, by_scenario_uncerts) in by_ts_uncerts
+                result_by_scenario_uncerts = get!(result_by_ts_uncerts, ts, SortedDict{String, Float64}())
+                for (s, val) in by_scenario_uncerts
+                    result_by_scenario_uncerts[s] = coeff*val
+                end
+            end
+        end
+    end
+    return result_uncertainties
+end
+
 
 function compute_free_flows(network::PSCOPF.Network, ech, ts, gen_init, uncertainties, output_folder)
     custom_mode = PSCOPF.ManagementMode("custom_mode", Dates.Minute(60))
@@ -248,19 +266,21 @@ function main_instance_generate(input_path,
                                                             joinpath(output_folder, "init_limits"))
 
 
+    instance_path = joinpath(output_folder, "instance")
     ###############################################
     # Generate Network : update branch limits
     ###############################################
     update_network_limits!(initial_network, free_flows, limit_to_free_flow_ratio)
     generated_network = initial_network
-    PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), generated_network)
+    PSCOPF.PSCOPFio.write(instance_path, generated_network)
 
 
     ###############################################
     # Generate Uncertainties
     ###############################################
-    uncertainties = generate_uncertainties(generated_network, base_consumptions[ech], ts, "BASE_S", ECH, nb_scenarios, prediction_error)
-    PSCOPF.PSCOPFio.write(joinpath(output_folder, "instance"), uncertainties)
+    base_uncertainties = multiply(base_consumptions, 0.7)
+    uncertainties = generate_uncertainties(generated_network, base_uncertainties[ech], ts, "BASE_S", ECH, nb_scenarios, prediction_error)
+    PSCOPF.PSCOPFio.write(instance_path, uncertainties)
 
     return (generated_network, gen_init, uncertainties), (time_ptdf, time_free_flows)
 end
@@ -270,9 +290,10 @@ end
 ###############################################
 Random.seed!(0)
 
+matpower_case = "case14"
 input_path = ( length(ARGS) > 0 ? ARGS[1] :
-                    joinpath(@__DIR__, "..", "data_matpower", "case5") )
-output_folder = joinpath(@__DIR__, "..", "data", "case5")
+                    joinpath(@__DIR__, "..", "data_matpower", matpower_case) )
+output_folder = joinpath(@__DIR__, "..", "data", matpower_case)
 
 # PTDF
 #######
@@ -295,15 +316,19 @@ nb_generators_probabilities = [.25, .2, .25, .1, .05] #no_generator_proba : 0.15
 
 # Base Uncertainties
 #####################
-limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning will represent 70% of the units' max capacities (distributed randomly)
+limits_conso_to_unit_capa_ratio = 1. #consumption volumne is equal to maximum generators capacity (all generators produce at max capacity : optim is useless !)
+# limits_conso_to_unit_capa_ratio = 0.7 #consumption used for branch dimensioning will represent ?% of the units' max capacities (distributed randomly)
 
 
 # Limits
 #########
-limit_to_free_flow_ratio = 1.3
+limit_to_free_flow_ratio = 1.
 
 # Uncertainties
 ################
+# base_uncertainties = base_uncertainties_coeff * limits_conso_to_unit_capa_ratio * maxNetworkCapacity
+# (keeping same distribution of the base consumption used to compute limits)
+base_uncertainties_coeff = 0.7
 ts1 = DateTime("2015-01-01T11:00:00")
 ECH = [ts1-Hour(4), ts1-Hour(2), ts1-Hour(1), ts1-Minute(30), ts1-Minute(15), ts1]
 nb_scenarios = 3
