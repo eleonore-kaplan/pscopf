@@ -103,6 +103,7 @@ function solve_2steps_deltas!(model_container::AbstractModelContainer, configs::
     obj = model_container.objective_model.full_obj_1
     @objective(get_model(model_container), Min, obj)
     solve!(model_container, configs.problem_name*"_step1", configs.out_path)
+    @info "deltas current value : $(value(model_container.objective_model.deltas))"
     @info "step2 objective current value : $(value(model_container.objective_model.full_obj_2))"
 
     if (get_status(model_container)!=pscopf_INFEASIBLE
@@ -112,7 +113,8 @@ function solve_2steps_deltas!(model_container::AbstractModelContainer, configs::
         obj = model_container.objective_model.full_obj_2
         @objective(get_model(model_container), Min, obj)
         solve!(model_container, configs.problem_name*"_step2", configs.out_path)
-        @info "step 1 objective current value (deltas) : $(value(model_container.objective_model.full_obj_1))"
+        @info "step 1 objective current value (deltas+penalty) : $(value(model_container.objective_model.full_obj_1))"
+        @info "step 1 objective current value (deltas) : $(value(model_container.objective_model.deltas))"
     end
 end
 
@@ -176,6 +178,7 @@ function solve!(model_container::AbstractModelContainer, problem_name, out_path)
     solve!(model_l, problem_name, out_path)
 
     solve_pscopf_status = get_status(model_container)
+    @info "pscopf model solve time: $(solve_time(model_l))"
     @info "pscopf model status: $(solve_pscopf_status)"
     @info "Termination status : $(termination_status(model_l))"
     @info "Objective value : $(objective_value(model_l))"
