@@ -81,4 +81,4 @@ exec_context = PSCOPF.PSCOPFContext(network, TS, mode,
                                     uncertainties, nothing,
                                     output_path)
 
-PSCOPF.run!(exec_context, sequence_free)
+PSCOPF.run!(exec_context, sequence_impositions_ferme)
