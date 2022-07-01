@@ -59,25 +59,19 @@ TS = PSCOPF.create_target_timepoints(ts1) #T: 11h, 11h15, 11h30, 11h45
 
 # Décisions d'impositions fermes
 sequence_impositions_ferme = PSCOPF.Sequence(Dict([
-    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=true))],
+    ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=true))],
     ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
 ]))
 
 # tout est par scénario
 sequence_free = PSCOPF.Sequence(Dict([
-    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=false))],
+    ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=false))],
     ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
 ]))
 
-sequence2 = PSCOPF.Sequence(Dict([
-        ts1 - Dates.Hour(4)     => [PSCOPF.EnergyMarket()],
-        ts1 - Dates.Minute(15)  => [PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
-        ts1                     => [PSCOPF.BalanceMarket()]
-    ]))
-
+# sequence test
 sequence = PSCOPF.Sequence(Dict([
         ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel()],
-        ts1 - Dates.Minute(15) =>  [PSCOPF.BalanceMarket()],
     ]))
 
 
@@ -88,4 +82,4 @@ exec_context = PSCOPF.PSCOPFContext(network, TS, mode,
                                     uncertainties, nothing,
                                     output_path)
 
-PSCOPF.run!(exec_context, sequence)
+PSCOPF.run!(exec_context, sequence_impositions_ferme)
