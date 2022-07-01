@@ -166,5 +166,5 @@ export compute_flows
 end # module FlowCalculator
 
 
-in_data = joinpath(@__DIR__, "..", "data", "flowcalculator")
+in_data = joinpath(@__DIR__, "..", "data", "flowcalculator", "usecase2")
 FlowCalculator.compute_flows(in_data)
