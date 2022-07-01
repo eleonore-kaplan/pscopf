@@ -57,6 +57,18 @@ TS = PSCOPF.create_target_timepoints(ts1) #T: 11h, 11h15, 11h30, 11h45
 
 # Personalised sequence
 
+# Décisions d'impositions fermes
+sequence_impositions_ferme = PSCOPF.Sequence(Dict([
+    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=true))],
+    ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
+]))
+
+# tout est par scénario
+sequence_free = PSCOPF.Sequence(Dict([
+    ts1 - Dates.Minute(45)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=false))],
+    ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],
+]))
+
 sequence2 = PSCOPF.Sequence(Dict([
         ts1 - Dates.Hour(4)     => [PSCOPF.EnergyMarket()],
         ts1 - Dates.Minute(15)  => [PSCOPF.TSOBilevel(), PSCOPF.BalanceMarket()],
