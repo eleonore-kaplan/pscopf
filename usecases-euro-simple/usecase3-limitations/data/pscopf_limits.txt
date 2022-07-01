@@ -1,5 +1,5 @@
-#                  branch           limit
-                    "1_2"              50
-                    "1_3"              65
-                    "2_3"             150
-                    "3_4"             100
+#       case        branch           limit
+        BASECASE    "1_2"              50
+        BASECASE    "1_3"              65
+        BASECASE    "2_3"             150
+        BASECASE    "3_4"             200
