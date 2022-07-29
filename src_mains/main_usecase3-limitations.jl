@@ -57,7 +57,7 @@ TS = PSCOPF.create_target_timepoints(ts1) #T: 11h, 11h15, 11h30, 11h45
 
 # Personalised sequence
 
-# Décisions d'impositions fermes
+# Décisions de limitations fermes
 sequence_impositions_ferme = PSCOPF.Sequence(Dict([
     ts1 - Dates.Minute(30)  => [PSCOPF.BalanceMarket(), PSCOPF.TSOBilevel(PSCOPF.TSOBilevelConfigs(LINK_SCENARIOS_LIMIT=true))],
     ts1 - Dates.Minute(15)  => [PSCOPF.Assessment()],

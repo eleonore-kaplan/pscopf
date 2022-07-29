@@ -1,3 +1,0 @@
-#                   name    state
-                    TH_B     OFF
-                    TH_C     OFF
